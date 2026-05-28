@@ -67,11 +67,13 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 .log-line.warn{color:#facc15;}
 .log-line.err{color:#f87171;}
 .log-line.info{color:var(--textSub);}
+.hidden{display:none !important;}
 #export-container{position:absolute;top:-9999px;left:-9999px;}
 .outlook-table{border-collapse:collapse;font-family:'Aptos','Calibri',sans-serif;font-size:12pt;color:#000000;}
 .outlook-table th{background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;white-space:nowrap;}
 .outlook-table td{padding:6px 10px;border:1px solid #000000;text-align:center;font-weight:normal;}
 .empty-state{padding:40px;text-align:center;color:var(--textFaint);font-size:12px;}
+.badge-loaded {background:rgba(42,101,72,0.2);color:#4ade80;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:bold;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -98,24 +100,26 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
       <div class="grid-2">
         <div class="card" id="card-simpli">
           <div style="font-weight:600;margin-bottom:8px;color:var(--blue);">INPUT SIMPLIROUTE</div>
-          <label class="file-drop">
+          <label class="file-drop" id="drop-simpli">
             <span style="font-size:24px;">📍</span>
             <span id="lbl-simpli" style="color:var(--textSub);">Subir archivo de SimpliRoute...</span>
+            <span id="badge-simpli" class="hidden badge-loaded">✓ CARGADO</span>
             <input type="file" id="file-simpli" accept=".xlsx,.xls,.csv">
           </label>
         </div>
         <div class="card" id="card-conv">
           <div style="font-weight:600;margin-bottom:8px;color:var(--green);">MATRIZ CONVERSIÓN</div>
-          <label class="file-drop">
+          <label class="file-drop" id="drop-conv">
             <span style="font-size:24px;">🔁</span>
             <span id="lbl-conv" style="color:var(--textSub);">Subir documento de conversión...</span>
+            <span id="badge-conv" class="hidden badge-loaded">✓ CARGADO</span>
             <input type="file" id="file-conv" accept=".xlsx,.xls">
           </label>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:8px;">
         <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--textSub);">
-          <input type="checkbox" id="chk-postventa" style="accent-color:var(--blue);"> Incluir vehículos con conductor asignado (Ver todo)
+          <input type="checkbox" id="chk-postventa" style="accent-color:var(--blue);"> Incluir Postventa (VPV) y Proyectos (VPR) / Sin Conductor
         </label>
         <button id="btn-process" class="btn btn-primary" style="padding:10px 32px;font-size:12px;border-radius:20px;font-weight:600;">▶ Generar Resumen</button>
       </div>
@@ -131,12 +135,12 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
           <div>
             <div class="field-label">Filtro de Postventa (Prefijos/Keywords)</div>
             <input type="text" id="p-pv" class="input" value="VPV, POSTVENTA" style="font-family:var(--font-mono);">
-            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Cualquier vehículo que coincida se agrupará al final como Postventa.</div>
+            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Se identificarán y excluirán si la casilla no está marcada.</div>
           </div>
           <div>
             <div class="field-label">Filtro de Proyectos (Prefijos/Keywords)</div>
             <input type="text" id="p-proj" class="input" value="VPR, LESLIE, PROYECTO" style="font-family:var(--font-mono);">
-            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Vehículos asociados al flujo de proyectos específicos.</div>
+            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Se identificarán y excluirán si la casilla no está marcada.</div>
           </div>
           <div>
             <div class="field-label">Comunas Extraurbanas</div>
@@ -149,13 +153,28 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 
   <div id="tab-resumen" class="tab-pane">
     <div class="inner-container" style="max-width:100%;height:100%;">
+      
+      <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto;">
+        <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+          <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global</h3>
+          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">📋 Copiar Mini Tabla</button>
+        </div>
+        <table class="dash-table" id="mini-table">
+          <thead>
+            <tr><th>Vehículos</th><th>Promedio de ISO</th><th>Suma de ISO</th></tr>
+          </thead>
+          <tbody id="mini-tbody"></tbody>
+        </table>
+      </div>
+
       <div class="toolbar">
         <div>
-          <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados</h3>
+          <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados Detallada</h3>
           <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Procesados</span>
         </div>
-        <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla (Outlook)</button>
+        <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla Completa (Outlook)</button>
       </div>
+      
       <div class="table-wrap custom-scrollbar">
         <div id="empty-view" class="empty-state">No se han procesado datos todavía. Carga los inputs en la primera pestaña.</div>
         <table class="dash-table hidden" id="main-table">
@@ -168,6 +187,19 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 </div>
 
 <div id="export-container">
+  <div id="export-mini-inner" style="background:#ffffff;padding:8px;margin-bottom:10px;">
+    <table class="outlook-table" id="outlook-mini-table">
+      <thead>
+        <tr>
+          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Vehículos</th>
+          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Promedio de ISO</th>
+          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Suma de ISO</th>
+        </tr>
+      </thead>
+      <tbody id="outlook-mini-tbody"></tbody>
+    </table>
+  </div>
+  
   <div id="export-inner" style="background:#ffffff;padding:8px;">
     <table class="outlook-table" id="outlook-table">
       <thead id="thead-exp"></thead>
@@ -187,6 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupFiles();
   document.getElementById("btn-process").addEventListener("click", procesarLogica);
   document.getElementById("btn-copy").addEventListener("click", copiarFormatoOutlook);
+  document.getElementById("btn-copy-mini").addEventListener("click", copiarMiniTabla);
 });
 
 function setupTabs() {
@@ -213,15 +246,19 @@ function addLog(msg, type="info") {
 }
 
 function setupFiles() {
-  const bindDrop = (fileId, cardId, lblId, isSimpli) => {
+  const bindDrop = (fileId, dropId, lblId, badgeId, isSimpli) => {
     const input = document.getElementById(fileId);
-    const card = document.getElementById(cardId);
+    const drop = document.getElementById(dropId);
     const lbl = document.getElementById(lblId);
+    const badge = document.getElementById(badgeId);
+    
     input.addEventListener("change", (e) => {
       if(e.target.files.length) {
         const file = e.target.files[0];
         lbl.textContent = file.name;
-        card.classList.add("loaded");
+        drop.classList.add("loaded");
+        badge.classList.remove("hidden"); // Mostrar el texto de cargado
+        
         const reader = new FileReader();
         reader.onload = (evt) => {
           try {
@@ -241,8 +278,8 @@ function setupFiles() {
       }
     });
   };
-  bindDrop("file-simpli", "card-simpli", "lbl-simpli", true);
-  bindDrop("file-conv", "card-conv", "lbl-conv", false);
+  bindDrop("file-simpli", "drop-simpli", "lbl-simpli", "badge-simpli", true);
+  bindDrop("file-conv", "drop-conv", "lbl-conv", "badge-conv", false);
 }
 
 function cleanStr(s) { return s ? String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim() : ''; }
@@ -264,6 +301,13 @@ function fmtSecs(s) {
   const m = Math.floor((s % 3600) / 60);
   const sec = Math.floor(s % 60);
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function isSpecialVehicle(vName, pvKeys, projKeys) {
+  const u = String(vName).toUpperCase();
+  if (u.includes("VPV") || pvKeys.some(k => u.includes(k))) return true;
+  if (u.includes("VPR") || projKeys.some(k => u.includes(k))) return true;
+  return false;
 }
 
 function procesarLogica() {
@@ -307,12 +351,16 @@ function procesarLogica() {
     const rows = groups[rawVeh];
     let finalVeh = convMap[rawVeh] || rawVeh;
 
-    // Ajustes estéticos heredados
     if (finalVeh === 'VEH98') finalVeh = 'Proyectos Leslie';
     if (finalVeh === 'VEH99') finalVeh = 'VEH01 Postventa';
 
     const hasDriver = rows.some(r => String(r[sC.cond] || '').trim() !== '');
-    if (!inclTodo && hasDriver) continue; 
+    const isSpecial = isSpecialVehicle(finalVeh, pvKeys, projKeys);
+    
+    // BUG FIX: Si NO está marcada la casilla, omitir TODO lo que sea especial (VPV, VPR) o que no tenga conductor.
+    if (!inclTodo && (isSpecial || !hasDriver)) {
+        continue; 
+    }
 
     let minS = Infinity, maxS = -Infinity;
     let isosCount = 0, totalDist = 0, totalM3 = 0;
@@ -367,7 +415,7 @@ function procesarLogica() {
     processedList.push(item);
   }
 
-  // Ordenamiento automatizado dinámico solicitado (Todo VPR / Proyectos juntos, Todo VPV / Postventa juntos)
+  // Ordenamiento automatizado
   const getGroupWeight = (vName) => {
     const u = String(vName).toUpperCase();
     if (u.includes("VPV") || pvKeys.some(k => u.includes(k))) return 3;
@@ -392,19 +440,32 @@ function renderUI() {
   const empty = document.getElementById("empty-view");
   const table = document.getElementById("main-table");
   const count = document.getElementById("txt-count");
+  const miniTableWrap = document.getElementById("mini-table-wrap");
 
   if(!resumenRows.length) {
     empty.classList.remove("hidden");
     table.classList.add("hidden");
+    miniTableWrap.classList.add("hidden");
     count.textContent = "0 Vehículos Procesados";
     return;
   }
 
   empty.classList.add("hidden");
   table.classList.remove("hidden");
+  miniTableWrap.classList.remove("hidden");
   count.textContent = `${resumenRows.length} Vehículos Procesados`;
 
-  // Render tabla interactiva
+  // Calcular Mini Tabla Global (Solo sobre las filas renderizadas/filtradas)
+  const totalVehiculos = resumenRows.length;
+  const sumaISO = resumenRows.reduce((acc, curr) => acc + (parseInt(curr["ISO"]) || 0), 0);
+  const promedioISO = totalVehiculos > 0 ? (sumaISO / totalVehiculos).toFixed(1) : 0;
+  
+  document.getElementById("mini-tbody").innerHTML = `<tr><td style="text-align:center;padding:8px;">${totalVehiculos}</td><td style="text-align:center;padding:8px;">${promedioISO}</td><td style="text-align:center;padding:8px;">${sumaISO}</td></tr>`;
+  
+  // Actualizar tabla Outlook de Mini Tabla
+  document.getElementById("outlook-mini-tbody").innerHTML = `<tr><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${totalVehiculos}</td><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${promedioISO}</td><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${sumaISO}</td></tr>`;
+
+  // Render tabla interactiva principal
   const thVis = document.getElementById("thead-vis");
   const tbVis = document.getElementById("tbody-vis");
   thVis.innerHTML = `<tr>${COLS.map(c => `<th>${c}</th>`).join('')}</tr>`;
@@ -445,6 +506,16 @@ function syncOutlookTable() {
   tbExp.innerHTML = expBody;
 }
 
+function copiarMiniTabla() {
+  const targetHtml = document.getElementById("outlook-mini-table").outerHTML;
+  const blob = new Blob([targetHtml], {type: "text/html"});
+  if(navigator.clipboard && window.ClipboardItem) {
+    navigator.clipboard.write([new ClipboardItem({"text/html": blob})]).then(() => {
+      addLog("Mini Tabla copiada al portapapeles", "ok");
+    }).catch(() => addLog("Error al copiar mini tabla", "err"));
+  }
+}
+
 function copiarFormatoOutlook() {
   if(!resumenRows.length) return;
   const targetHtml = document.getElementById("outlook-table").outerHTML;
@@ -453,10 +524,9 @@ function copiarFormatoOutlook() {
   if(navigator.clipboard && window.ClipboardItem) {
     const data = [new ClipboardItem({"text/html": blob})];
     navigator.clipboard.write(data).then(() => {
-      addLog("Tabla copiada al portapapeles con formato de correo exitosamente", "ok");
-    }).catch(() => addLog("No se pudo copiar con formato avanzado", "err"));
+      addLog("Tabla principal copiada al portapapeles con formato", "ok");
+    }).catch(() => addLog("No se pudo copiar con formato", "err"));
   } else {
-    // Fallback plano
     const textPlano = resumenRows.map(r => COLS.map(c => r[c]||"").join("\t")).join("\n");
     const ta = document.createElement("textarea"); ta.value = textPlano; document.body.appendChild(ta);
     ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
