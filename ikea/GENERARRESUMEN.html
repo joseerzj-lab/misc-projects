@@ -74,6 +74,8 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 .outlook-table td{padding:6px 10px;border:1px solid #000000;text-align:center;font-weight:normal;}
 .empty-state{padding:40px;text-align:center;color:var(--textFaint);font-size:12px;}
 .badge-loaded {background:rgba(42,101,72,0.2);color:#4ade80;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:bold;margin-top:4px;}
+.filter-bar{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;padding:12px 16px;background:rgba(0,0,0,0.2);border:1px solid var(--borderSoft);border-radius:6px;align-items:center;}
+.filter-bar label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);}
 </style>
 </head>
 <body>
@@ -118,9 +120,6 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:8px;">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--textSub);">
-          <input type="checkbox" id="chk-postventa" style="accent-color:var(--blue);"> Incluir Postventa (VPV) y Proyectos (VPR) / Sin Conductor
-        </label>
         <button id="btn-process" class="btn btn-primary" style="padding:10px 32px;font-size:12px;border-radius:20px;font-weight:600;">▶ Generar Resumen</button>
       </div>
       <div id="logs" class="logs-panel hidden"></div>
@@ -130,18 +129,21 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
   <div id="tab-params" class="tab-pane">
     <div class="inner-container">
       <div class="card">
-        <h3 style="font-size:13px;margin-bottom:12px;color:var(--text);">Criterios de Agrupación</h3>
+        <h3 style="font-size:13px;margin-bottom:12px;color:var(--text);">Criterios de Agrupación (Prefijos/Keywords)</h3>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div>
-            <div class="field-label">Filtro de Postventa (Prefijos/Keywords)</div>
+            <div class="field-label">Postventa</div>
             <input type="text" id="p-pv" class="input" value="VPV, POSTVENTA" style="font-family:var(--font-mono);">
-            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Se identificarán y excluirán si la casilla no está marcada.</div>
           </div>
           <div>
-            <div class="field-label">Filtro de Proyectos (Prefijos/Keywords)</div>
+            <div class="field-label">Proyectos</div>
             <input type="text" id="p-proj" class="input" value="VPR, LESLIE, PROYECTO" style="font-family:var(--font-mono);">
-            <div style="font-size:10px;color:var(--textFaint);margin-top:2px;">Se identificarán y excluirán si la casilla no está marcada.</div>
           </div>
+          <div>
+            <div class="field-label">Auxiliares</div>
+            <input type="text" id="p-aux" class="input" value="AUX" style="font-family:var(--font-mono);">
+          </div>
+          <hr style="border:0;border-top:1px solid var(--borderSoft);margin:4px 0;">
           <div>
             <div class="field-label">Comunas Extraurbanas</div>
             <textarea id="p-comunas" class="input textarea custom-scrollbar" style="font-family:var(--font-mono);">ALHUE, BUIN, CALERA DE TANGO, COLINA, CURACAVI, EL MONTE, ISLA DE MAIPO, LAMPA, LO BARNECHEA, MARIA PINTO, MELIPILLA, PADRE HURTADO, PAINE, PENAFLOR, PIRQUE, SAN JOSE DE MAIPO, SAN PEDRO, TALAGANTE, TILTIL</textarea>
@@ -154,9 +156,17 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
   <div id="tab-resumen" class="tab-pane">
     <div class="inner-container" style="max-width:100%;height:100%;">
       
+      <div id="filter-bar" class="filter-bar hidden">
+        <span style="font-weight:700;font-size:11px;color:var(--textSub);text-transform:uppercase;">Mostrar:</span>
+        <label><input type="checkbox" id="f-reg" checked style="accent-color:var(--blue);" onchange="renderUI()"> Regulares (Sin Conducto)</label>
+        <label><input type="checkbox" id="f-aux" checked style="accent-color:var(--blue);" onchange="renderUI()"> Auxiliares (AUX)</label>
+        <label><input type="checkbox" id="f-proj" checked style="accent-color:var(--blue);" onchange="renderUI()"> Proyectos (VPR)</label>
+        <label><input type="checkbox" id="f-pv" checked style="accent-color:var(--blue);" onchange="renderUI()"> Postventa (VPV)</label>
+      </div>
+
       <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto;">
         <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
-          <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global</h3>
+          <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global (Basado en filtros)</h3>
           <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">📋 Copiar Mini Tabla</button>
         </div>
         <table class="dash-table" id="mini-table">
@@ -167,15 +177,15 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
         </table>
       </div>
 
-      <div class="toolbar">
+      <div class="toolbar" id="main-toolbar" style="display:none;">
         <div>
           <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados Detallada</h3>
-          <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Procesados</span>
+          <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Visibles</span>
         </div>
         <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla Completa (Outlook)</button>
       </div>
       
-      <div class="table-wrap custom-scrollbar">
+      <div class="table-wrap custom-scrollbar" id="main-table-wrap">
         <div id="empty-view" class="empty-state">No se han procesado datos todavía. Carga los inputs en la primera pestaña.</div>
         <table class="dash-table hidden" id="main-table">
           <thead id="thead-vis"></thead>
@@ -211,7 +221,9 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 <script>
 let dataSimpli = null;
 let dataConv = null;
-let resumenRows = [];
+let resumenRows = [];    // Total consolidado
+let filteredRows = [];   // Lo que se muestra (filtrado por los checkboxes)
+
 const COLS = ["ANDEN", "LADO", "Vehículo", "Distancia", "Tiempo en Ruta", "ISO", "Q COMUNAS", "M3", "Horario Salida", "Zona", "Tipo Vehiculo", "Tipo Ticket"];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -257,7 +269,7 @@ function setupFiles() {
         const file = e.target.files[0];
         lbl.textContent = file.name;
         drop.classList.add("loaded");
-        badge.classList.remove("hidden"); // Mostrar el texto de cargado
+        badge.classList.remove("hidden");
         
         const reader = new FileReader();
         reader.onload = (evt) => {
@@ -303,22 +315,24 @@ function fmtSecs(s) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 
-function isSpecialVehicle(vName, pvKeys, projKeys) {
+// Clasificador estricto por prefijos
+function getGroupType(vName, pvKeys, projKeys, auxKeys) {
   const u = String(vName).toUpperCase();
-  if (u.includes("VPV") || pvKeys.some(k => u.includes(k))) return true;
-  if (u.includes("VPR") || projKeys.some(k => u.includes(k))) return true;
-  return false;
+  if (pvKeys.some(k => u.includes(k))) return 'PV';
+  if (projKeys.some(k => u.includes(k))) return 'PROJ';
+  if (auxKeys.some(k => u.includes(k))) return 'AUX';
+  return 'REGULAR'; // Los "sin conductos" o regulares
 }
 
 function procesarLogica() {
   if(!dataSimpli || !dataConv) return addLog("Falta cargar uno o ambos archivos inputs", "warn");
   addLog("Procesando consolidación...", "info");
 
-  // Parámetros dinámicos
+  // Leer parámetros de filtrado
   const pvKeys = document.getElementById("p-pv").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
   const projKeys = document.getElementById("p-proj").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
+  const auxKeys = document.getElementById("p-aux").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
   const extraurbanSet = new Set(document.getElementById("p-comunas").value.split(",").map(c => cleanStr(c)).filter(Boolean));
-  const inclTodo = document.getElementById("chk-postventa").checked;
 
   // Diccionario conversión
   const convMap = {};
@@ -329,7 +343,6 @@ function procesarLogica() {
   // Columnas Simpli
   const sC = {
     veh: findColName(dataSimpli[0], ['vehículo', 'vehiculo', 'vehicle', 'ruta']),
-    cond: findColName(dataSimpli[0], ['conductor', 'driver']),
     tit: findColName(dataSimpli[0], ['título', 'titulo', 'title', 'iso']),
     dist: findColName(dataSimpli[0], ['distancia', 'distance']),
     cap2: findColName(dataSimpli[0], ['capacidad espacio 2', 'capacidad 2', 'capacity 2']),
@@ -351,16 +364,9 @@ function procesarLogica() {
     const rows = groups[rawVeh];
     let finalVeh = convMap[rawVeh] || rawVeh;
 
+    // Ajustes estéticos
     if (finalVeh === 'VEH98') finalVeh = 'Proyectos Leslie';
     if (finalVeh === 'VEH99') finalVeh = 'VEH01 Postventa';
-
-    const hasDriver = rows.some(r => String(r[sC.cond] || '').trim() !== '');
-    const isSpecial = isSpecialVehicle(finalVeh, pvKeys, projKeys);
-    
-    // BUG FIX: Si NO está marcada la casilla, omitir TODO lo que sea especial (VPV, VPR) o que no tenga conductor.
-    if (!inclTodo && (isSpecial || !hasDriver)) {
-        continue; 
-    }
 
     let minS = Infinity, maxS = -Infinity;
     let isosCount = 0, totalDist = 0, totalM3 = 0;
@@ -398,37 +404,24 @@ function procesarLogica() {
     let isExtraurban = false;
     comunas.forEach(c => { if(extraurbanSet.has(c)) isExtraurban = true; });
 
-    const zona = isExtraurban ? 'Extraurbano' : 'Urbano';
-    const ticketType = finalVeh.toUpperCase().includes('MINI') ? 'MiniTicket' : 'Ticket Regular';
-
     const item = {};
     COLS.forEach(c => item[c] = "");
+    
+    // Asignación de ID único y Grupo (vital para la lógica)
+    item._id = Math.random().toString(36).substr(2, 9);
+    item._group = getGroupType(finalVeh, pvKeys, projKeys, auxKeys);
+
     item["Vehículo"] = finalVeh;
     item["Distancia"] = formatCL.format(totalDist);
     item["Tiempo en Ruta"] = fmtSecs(routeDuration);
     item["ISO"] = isosCount;
     item["Q COMUNAS"] = comunas.size;
     item["M3"] = formatCL.format(totalM3);
-    item["Zona"] = zona;
-    item["Tipo Ticket"] = ticketType;
+    item["Zona"] = isExtraurban ? 'Extraurbano' : 'Urbano';
+    item["Tipo Ticket"] = finalVeh.toUpperCase().includes('MINI') ? 'MiniTicket' : 'Ticket Regular';
 
     processedList.push(item);
   }
-
-  // Ordenamiento automatizado
-  const getGroupWeight = (vName) => {
-    const u = String(vName).toUpperCase();
-    if (u.includes("VPV") || pvKeys.some(k => u.includes(k))) return 3;
-    if (u.includes("VPR") || projKeys.some(k => u.includes(k))) return 2;
-    return 1;
-  };
-
-  processedList.sort((a,b) => {
-    const wA = getGroupWeight(a["Vehículo"]);
-    const wB = getGroupWeight(b["Vehículo"]);
-    if(wA !== wB) return wA - wB;
-    return String(a["Vehículo"]).localeCompare(String(b["Vehículo"]));
-  });
 
   resumenRows = processedList;
   addLog(`Proceso terminado. ${resumenRows.length} rutas consolidadas.`, "ok");
@@ -436,57 +429,109 @@ function procesarLogica() {
   document.getElementById("tab-btn-resumen").click();
 }
 
-function renderUI() {
+// Función global que lee los checkboxes y renderiza todo
+window.renderUI = function() {
   const empty = document.getElementById("empty-view");
   const table = document.getElementById("main-table");
-  const count = document.getElementById("txt-count");
+  const filterBar = document.getElementById("filter-bar");
   const miniTableWrap = document.getElementById("mini-table-wrap");
+  const mainToolbar = document.getElementById("main-toolbar");
+  const count = document.getElementById("txt-count");
 
   if(!resumenRows.length) {
     empty.classList.remove("hidden");
     table.classList.add("hidden");
+    filterBar.classList.add("hidden");
     miniTableWrap.classList.add("hidden");
-    count.textContent = "0 Vehículos Procesados";
+    mainToolbar.style.display = "none";
     return;
   }
 
-  empty.classList.add("hidden");
-  table.classList.remove("hidden");
-  miniTableWrap.classList.remove("hidden");
-  count.textContent = `${resumenRows.length} Vehículos Procesados`;
+  // 1. Filtrar las filas en base a los Checkboxes marcados
+  const showReg = document.getElementById("f-reg").checked;
+  const showAux = document.getElementById("f-aux").checked;
+  const showProj = document.getElementById("f-proj").checked;
+  const showPv = document.getElementById("f-pv").checked;
 
-  // Calcular Mini Tabla Global (Solo sobre las filas renderizadas/filtradas)
-  const totalVehiculos = resumenRows.length;
-  const sumaISO = resumenRows.reduce((acc, curr) => acc + (parseInt(curr["ISO"]) || 0), 0);
+  filteredRows = resumenRows.filter(r => {
+    if(r._group === 'REGULAR' && showReg) return true;
+    if(r._group === 'AUX' && showAux) return true;
+    if(r._group === 'PROJ' && showProj) return true;
+    if(r._group === 'PV' && showPv) return true;
+    return false;
+  });
+
+  // 2. Ordenar de manera inteligente (PV -> PROJ -> AUX -> REGULAR)
+  const gw = { 'PV':4, 'PROJ':3, 'AUX':2, 'REGULAR':1 };
+  filteredRows.sort((a,b) => {
+    if(gw[a._group] !== gw[b._group]) return gw[a._group] - gw[b._group];
+    return String(a["Vehículo"]).localeCompare(String(b["Vehículo"]));
+  });
+
+  // Mostrar contenedores
+  empty.classList.add("hidden");
+  filterBar.classList.remove("hidden");
+  miniTableWrap.classList.remove("hidden");
+  table.classList.remove("hidden");
+  mainToolbar.style.display = "flex";
+  count.textContent = `${filteredRows.length} Vehículos Visibles`;
+
+  // Renderizar Tablas
+  renderMiniTable();
+  renderMainTable();
+  syncOutlookTable();
+}
+
+function renderMiniTable() {
+  const totalVehiculos = filteredRows.length;
+  const sumaISO = filteredRows.reduce((acc, curr) => acc + (parseInt(curr["ISO"]) || 0), 0);
   const promedioISO = totalVehiculos > 0 ? (sumaISO / totalVehiculos).toFixed(1) : 0;
   
-  document.getElementById("mini-tbody").innerHTML = `<tr><td style="text-align:center;padding:8px;">${totalVehiculos}</td><td style="text-align:center;padding:8px;">${promedioISO}</td><td style="text-align:center;padding:8px;">${sumaISO}</td></tr>`;
+  // Interfaz Web
+  document.getElementById("mini-tbody").innerHTML = `<tr>
+    <td style="text-align:center;padding:8px;font-weight:bold;">${totalVehiculos}</td>
+    <td style="text-align:center;padding:8px;font-weight:bold;">${promedioISO}</td>
+    <td style="text-align:center;padding:8px;font-weight:bold;">${sumaISO}</td>
+  </tr>`;
   
-  // Actualizar tabla Outlook de Mini Tabla
-  document.getElementById("outlook-mini-tbody").innerHTML = `<tr><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${totalVehiculos}</td><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${promedioISO}</td><td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; color: #000000;">${sumaISO}</td></tr>`;
+  // Outlook Espejo
+  document.getElementById("outlook-mini-tbody").innerHTML = `<tr>
+    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${totalVehiculos}</td>
+    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${promedioISO}</td>
+    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${sumaISO}</td>
+  </tr>`;
+}
 
-  // Render tabla interactiva principal
+function renderMainTable() {
   const thVis = document.getElementById("thead-vis");
   const tbVis = document.getElementById("tbody-vis");
   thVis.innerHTML = `<tr>${COLS.map(c => `<th>${c}</th>`).join('')}</tr>`;
   
   let visBody = "";
-  resumenRows.forEach((row, rIdx) => {
+  filteredRows.forEach((row) => {
     visBody += `<tr>`;
     COLS.forEach(c => {
-      visBody += `<td><input type="text" value="${row[c]||''}" oninput="mutateCell(${rIdx}, '${c}', this.value)"></td>`;
+      visBody += `<td><input type="text" value="${row[c]||''}" oninput="mutateCell('${row._id}', '${c}', this.value)"></td>`;
     });
     visBody += `</tr>`;
   });
   tbVis.innerHTML = visBody;
-
-  // Render tabla espejo oculta con estilos Outlook
-  syncOutlookTable();
 }
 
-function mutateCell(rIdx, colName, value) {
-  resumenRows[rIdx][colName] = value;
-  syncOutlookTable();
+window.mutateCell = function(id, colName, value) {
+  // Buscar en el Array MAESTRO
+  const row = resumenRows.find(r => r._id === id);
+  if(row) {
+    row[colName] = value;
+    // Si altera los ISO, recalcular la mini tabla en vivo
+    if(colName === "ISO") {
+      // Necesitamos actualizar el objeto en filteredRows también para el cálculo
+      const fRow = filteredRows.find(r => r._id === id);
+      if(fRow) fRow[colName] = value;
+      renderMiniTable();
+    }
+    syncOutlookTable();
+  }
 }
 
 function syncOutlookTable() {
@@ -495,7 +540,7 @@ function syncOutlookTable() {
   thExp.innerHTML = `<tr>${COLS.map(c => `<th>${c}</th>`).join('')}</tr>`;
   
   let expBody = "";
-  resumenRows.forEach((row, idx) => {
+  filteredRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
     expBody += `<tr style="background-color:${bg};">`;
     COLS.forEach(c => {
@@ -517,7 +562,7 @@ function copiarMiniTabla() {
 }
 
 function copiarFormatoOutlook() {
-  if(!resumenRows.length) return;
+  if(!filteredRows.length) return;
   const targetHtml = document.getElementById("outlook-table").outerHTML;
   const blob = new Blob([targetHtml], {type: "text/html"});
   
@@ -527,7 +572,7 @@ function copiarFormatoOutlook() {
       addLog("Tabla principal copiada al portapapeles con formato", "ok");
     }).catch(() => addLog("No se pudo copiar con formato", "err"));
   } else {
-    const textPlano = resumenRows.map(r => COLS.map(c => r[c]||"").join("\t")).join("\n");
+    const textPlano = filteredRows.map(r => COLS.map(c => r[c]||"").join("\t")).join("\n");
     const ta = document.createElement("textarea"); ta.value = textPlano; document.body.appendChild(ta);
     ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
     addLog("Copiado como texto plano (pestañas estructuradas)", "warn");
