@@ -54,12 +54,16 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 .textarea{resize:vertical;min-height:70px;}
 .field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--textFaint);margin-bottom:4px;}
 .toolbar{display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:8px;}
-.table-wrap{width:100%;overflow:auto;border:1px solid var(--borderSoft);border-radius:6px;background:#ffffff;flex:1;min-height:250px;}
-.dash-table{border-collapse:collapse;width:100%;font-size:11px;color:#000000;font-family:var(--font-mono);}
-.dash-table th{background:#f1f5f9;color:#334155;padding:6px 10px;font-weight:600;border-bottom:2px solid #cbd5e1;border-right:1px solid #e2e8f0;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;}
-.dash-table td{border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;padding:0;}
+.table-wrap{width:100%;overflow:auto;border:1px solid var(--borderSoft);border-radius:6px;background:#ffffff;flex:1;min-height:250px;display:flex;justify-content:center;}
+.dash-table{border-collapse:collapse;table-layout:fixed;width:max-content;font-size:10px;color:#000000;font-family:var(--font-mono);}
+.dash-table th, .dash-table td {
+  width:90px; min-width:90px; max-width:90px;
+  overflow:hidden; text-overflow:ellipsis; word-wrap:break-word; white-space:normal;
+  padding:4px; text-align:center; border:1px solid #e2e8f0;
+}
+.dash-table th{background:#f1f5f9;color:#334155;font-weight:600;border-bottom:2px solid #cbd5e1;position:sticky;top:0;z-index:10;}
 .dash-table tbody tr:hover{background:#f8fafc;}
-.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:#000000;padding:5px 8px;outline:none;font-size:11px;text-align:center;}
+.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:#000000;padding:2px;outline:none;font-size:10px;text-align:center;box-sizing:border-box;}
 .dash-table td input:focus{background:rgba(59,130,246,0.1);box-shadow:inset 0 0 0 1px #3b82f6;}
 .logs-panel{background:rgba(0,0,0,0.4);border:1px solid var(--borderSoft);border-radius:6px;padding:10px;font-family:var(--font-mono);font-size:10px;max-height:100px;overflow-y:auto;width:100%;margin-top:12px;}
 .log-line{padding:2px 0;display:flex;gap:8px;}
@@ -69,10 +73,7 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
 .log-line.info{color:var(--textSub);}
 .hidden{display:none !important;}
 #export-container{position:absolute;top:-9999px;left:-9999px;}
-.outlook-table{border-collapse:collapse;font-family:'Aptos','Calibri',sans-serif;font-size:12pt;color:#000000;}
-.outlook-table th{background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;white-space:nowrap;}
-.outlook-table td{padding:6px 10px;border:1px solid #000000;text-align:center;font-weight:normal;}
-.empty-state{padding:40px;text-align:center;color:var(--textFaint);font-size:12px;}
+.empty-state{padding:40px;text-align:center;color:var(--textFaint);font-size:12px;width:100%;}
 .badge-loaded {background:rgba(42,101,72,0.2);color:#4ade80;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:bold;margin-top:4px;}
 .filter-bar{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;padding:12px 16px;background:rgba(0,0,0,0.2);border:1px solid var(--borderSoft);border-radius:6px;align-items:center;}
 .filter-bar label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);}
@@ -158,23 +159,25 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
       
       <div id="filter-bar" class="filter-bar hidden">
         <span style="font-weight:700;font-size:11px;color:var(--textSub);text-transform:uppercase;">Mostrar:</span>
-        <label><input type="checkbox" id="f-reg" checked style="accent-color:var(--blue);" onchange="renderUI()"> Regulares (Sin Conducto)</label>
+        <label><input type="checkbox" id="f-reg" checked style="accent-color:var(--blue);" onchange="renderUI()"> Regulares</label>
         <label><input type="checkbox" id="f-aux" checked style="accent-color:var(--blue);" onchange="renderUI()"> Auxiliares (AUX)</label>
         <label><input type="checkbox" id="f-proj" checked style="accent-color:var(--blue);" onchange="renderUI()"> Proyectos (VPR)</label>
         <label><input type="checkbox" id="f-pv" checked style="accent-color:var(--blue);" onchange="renderUI()"> Postventa (VPV)</label>
       </div>
 
-      <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto;">
-        <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+      <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto; display:flex; flex-direction:column; align-items:flex-start;">
+        <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc; width:100%;">
           <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global (Basado en filtros)</h3>
-          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">📋 Copiar Mini Tabla</button>
+          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">📋 Copiar Tabla</button>
         </div>
-        <table class="dash-table" id="mini-table">
-          <thead>
-            <tr><th>Vehículos</th><th>Promedio de ISO</th><th>Suma de ISO</th></tr>
-          </thead>
-          <tbody id="mini-tbody"></tbody>
-        </table>
+        <div style="padding:16px; width:100%; display:flex; justify-content:center;">
+          <table class="dash-table" id="mini-table">
+            <thead>
+              <tr><th>Vehículos</th><th>Promedio de ISO</th><th>Suma de ISO</th></tr>
+            </thead>
+            <tbody id="mini-tbody"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="toolbar" id="main-toolbar" style="display:none;">
@@ -182,56 +185,45 @@ body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--
           <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados Detallada</h3>
           <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Visibles</span>
         </div>
-        <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla Completa (Outlook)</button>
+        <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla</button>
       </div>
       
-      <div class="table-wrap custom-scrollbar" id="main-table-wrap">
+      <div class="table-wrap custom-scrollbar" id="main-table-wrap" style="display:flex; flex-direction:column; align-items:center;">
         <div id="empty-view" class="empty-state">No se han procesado datos todavía. Carga los inputs en la primera pestaña.</div>
-        <table class="dash-table hidden" id="main-table">
-          <thead id="thead-vis"></thead>
-          <tbody id="tbody-vis"></tbody>
-        </table>
+        <div style="padding:16px; width:100%; display:flex; justify-content:center; overflow:auto;">
+          <table class="dash-table hidden" id="main-table">
+            <thead id="thead-vis"></thead>
+            <tbody id="tbody-vis"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <div id="export-container">
-  <div id="export-mini-inner" style="background:#ffffff;padding:8px;margin-bottom:10px;">
-    <table class="outlook-table" id="outlook-mini-table">
-      <thead>
-        <tr>
-          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Vehículos</th>
-          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Promedio de ISO</th>
-          <th style="background:#cbd5e1;color:#000000;font-weight:bold;padding:6px 10px;border:1px solid #000000;text-align:center;">Suma de ISO</th>
-        </tr>
-      </thead>
-      <tbody id="outlook-mini-tbody"></tbody>
-    </table>
-  </div>
-  
-  <div id="export-inner" style="background:#ffffff;padding:8px;">
-    <table class="outlook-table" id="outlook-table">
-      <thead id="thead-exp"></thead>
-      <tbody id="tbody-exp"></tbody>
-    </table>
-  </div>
+  <div id="outlook-mini-wrap"></div>
+  <div id="outlook-main-wrap"></div>
 </div>
 
 <script>
 let dataSimpli = null;
 let dataConv = null;
-let resumenRows = [];    // Total consolidado
-let filteredRows = [];   // Lo que se muestra (filtrado por los checkboxes)
+let resumenRows = [];    
+let filteredRows = [];   
 
 const COLS = ["ANDEN", "LADO", "Vehículo", "Distancia", "Tiempo en Ruta", "ISO", "Q COMUNAS", "M3", "Horario Salida", "Zona", "Tipo Vehiculo", "Tipo Ticket"];
+
+// Estilos estrictos en línea para forzar celdas de tamaño idéntico en Outlook (90px)
+const expTh = "width:90px; min-width:90px; max-width:90px; padding:4px; border:1px solid #000000; text-align:center; vertical-align:middle; font-weight:bold; font-size:10pt; font-family:'Aptos','Calibri',sans-serif; color:#000000; background-color:#cbd5e1; word-wrap:break-word;";
+const expTd = "width:90px; min-width:90px; max-width:90px; padding:4px; border:1px solid #000000; text-align:center; vertical-align:middle; font-weight:normal; font-size:10pt; font-family:'Aptos','Calibri',sans-serif; color:#000000; word-wrap:break-word;";
 
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   setupFiles();
   document.getElementById("btn-process").addEventListener("click", procesarLogica);
-  document.getElementById("btn-copy").addEventListener("click", copiarFormatoOutlook);
-  document.getElementById("btn-copy-mini").addEventListener("click", copiarMiniTabla);
+  document.getElementById("btn-copy").addEventListener("click", () => copyToClipboard("outlook-main-wrap"));
+  document.getElementById("btn-copy-mini").addEventListener("click", () => copyToClipboard("outlook-mini-wrap"));
 });
 
 function setupTabs() {
@@ -315,32 +307,28 @@ function fmtSecs(s) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 
-// Clasificador estricto por prefijos
 function getGroupType(vName, pvKeys, projKeys, auxKeys) {
   const u = String(vName).toUpperCase();
   if (pvKeys.some(k => u.includes(k))) return 'PV';
   if (projKeys.some(k => u.includes(k))) return 'PROJ';
   if (auxKeys.some(k => u.includes(k))) return 'AUX';
-  return 'REGULAR'; // Los "sin conductos" o regulares
+  return 'REGULAR';
 }
 
 function procesarLogica() {
   if(!dataSimpli || !dataConv) return addLog("Falta cargar uno o ambos archivos inputs", "warn");
   addLog("Procesando consolidación...", "info");
 
-  // Leer parámetros de filtrado
   const pvKeys = document.getElementById("p-pv").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
   const projKeys = document.getElementById("p-proj").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
   const auxKeys = document.getElementById("p-aux").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
   const extraurbanSet = new Set(document.getElementById("p-comunas").value.split(",").map(c => cleanStr(c)).filter(Boolean));
 
-  // Diccionario conversión
   const convMap = {};
   const cVini = findColName(dataConv[0], ['v inicial', 'v_inicial', 'veh inicial', 'veh_inicial']);
   const cVfin = findColName(dataConv[0], ['v final', 'v_final', 'veh final', 'veh_final']);
   dataConv.forEach(r => { if(r[cVini]) convMap[String(r[cVini]).trim().toUpperCase()] = String(r[cVfin]).trim().toUpperCase(); });
 
-  // Columnas Simpli
   const sC = {
     veh: findColName(dataSimpli[0], ['vehículo', 'vehiculo', 'vehicle', 'ruta']),
     tit: findColName(dataSimpli[0], ['título', 'titulo', 'title', 'iso']),
@@ -350,7 +338,6 @@ function procesarLogica() {
     dir: findColName(dataSimpli[0], ['dirección', 'direccion', 'address'])
   };
 
-  // Agrupación por vehículo
   const groups = {};
   dataSimpli.forEach(row => {
     const vName = String(row[sC.veh] || '').trim().toUpperCase();
@@ -364,7 +351,6 @@ function procesarLogica() {
     const rows = groups[rawVeh];
     let finalVeh = convMap[rawVeh] || rawVeh;
 
-    // Ajustes estéticos
     if (finalVeh === 'VEH98') finalVeh = 'Proyectos Leslie';
     if (finalVeh === 'VEH99') finalVeh = 'VEH01 Postventa';
 
@@ -407,7 +393,6 @@ function procesarLogica() {
     const item = {};
     COLS.forEach(c => item[c] = "");
     
-    // Asignación de ID único y Grupo (vital para la lógica)
     item._id = Math.random().toString(36).substr(2, 9);
     item._group = getGroupType(finalVeh, pvKeys, projKeys, auxKeys);
 
@@ -429,7 +414,6 @@ function procesarLogica() {
   document.getElementById("tab-btn-resumen").click();
 }
 
-// Función global que lee los checkboxes y renderiza todo
 window.renderUI = function() {
   const empty = document.getElementById("empty-view");
   const table = document.getElementById("main-table");
@@ -447,7 +431,6 @@ window.renderUI = function() {
     return;
   }
 
-  // 1. Filtrar las filas en base a los Checkboxes marcados
   const showReg = document.getElementById("f-reg").checked;
   const showAux = document.getElementById("f-aux").checked;
   const showProj = document.getElementById("f-proj").checked;
@@ -461,14 +444,12 @@ window.renderUI = function() {
     return false;
   });
 
-  // 2. Ordenar de manera inteligente (PV -> PROJ -> AUX -> REGULAR)
   const gw = { 'PV':4, 'PROJ':3, 'AUX':2, 'REGULAR':1 };
   filteredRows.sort((a,b) => {
     if(gw[a._group] !== gw[b._group]) return gw[a._group] - gw[b._group];
     return String(a["Vehículo"]).localeCompare(String(b["Vehículo"]));
   });
 
-  // Mostrar contenedores
   empty.classList.add("hidden");
   filterBar.classList.remove("hidden");
   miniTableWrap.classList.remove("hidden");
@@ -476,7 +457,6 @@ window.renderUI = function() {
   mainToolbar.style.display = "flex";
   count.textContent = `${filteredRows.length} Vehículos Visibles`;
 
-  // Renderizar Tablas
   renderMiniTable();
   renderMainTable();
   syncOutlookTable();
@@ -487,19 +467,31 @@ function renderMiniTable() {
   const sumaISO = filteredRows.reduce((acc, curr) => acc + (parseInt(curr["ISO"]) || 0), 0);
   const promedioISO = totalVehiculos > 0 ? (sumaISO / totalVehiculos).toFixed(1) : 0;
   
-  // Interfaz Web
+  // UI Display
   document.getElementById("mini-tbody").innerHTML = `<tr>
-    <td style="text-align:center;padding:8px;font-weight:bold;">${totalVehiculos}</td>
-    <td style="text-align:center;padding:8px;font-weight:bold;">${promedioISO}</td>
-    <td style="text-align:center;padding:8px;font-weight:bold;">${sumaISO}</td>
+    <td>${totalVehiculos}</td>
+    <td>${promedioISO}</td>
+    <td>${sumaISO}</td>
   </tr>`;
   
-  // Outlook Espejo
-  document.getElementById("outlook-mini-tbody").innerHTML = `<tr>
-    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${totalVehiculos}</td>
-    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${promedioISO}</td>
-    <td style="padding:6px 10px;border:1px solid #000000;text-align:center;font-size:12pt;color:#000000;">${sumaISO}</td>
-  </tr>`;
+  // Outlook Export Table (Stricly uniform sizes: 3x90 = 270px width table)
+  document.getElementById("outlook-mini-wrap").innerHTML = `
+  <table border="1" style="border-collapse:collapse; table-layout:fixed; width:270px;">
+    <thead>
+      <tr>
+        <th style="${expTh}">Vehículos</th>
+        <th style="${expTh}">Promedio de ISO</th>
+        <th style="${expTh}">Suma de ISO</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="${expTd}">${totalVehiculos}</td>
+        <td style="${expTd}">${promedioISO}</td>
+        <td style="${expTd}">${sumaISO}</td>
+      </tr>
+    </tbody>
+  </table>`;
 }
 
 function renderMainTable() {
@@ -519,13 +511,10 @@ function renderMainTable() {
 }
 
 window.mutateCell = function(id, colName, value) {
-  // Buscar en el Array MAESTRO
   const row = resumenRows.find(r => r._id === id);
   if(row) {
     row[colName] = value;
-    // Si altera los ISO, recalcular la mini tabla en vivo
     if(colName === "ISO") {
-      // Necesitamos actualizar el objeto en filteredRows también para el cálculo
       const fRow = filteredRows.find(r => r._id === id);
       if(fRow) fRow[colName] = value;
       renderMiniTable();
@@ -535,48 +524,38 @@ window.mutateCell = function(id, colName, value) {
 }
 
 function syncOutlookTable() {
-  const thExp = document.getElementById("thead-exp");
-  const tbExp = document.getElementById("tbody-exp");
-  thExp.innerHTML = `<tr>${COLS.map(c => `<th>${c}</th>`).join('')}</tr>`;
+  const tableWidth = COLS.length * 90;
+  let html = `<table border="1" style="border-collapse:collapse; table-layout:fixed; width:${tableWidth}px;"><thead><tr>`;
+  COLS.forEach(c => html += `<th style="${expTh}">${c}</th>`);
+  html += `</tr></thead><tbody>`;
   
-  let expBody = "";
   filteredRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
-    expBody += `<tr style="background-color:${bg};">`;
+    html += `<tr style="background-color:${bg};">`;
     COLS.forEach(c => {
-      expBody += `<td style="padding: 6px 10px; border: 1px solid #000000; text-align: center; font-weight: normal; font-size: 12pt; font-family: 'Aptos', 'Calibri', sans-serif; color: #000000;">${row[c]||''}</td>`;
+      html += `<td style="${expTd}">${row[c]||''}</td>`;
     });
-    expBody += `</tr>`;
+    html += `</tr>`;
   });
-  tbExp.innerHTML = expBody;
+  html += `</tbody></table>`;
+  document.getElementById("outlook-main-wrap").innerHTML = html;
 }
 
-function copiarMiniTabla() {
-  const targetHtml = document.getElementById("outlook-mini-table").outerHTML;
-  const blob = new Blob([targetHtml], {type: "text/html"});
-  if(navigator.clipboard && window.ClipboardItem) {
-    navigator.clipboard.write([new ClipboardItem({"text/html": blob})]).then(() => {
-      addLog("Mini Tabla copiada al portapapeles", "ok");
-    }).catch(() => addLog("Error al copiar mini tabla", "err"));
+function copyToClipboard(wrapId) {
+  const el = document.getElementById(wrapId);
+  if(!el) return;
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  try {
+    document.execCommand("copy");
+    addLog("Tabla copiada correctamente", "ok");
+  } catch (e) {
+    addLog("Error al copiar tabla", "err");
   }
-}
-
-function copiarFormatoOutlook() {
-  if(!filteredRows.length) return;
-  const targetHtml = document.getElementById("outlook-table").outerHTML;
-  const blob = new Blob([targetHtml], {type: "text/html"});
-  
-  if(navigator.clipboard && window.ClipboardItem) {
-    const data = [new ClipboardItem({"text/html": blob})];
-    navigator.clipboard.write(data).then(() => {
-      addLog("Tabla principal copiada al portapapeles con formato", "ok");
-    }).catch(() => addLog("No se pudo copiar con formato", "err"));
-  } else {
-    const textPlano = filteredRows.map(r => COLS.map(c => r[c]||"").join("\t")).join("\n");
-    const ta = document.createElement("textarea"); ta.value = textPlano; document.body.appendChild(ta);
-    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-    addLog("Copiado como texto plano (pestañas estructuradas)", "warn");
-  }
+  selection.removeAllRanges();
 }
 </script>
 </body>
