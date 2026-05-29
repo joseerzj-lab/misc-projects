@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Actualizar OTIF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+ *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ :root {
+   --bg: #f1f5f9;
+   --bgCard: #ffffff;
+   --bgCardAlt: rgba(0,0,0,0.025);
+   --borderSoft: rgba(58,114,172,0.18);
+   --text: #1a2e42;
+   --textSub: #3d6080;
+   --textFaint: #5c7c98;
+   --blue: #2563eb;
+   --red: #b91c1c;
+   --green: #15803d;
+   --orange: #ea580c;
+   --purple: #7c3aed;
+   --accentBg: rgba(37,99,235,0.08);
+   --borderFocus: #2563eb;
+   --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+   --font-base: "Segoe UI",system-ui,-apple-system,sans-serif;
+   --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px; --radius-xl: 8px;
+   --shadow-sm: 0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
+   --shadow-md: 0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
+   --shadow-lg: 0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
+   --shadow-xl: 0 20px 25px rgba(0,0,0,0.12),0 8px 10px rgba(0,0,0,0.06);
+   --transition-fast: 0.12s ease;
+   --transition-normal: 0.18s ease;
+   --header-h: 60px;
+   /* legacy aliases */
+   --bg-card: var(--bgCard);
+   --bg-card2: var(--bgCardAlt);
+   --border: var(--borderSoft);
+   --text-muted: var(--textFaint);
+   --text-sub: var(--textSub);
+   --blue-dim: var(--accentBg);
+   --green-dim: rgba(21,128,61,0.08);
+   --bg-card: #13161f;
+   --bg-card2: #181b26;
+   --border: rgba(255,255,255,0.07);
+   --border-soft: rgba(255,255,255,0.05);
+   --text: #e8ecf4;
+   --text-muted: #6b7491;
+   --text-sub: #9aa3c2;
+   --blue: #3b82f6;
+   --blue-dim: rgba(59,130,246,0.12);
+   --green: #22c55e;
+   --green-dim: rgba(34,197,94,0.12);
+   --header-h: 60px;
+ }
+ body {
+   font-family: var(--font-base);
+   background: var(--bg);
+   color: var(--text);
+   min-height: 100vh;
+   display: flex;
+   flex-direction: column;
+   overflow-x: hidden;
+ }
+ /* ── Header ── */
+ header {
+   height: var(--header-h);
+   background: var(--bgCard);
+   border-bottom: 1px solid var(--borderSoft);
+   box-shadow: var(--shadow-sm);
+   display: flex;
+   align-items: center;
+   padding: 0 24px;
+   gap: 20px;
+   position: sticky;
+   top: 0;
+   z-index: 50;
+ }
+ .app-title {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   font-weight: 700;
+   font-size: 14px;
+   letter-spacing: 0.02em;
+   color: var(--text);
+ }
+ .app-icon {
+   width: 32px; height: 32px;
+   background: var(--accentBg);
+   border: 1px solid var(--borderSoft);
+   border-radius: var(--radius-xl);
+   display: flex; align-items: center; justify-content: center;
+   color: var(--blue);
+   font-size: 14px;
+ }
+ .divider { width: 1px; height: 20px; background: var(--borderSoft); }
+ .tabs { display: flex; gap: 4px; }
+ .tab {
+   padding: 6px 14px;
+   border-radius: var(--radius-md) var(--radius-md) 0 0;
+   border: none;
+   background: transparent;
+   color: var(--textFaint);
+   font-family: var(--font-base);
+   font-size: 12px;
+   font-weight: 600;
+   cursor: pointer;
+   transition: color var(--transition-fast), background var(--transition-fast);
+   display: flex; align-items: center; gap: 6px;
+ }
+ .tab:hover { color: var(--text); background: var(--bgCardAlt); }
+ .tab.active {
+   background: var(--accentBg);
+   color: var(--blue);
+   border-bottom: 2px solid var(--blue);
+ }
+ /* ── Main ── */
+ main {
+   flex: 1;
+   overflow-y: auto;
+ }
+ .panel { display: none; }
+ .panel.active { display: flex; }
+ /* ── Carga Panel ── */
+ #panel-carga {
+   align-items: center;
+   justify-content: center;
+   padding: 48px 24px;
+   min-height: calc(100vh - var(--header-h));
+ }
+ .card {
+   background: var(--bgCard);
+   border: 1px solid var(--borderSoft);
+   border-radius: var(--radius-xl);
+   box-shadow: var(--shadow-md);
+   overflow: hidden;
+ }
+ .upload-card {
+   max-width: 480px;
+   width: 100%;
+   padding: 40px;
+   text-align: center;
+ }
+ .upload-icon {
+   width: 64px; height: 64px;
+   background: var(--accentBg);
+   border-radius: var(--radius-xl);
+   display: flex; align-items: center; justify-content: center;
+   margin: 0 auto 24px;
+   font-size: 28px;
+   border: 1px solid var(--borderSoft);
+ }
+ .upload-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+ .upload-card p { font-size: 13px; color: var(--textFaint); margin-bottom: 32px; line-height: 1.6; }
+ .drop-zone {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   gap: 12px;
+   padding: 40px;
+   border: 2px dashed var(--borderSoft);
+   border-radius: var(--radius-lg);
+   background: var(--bgCardAlt);
+   cursor: pointer;
+   transition: border-color var(--transition-normal), background var(--transition-normal);
+   position: relative;
+ }
+ .drop-zone:hover { border-color: var(--blue); background: var(--accentBg); }
+ .drop-zone input[type=file] {
+   position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+ }
+ .drop-label {
+   font-size: 13px;
+   font-weight: 600;
+   color: var(--blue);
+ }
+ /* ── Resultados Panel ── */
+ #panel-resultados {
+   align-items: center;
+   justify-content: center;
+   padding: 48px 24px;
+   min-height: calc(100vh - var(--header-h));
+ }
+ .result-card {
+   max-width: 400px;
+   width: 100%;
+   padding: 60px 40px;
+   text-align: center;
+ }
+ .result-icon {
+   width: 64px; height: 64px;
+   background: rgba(21,128,61,0.08);
+   border-radius: var(--radius-xl);
+   display: flex; align-items: center; justify-content: center;
+   margin: 0 auto 24px;
+   font-size: 28px;
+   border: 1px solid rgba(21,128,61,0.2);
+ }
+ .result-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+ .result-card p { font-size: 13px; color: var(--textFaint); margin-bottom: 32px; line-height: 1.6; }
+ /* ── Buttons ── */
+ .btn {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   padding: 9px 18px;
+   border-radius: var(--radius-md);
+   border: 1px solid transparent;
+   font-family: var(--font-base);
+   font-weight: 600;
+   font-size: 13px;
+   cursor: pointer;
+   transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+   width: 100%;
+ }
+ .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+ .btn:active { transform: translateY(0) scale(0.98); box-shadow: none; }
+ .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+ .btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+ .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+ .btn-secondary { background: var(--bgCard); color: var(--text); border-color: var(--borderSoft); }
+ .btn-secondary:hover { background: var(--bgCardAlt); border-color: var(--blue); }
+ .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+ .btn-danger:hover { background: #991b1b; border-color: #991b1b; }
+ .btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+ .btn-green:hover { background: #166534; border-color: #166534; }
+ /* ── Toast ── */
+ #toast {
+   position: fixed;
+   bottom: 32px;
+   left: 50%;
+   transform: translateX(-50%) translateY(12px);
+   background: var(--bgCard);
+   color: var(--text);
+   font-family: var(--font-base);
+   font-size: 13px;
+   font-weight: 600;
+   padding: 10px 20px;
+   border-radius: var(--radius-lg);
+   border: 1px solid var(--borderSoft);
+   box-shadow: var(--shadow-lg);
+   z-index: 999;
+   opacity: 0;
+   transition: opacity var(--transition-normal), transform var(--transition-normal);
+   pointer-events: none;
+   white-space: nowrap;
+ }
+ #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+ /* ── Spinner ── */
+ .spinner {
+   width: 20px; height: 20px;
+   border: 2px solid var(--borderSoft);
+   border-top-color: var(--blue);
+   border-radius: 50%;
+   animation: spin 0.6s linear infinite;
+   display: none;
+ }
+ .spinner.active { display: block; }
+ @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+<div class="app-title">
+<div class="app-icon">📊</div>
+   ACTUALIZAR OTIF
+</div>
+<div class="divider"></div>
+<nav class="tabs">
+<button class="tab active" id="tab-carga" onclick="switchTab('carga')">📥 Cargar Datos</button>
+<button class="tab" id="tab-resultados" onclick="switchTab('resultados')">📊 OTIF Proyectado</button>
+</nav>
+</header>
+<main>
+<!-- Panel Carga -->
+<div class="panel active" id="panel-carga">
+<div class="card upload-card">
+<div class="upload-icon">📥</div>
+<h2>Cargar Reporte OTIF</h2>
+<p>Sube tu archivo CSV para procesar los datos de ParentOrder y LPN de IKEA.</p>
+<label class="drop-zone" id="drop-zone">
+<div class="spinner" id="spinner"></div>
+<span class="drop-label" id="drop-label">Seleccionar archivo CSV</span>
+<input type="file" accept=".csv,.xlsx,.xls" id="file-input" onchange="handleFile(event)" />
+</label>
+</div>
+</div>
+<!-- Panel Resultados -->
+<div class="panel" id="panel-resultados">
+<div class="card result-card">
+<div class="result-icon">📋</div>
+<h2>¡Datos Procesados!</h2>
+<p id="result-desc">Se han calculado las métricas OTIF.</p>
+<button class="btn btn-primary" id="copy-btn" onclick="copyTable()" disabled>
+       📋 Copiar Tabla Completa
+</button>
+</div>
+</div>
+</main>
+<div id="toast"></div>
+<script>
+ // ── State ──
+ let pivot = {};
+ let estados = [];
+ let sortedParentOrders = [];
+ // ── Tab switching ──
+ function switchTab(name) {
+   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+   document.getElementById('panel-' + name).classList.add('active');
+   document.getElementById('tab-' + name).classList.add('active');
+ }
+ // ── Toast ──
+ function flash(msg) {
+   const el = document.getElementById('toast');
+   el.textContent = msg;
+   el.classList.add('show');
+   setTimeout(() => el.classList.remove('show'), 2500);
+ }
+ // ── File handler ──
+ function handleFile(e) {
+   const file = e.target.files[0];
+   if (!file) return;
+   setLoading(true, file.name);
+   const reader = new FileReader();
+   reader.onload = (ev) => {
+     try {
+       const bstr = ev.target.result;
+       const wb = XLSX.read(bstr, { type: 'binary' });
+       const wsname = wb.SheetNames[0];
+       const ws = wb.Sheets[wsname];
+       const jsonData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+       const filtered = jsonData.filter(row => {
+         const commerce = String(row['Commerce'] || '').trim().toLowerCase();
+         return commerce === 'ikea';
+       });
+       if (filtered.length === 0) {
+         flash('⚠️ No se encontraron registros de IKEA');
+         setLoading(false);
+         return;
+       }
+       const pivotObj = {};
+       const estadosSet = new Set();
+       filtered.forEach(row => {
+         const parentOrder = String(row['ParentOrder'] || '').trim();
+         const estado = String(row['Estado'] || '').trim();
+         const lpn = String(row['LPN'] || '').trim();
+         if (!parentOrder || !estado) return;
+         estadosSet.add(estado);
+         if (!pivotObj[parentOrder]) pivotObj[parentOrder] = {};
+         if (!pivotObj[parentOrder][estado]) pivotObj[parentOrder][estado] = 0;
+         if (lpn !== '') pivotObj[parentOrder][estado]++;
+       });
+       estadosSet.add('Planificado En Simpliroute');
+       pivot = pivotObj;
+       estados = Array.from(estadosSet).sort();
+       sortedParentOrders = Object.keys(pivot).sort();
+       document.getElementById('result-desc').textContent =
+         `Se han calculado las métricas OTIF para ${sortedParentOrders.length} ParentOrders — ${filtered.length} filas procesadas.`;
+       document.getElementById('copy-btn').disabled = sortedParentOrders.length === 0;
+       flash(`✓ ${filtered.length} filas procesadas correctamente`);
+       setLoading(false);
+       switchTab('resultados');
+     } catch (err) {
+       flash('❌ Error al procesar el archivo');
+       setLoading(false);
+     }
+   };
+   reader.readAsBinaryString(file);
+   e.target.value = '';
+ }
+ function setLoading(on, name) {
+   document.getElementById('spinner').classList.toggle('active', on);
+   document.getElementById('drop-label').textContent = on ? 'Procesando...' : (name || 'Seleccionar archivo CSV');
+   document.getElementById('file-input').disabled = on;
+ }
+ // ── Copy table ──
+ function copyTable() {
+   const tempTable = document.createElement('table');
+   tempTable.style.borderCollapse = 'collapse';
+   tempTable.style.fontFamily = 'Aptos, sans-serif';
+   const thStyle = "border:1px solid black;font-weight:bold;font-family:Aptos,sans-serif;font-size:12pt;padding:4px;text-align:center;color:black;background-color:transparent;";
+   const tdStyle = "border:1px solid black;font-family:Aptos,sans-serif;font-size:11pt;padding:4px;text-align:center;color:black;background-color:transparent;";
+   const tdStyleLeft = "border:1px solid black;font-family:Aptos,sans-serif;font-size:11pt;padding:4px;text-align:left;color:black;background-color:transparent;";
+   // Header
+   const thead = document.createElement('thead');
+   const trHead = document.createElement('tr');
+   trHead.innerHTML = `<th style="${thStyle}">ParentOrder</th>` +
+     estados.map(e => `<th style="${thStyle}">${e}</th>`).join('') +
+     `<th style="${thStyle}">Total general</th>`;
+   thead.appendChild(trHead);
+   tempTable.appendChild(thead);
+   // Body
+   const tbody = document.createElement('tbody');
+   sortedParentOrders.forEach(po => {
+     const tr = document.createElement('tr');
+     let totalFila = 0;
+     const tds = estados.map(est => {
+       const count = (pivot[po] && pivot[po][est]) ? pivot[po][est] : 0;
+       totalFila += count;
+       return `<td style="${tdStyle}">${count}</td>`;
+     }).join('');
+     tr.innerHTML = `<td style="${tdStyleLeft}">${po}</td>` + tds + `<td style="${tdStyle}">${totalFila}</td>`;
+     tbody.appendChild(tr);
+   });
+   tempTable.appendChild(tbody);
+   const container = document.createElement('div');
+   container.style.position = 'absolute';
+   container.style.left = '-9999px';
+   container.appendChild(tempTable);
+   document.body.appendChild(container);
+   const range = document.createRange();
+   range.selectNode(tempTable);
+   window.getSelection().removeAllRanges();
+   window.getSelection().addRange(range);
+   try {
+     document.execCommand('copy');
+     flash('📋 Tabla copiada correctamente');
+   } catch (err) {
+     flash('❌ Error al copiar');
+   }
+   window.getSelection().removeAllRanges();
+   document.body.removeChild(container);
+ }
+</script>
+</body>
+</html>

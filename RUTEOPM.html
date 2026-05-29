@@ -1,0 +1,2602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruteo PM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<style>
+:root{
+ --bg:#f1f5f9;--bgCard:#ffffff;--bgCardAlt:rgba(0,0,0,0.025);
+ --borderSoft:rgba(58,114,172,0.18);--text:#1a2e42;--textSub:#3d6080;
+ --textFaint:#5c7c98;--blue:#2563eb;--red:#b91c1c;
+ --green:#15803d;--orange:#ea580c;--purple:#7c3aed;
+ --accentBg:rgba(37,99,235,0.08);--borderFocus:#2563eb;
+ --font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+ --font-base:"Segoe UI",system-ui,-apple-system,sans-serif;
+ --radius-sm:3px;--radius-md:4px;--radius-lg:6px;--radius-xl:8px;
+ --shadow-sm:0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
+ --shadow-md:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
+ --shadow-lg:0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
+ --shadow-xl:0 20px 25px rgba(0,0,0,0.12),0 8px 10px rgba(0,0,0,0.06);
+ --transition-fast:0.12s ease;--transition-normal:0.18s ease;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px;}
+.custom-scrollbar::-webkit-scrollbar{width:5px;height:5px;}
+.custom-scrollbar::-webkit-scrollbar-track{background:transparent;}
+.custom-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:3px;}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.25);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);font-weight:500;font-size:11px;cursor:pointer;transition:background var(--transition-fast),border-color var(--transition-fast),transform var(--transition-fast),box-shadow var(--transition-fast);border:1px solid transparent;outline:none;white-space:nowrap;}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98);box-shadow:none;}
+.btn:disabled{opacity:0.35;cursor:not-allowed;}
+.btn-primary{background:var(--blue);color:#fff;border-color:rgba(0,0,0,0.15);}
+.btn-primary:hover:not(:disabled){background:#1d4ed8;}
+.btn-secondary{background:rgba(0,0,0,0.04);color:var(--text);border-color:var(--borderSoft);}
+.btn-secondary:hover:not(:disabled){background:rgba(0,0,0,0.08);}
+.btn-danger{background:rgba(220,38,38,0.1);color:#dc2626;border-color:rgba(220,38,38,0.25);}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.18);}
+.btn-green{background:rgba(22,163,74,0.1);color:#16a34a;border-color:rgba(22,163,74,0.25);}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.18);}
+.btn-purple{background:rgba(124,58,237,0.1);color:var(--purple);border-color:rgba(124,58,237,0.25);}
+.btn-purple:hover:not(:disabled){background:rgba(124,58,237,0.18);}
+.header{background:#ffffff;border-bottom:1px solid var(--borderSoft);box-shadow:var(--shadow-sm);padding:0;display:flex;flex-direction:column;z-index:100;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid var(--borderSoft);}
+.logo-text{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--textSub);text-transform:uppercase;}
+.tabs-container{display:flex;padding:0 6px;}
+.tabs-wrapper{display:flex;align-items:flex-end;gap:0;}
+.tab-btn{display:flex;align-items:center;gap:4px;padding:6px 13px;border-radius:0;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--textFaint);font-size:11px;font-weight:500;cursor:pointer;transition:all 0.12s;margin-bottom:-1px;}
+.tab-btn:hover{color:var(--textSub);background:rgba(0,0,0,0.03);}
+.tab-btn.active{color:var(--blue);font-weight:600;border-bottom-color:var(--blue);background:var(--accentBg);border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.tab-badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:2px;background:rgba(37,99,235,0.15);color:var(--blue);}
+.tab-badge-red{background:rgba(220,38,38,0.15);color:#dc2626;}
+.main-content{flex:1;overflow:hidden;position:relative;}
+.tab-pane{display:none;width:100%;height:100%;overflow-y:auto;}
+.tab-pane.active{display:flex;flex-direction:column;}
+.card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:18px;}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bgCard);color:var(--text);border:1px solid var(--borderSoft);padding:7px 18px;border-radius:3px;font-weight:600;font-size:11px;box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:transform 0.22s ease;z-index:2000;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity 0.18s;}
+.modal-overlay.active{opacity:1;pointer-events:auto;}
+.modal-content{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-lg);width:100%;max-width:520px;padding:22px;position:relative;transform:scale(0.97);transition:transform var(--transition-normal);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);}
+.modal-close{position:absolute;top:11px;right:11px;background:none;border:none;color:var(--textFaint);cursor:pointer;font-size:15px;line-height:1;padding:3px;}
+.modal-close:hover{color:var(--text);}
+.input{width:100%;padding:6px 10px;background:#ffffff;border:1px solid var(--borderSoft);border-radius:3px;color:var(--text);font-size:11px;outline:none;transition:border-color 0.12s;box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);}
+.input:focus{border-color:var(--borderFocus);box-shadow:inset 0 1px 2px rgba(0,0,0,0.02), 0 0 0 2px rgba(37,99,235,0.1);}
+.textarea{resize:vertical;min-height:80px;}
+.file-drop{border:1px dashed var(--borderSoft);border-radius:5px;padding:16px;text-align:center;cursor:pointer;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:7px;}
+.file-drop:hover{background:rgba(37,99,235,0.03);border-color:rgba(37,99,235,0.4);}
+#tab-dashboard{padding:0;}
+.dash-toolbar{display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;}
+.dash-search-wrap{position:relative;flex:1;max-width:240px;}
+.dash-search-wrap svg{position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.35;}
+.dash-search-wrap input{padding-left:26px;padding-top:4px;padding-bottom:4px;}
+.dash-stats-bar{display:flex;align-items:center;padding:4px 10px;border-bottom:1px solid var(--borderSoft);gap:5px;flex-wrap:wrap;background:var(--bgCardAlt);}
+.stat-chip{display:flex;align-items:center;gap:3px;padding:1px 7px;border-radius:2px;border:1px solid var(--borderSoft);background:#ffffff;}
+.stat-chip-val{color:var(--blue);font-weight:700;font-family:var(--font-mono);font-size:11px;}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;color:var(--textFaint);letter-spacing:.04em;}
+.col-panel{display:none;flex-wrap:wrap;gap:5px;padding:6px 10px;border-bottom:1px solid var(--borderSoft);background:var(--bgCard);}
+.col-panel.visible{display:flex;}
+.col-toggle-label{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;padding:3px 9px;border-radius:3px;cursor:pointer;transition:all 0.12s;border:1px solid var(--borderSoft);color:var(--textFaint);user-select:none;}
+.col-toggle-label.active{background:var(--accentBg);border-color:rgba(37,99,235,0.3);color:var(--blue);}
+.col-toggle-label input{pointer-events:none;}
+.replace-bar{display:none;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:8px;background:rgba(37,99,235,0.04);}
+.replace-bar.visible{display:flex;}
+.spreadsheet-wrap{flex:1;overflow:auto;position:relative;}
+.dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px;font-family:var(--font-mono);}
+.dash-table th,.dash-table td{border-right:1px solid var(--borderSoft);border-bottom:1px solid var(--borderSoft);padding:0;position:relative;}
+.dash-table thead tr.col-letters-row th{background:#e2e8f0;color:var(--textSub);font-size:9px;font-weight:600;text-align:center;padding:2px 4px;position:sticky;top:0;z-index:22;font-family:var(--font-mono);letter-spacing:.04em;text-transform:uppercase;}
+.dash-table thead tr.col-letters-row th.col-letter-active{background:rgba(37,99,235,0.15);color:var(--blue);font-weight:700;}
+.dash-table thead tr.col-names-row{position:sticky;top:20px;z-index:21;}
+.dash-table thead tr.col-names-row th{background:#f1f5f9;padding:4px 6px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;white-space:nowrap;color:var(--textSub);}
+.dash-table thead tr.col-names-row th.col-name-active{background:#e0e7ff;color:var(--blue);}
+.th-inner{display:flex;align-items:center;justify-content:space-between;gap:3px;}
+.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:var(--text);padding:3px 6px;outline:none;font-family:inherit;font-size:inherit;}
+.dash-table td input:focus{background:#ffffff;box-shadow:inset 0 0 0 1.5px var(--borderFocus);}
+.dash-table tbody tr:hover{background:rgba(0,0,0,0.02);}
+.dash-table tr.row-active td{background:rgba(37,99,235,0.04);}
+.dash-table tr.row-active td.row-num{background:rgba(37,99,235,0.15)!important;color:var(--blue);font-weight:700;}
+.row-num{background:#f8fafc;text-align:center;color:var(--textFaint);padding:3px 4px;width:32px;position:sticky;left:0;z-index:5;font-size:9px;cursor:pointer;user-select:none;}
+.row-num:hover{background:rgba(37,99,235,0.1);color:var(--blue);}
+.row-num-corner-top{background:#e2e8f0!important;color:var(--textFaint);z-index:25!important;position:sticky;left:0;top:0;width:32px;}
+.row-num-corner-bot{background:#f1f5f9!important;color:var(--textFaint);z-index:25!important;position:sticky;left:0;top:20px;width:32px;}
+.cell-name-box{display:inline-flex;align-items:center;justify-content:center;min-width:72px;height:22px;padding:0 8px;border-radius:3px;border:1px solid var(--borderSoft);background:var(--bgCard);color:var(--blue);font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.04em;}
+.formula-bar{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt);flex-shrink:0;}
+.formula-bar-fx{font-family:var(--font-mono);font-size:10px;color:var(--textFaint);font-style:italic;padding:0 4px;}
+.formula-bar-input{flex:1;background:transparent;border:1px solid transparent;color:var(--text);padding:3px 7px;border-radius:3px;font-family:var(--font-mono);font-size:11px;outline:none;min-width:0;}
+.formula-bar-input:focus{background:#ffffff;border-color:var(--borderFocus);box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);}
+.formula-bar-input:read-only{color:var(--textSub);cursor:default;}
+.dup-row{background:rgba(220,38,38,0.05)!important;}
+.dup-cell{border-left:2px solid var(--red)!important;}
+.row-actions{opacity:0;transition:opacity 0.12s;display:flex;align-items:center;gap:1px;padding:2px;width:78px;}
+.dash-table tr:hover .row-actions{opacity:1;}
+.act-btn{background:none;border:none;cursor:pointer;padding:2px 5px;border-radius:3px;font-size:10px;transition:all 0.1s;color:var(--textSub);}
+.act-btn:hover{background:rgba(0,0,0,0.06);}
+.filter-btn{background:none;border:none;cursor:pointer;padding:1px 3px;color:var(--textFaint);font-size:9px;line-height:1;}
+.filter-btn:hover,.filter-btn.active{color:var(--blue);}
+.filter-dropdown{position:absolute;top:calc(100% + 2px);right:0;min-width:190px;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:300;overflow:hidden;}
+.filter-dd-header{padding:6px;border-bottom:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:3px;}
+.filter-dd-sort-btn{background:none;border:none;color:var(--textSub);font-size:10px;text-align:left;padding:3px 6px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:4px;}
+.filter-dd-sort-btn:hover,.filter-dd-sort-btn.active{background:var(--accentBg);color:var(--blue);}
+.filter-dd-search{padding:5px;border-bottom:1px solid var(--borderSoft);}
+.filter-dd-list{max-height:170px;overflow-y:auto;padding:3px;}
+.filter-dd-item{display:flex;align-items:center;gap:5px;font-size:10px;padding:4px 6px;border-radius:3px;cursor:pointer;}
+.filter-dd-item:hover{background:rgba(0,0,0,0.04);}
+.filter-dd-footer{padding:5px 7px;border-top:1px solid var(--borderSoft);background:rgba(0,0,0,0.02);display:flex;justify-content:space-between;align-items:center;gap:5px;}
+.filter-dd-apply{background:var(--blue);color:#fff;border:none;border-radius:3px;padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer;}
+.filter-dd-apply:hover{background:#1d4ed8;}
+.k8-option{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:4px;border:1px solid var(--borderSoft);cursor:pointer;transition:all 0.12s;margin-bottom:6px;}
+.k8-option:hover,.k8-option.selected{border-color:var(--blue);background:var(--accentBg);}
+.k8-option.selected span{color:var(--blue);}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px;text-align:center;}
+.empty-icon{width:44px;height:44px;border-radius:4px;background:var(--accentBg);border:1px solid rgba(37,99,235,0.2);display:flex;align-items:center;justify-content:center;opacity:0.6;color:var(--blue);}
+.tab-inner{max-width:900px;margin:0 auto;width:100%;padding:20px;}
+#tab-params .tab-inner{max-width:1100px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+.module-card{cursor:pointer;transition:all 0.15s;border:1px solid var(--borderSoft);border-radius:5px;padding:18px;background:var(--bgCard);display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02);}
+.module-card:hover{border-color:rgba(37,99,235,0.4);background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+.module-icon{width:34px;height:34px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:.04em;}
+.tpl-card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:0;overflow:hidden;transition:all 0.12s;box-shadow:0 2px 5px rgba(0,0,0,0.02);}
+.tpl-card:hover{border-color:rgba(37,99,235,0.4);box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+.tpl-inner{padding:15px 17px;border-top:3px solid;}
+.tpl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.param-section{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.02);}
+.param-section-header{padding:11px 15px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:flex-start;gap:10px;background:#f8fafc;}
+.param-icon{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;letter-spacing:.04em;}
+.param-body{padding:13px 15px;display:flex;flex-direction:column;gap:10px;}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.tag-item{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;}
+.tag-remove{background:none;border:none;cursor:pointer;opacity:0.5;font-size:9px;padding:0 2px;line-height:1;color:currentColor;}
+.tag-remove:hover{opacity:1;}
+.tag-add-row{display:flex;gap:5px;}
+.tag-add-row input{flex:1;padding:5px 8px;font-size:10px;font-family:var(--font-mono);}
+.field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--textFaint);margin-bottom:3px;}
+.dash-bottom{padding:4px 10px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.hidden{display:none!important;}
+select.input{cursor:pointer;}
+.dash-table td.selected{background:rgba(37,99,235,0.12)!important;}
+.dash-table td.selected input{background:transparent!important;box-shadow:inset 0 0 0 1px var(--borderFocus);}
+.dup-row td{background:rgba(220,38,38,0.04);}
+.dup-row td.selected{background:rgba(220,38,38,0.15)!important;}
+#tab-transform{padding:0;}
+.transform-toolbar{display:flex;align-items:center;padding:6px 12px;border-bottom:1px solid var(--borderSoft);gap:8px;background:var(--bg);flex-wrap:wrap;}
+.transform-config{display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt);flex-wrap:wrap;align-items:flex-end;}
+.transform-config-block{display:flex;flex-direction:column;gap:4px;}
+.transform-spreadsheet{flex:1;overflow:auto;}
+.transform-table{border-collapse:collapse;width:100%;font-size:11px;font-family:var(--font-mono);}
+.transform-table th{background:#f1f5f9;padding:4px 7px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;white-space:nowrap;border:1px solid var(--borderSoft);position:sticky;top:0;z-index:10;color:var(--textSub);}
+.transform-table th.col-highlight{background:rgba(37,99,235,0.1);color:var(--blue);}
+.transform-table td{border:1px solid var(--borderSoft);padding:0;}
+.transform-table td input{width:100%;border:none;background:transparent;color:var(--text);padding:3px 6px;outline:none;font-family:inherit;font-size:inherit;}
+.transform-table td input:focus{background:#ffffff;box-shadow:inset 0 0 0 1px var(--borderFocus);}
+.transform-table td.col-highlight-cell{background:rgba(37,99,235,0.05);}
+.transform-table td.col-highlight-cell input{color:var(--blue);}
+.transform-date-display{font-size:14px;font-weight:700;font-family:var(--font-mono);color:var(--blue);letter-spacing:.5px;}
+.transform-bottom{padding:5px 12px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.guide{border:1px solid var(--borderSoft);border-radius:5px;background:#f8fafc;margin-bottom:16px;overflow:hidden;}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-bottom:1px solid transparent;transition:background 0.12s;user-select:none;}
+.guide-head:hover{background:rgba(0,0,0,0.03);}
+.guide.open .guide-head{border-bottom-color:var(--borderSoft);}
+.guide-title{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--textSub);text-transform:uppercase;letter-spacing:.08em;}
+.guide-title::before{content:"i";display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(37,99,235,0.15);color:var(--blue);font-size:9px;font-weight:700;font-family:var(--font-mono);font-style:italic;}
+.guide-toggle{font-family:var(--font-mono);color:var(--textFaint);font-size:13px;font-weight:600;line-height:1;}
+.guide.open .guide-toggle::before{content:"−";}
+.guide:not(.open) .guide-toggle::before{content:"+";}
+.guide-body{display:none;padding:12px 16px 14px;}
+.guide.open .guide-body{display:block;}
+.guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;}
+.guide-step{display:flex;gap:10px;align-items:flex-start;font-size:11px;line-height:1.55;color:var(--textSub);}
+.guide-step-num{flex-shrink:0;width:18px;height:18px;border-radius:3px;background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.25);color:var(--blue);font-size:10px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;line-height:1;margin-top:1px;}
+.guide-step strong{color:var(--text);font-weight:600;}
+.guide-step code{font-family:var(--font-mono);font-size:10px;padding:1px 5px;border-radius:2px;background:rgba(37,99,235,0.08);color:var(--blue);border:1px solid rgba(37,99,235,0.2);}
+.guide-kbd{display:inline-block;font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:2px;background:var(--bgCard);border:1px solid var(--borderSoft);color:var(--text);line-height:1.4;}
+.params-layout{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:flex-start;}
+.params-sidebar{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,0.02);}
+.params-nav-btn{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:3px;border:none;background:transparent;color:var(--textSub);font-size:11px;font-weight:500;cursor:pointer;text-align:left;transition:all 0.12s;font-family:inherit;}
+.params-nav-btn:hover{background:rgba(0,0,0,0.03);color:var(--text);}
+.params-nav-btn.active{background:rgba(37,99,235,0.1);color:var(--blue);font-weight:600;}
+.params-nav-btn-tag{margin-left:auto;font-size:9px;font-family:var(--font-mono);color:var(--textFaint);background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:2px;}
+.params-search-wrap{position:relative;margin-bottom:6px;}
+.params-search-wrap input{width:100%;padding:6px 9px 6px 26px;border-radius:3px;border:1px solid var(--borderSoft);background:var(--bg);color:var(--text);font-size:11px;font-family:inherit;}
+.params-search-wrap input:focus{outline:none;border-color:var(--borderFocus);background:#ffffff;}
+.params-search-wrap svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--textFaint);pointer-events:none;}
+.params-content{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.params-content .param-section{margin-bottom:0;}
+.params-group-title{font-size:10px;font-weight:700;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;padding:14px 12px 6px;border-top:1px solid var(--borderSoft);margin-top:6px;}
+.params-group-title:first-child{border-top:none;margin-top:0;padding-top:6px;}
+.param-section.hidden-search{display:none;}
+.param-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--borderSoft);}
+.param-toggle-row:first-child{border-top:none;padding-top:0;}
+.param-toggle-label{font-size:11px;color:var(--text);font-weight:500;}
+.param-toggle-desc{font-size:10px;color:var(--textFaint);margin-top:2px;line-height:1.4;}
+.param-switch{position:relative;display:inline-block;width:32px;height:18px;flex-shrink:0;}
+.param-switch input{opacity:0;width:0;height:0;}
+.param-switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg);border:1px solid var(--borderSoft);border-radius:10px;transition:0.18s;}
+.param-switch-slider::before{content:"";position:absolute;height:12px;width:12px;left:2px;top:2px;background:#ffffff;border:1px solid var(--borderSoft);border-radius:50%;transition:0.18s;box-shadow:0 1px 2px rgba(0,0,0,0.1);}
+.param-switch input:checked + .param-switch-slider{background:rgba(37,99,235,0.2);border-color:var(--blue);}
+.param-switch input:checked + .param-switch-slider::before{transform:translateX(13px);background:var(--blue);border-color:var(--blue);}
+.param-color-row{display:flex;align-items:center;gap:8px;}
+.param-color-row input[type=color]{width:32px;height:24px;border:1px solid var(--borderSoft);border-radius:3px;background:#ffffff;cursor:pointer;padding:0;}
+.param-color-row input[type=text]{flex:1;font-family:var(--font-mono);font-size:10px;}
+.param-vars-cheatsheet{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+.param-var-chip{font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:2px;background:rgba(37,99,235,0.1);color:var(--blue);border:1px solid rgba(37,99,235,0.25);cursor:pointer;transition:background 0.12s;}
+.param-var-chip:hover{background:rgba(37,99,235,0.2);}
+.params-empty-search{padding:32px;text-align:center;color:var(--textFaint);font-size:11px;font-style:italic;}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-top">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="logo-text">RUTEOS PM</span>
+    </div>
+    <button id="btn-shortcuts" class="btn btn-secondary" style="padding:4px 10px;" title="Atajos de teclado">Atajos</button>
+  </div>
+  <div class="tabs-container">
+    <div class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="load">Cargar</button>
+      <button class="tab-btn" data-tab="dashboard">
+        Dashboard
+        <span id="badge-dashboard" class="tab-badge hidden">0</span>
+      </button>
+      <button class="tab-btn" data-tab="duplicates">
+        Duplicados
+        <span id="badge-duplicates" class="tab-badge tab-badge-red hidden">0</span>
+      </button>
+      <button class="tab-btn" data-tab="projects">
+        Proyectos
+        <span id="badge-projects" class="tab-badge hidden">0</span>
+      </button>
+      <button class="tab-btn" data-tab="export">Exportar</button>
+      <button class="tab-btn" data-tab="templates">Plantillas</button>
+      <button class="tab-btn" data-tab="params">Parámetros</button>
+      <button class="tab-btn" data-tab="transform">Transformar</button>
+    </div>
+  </div>
+</header>
+
+<div class="main-content">
+
+<!-- TAB: LOAD -->
+<div id="tab-load" class="tab-pane active">
+  <div class="tab-inner">
+    <div style="margin-bottom:18px;">
+      <h2 style="font-size:14px;font-weight:700;color:var(--text);">Carga de Datos</h2>
+      <p style="color:var(--textSub);font-size:11px;margin-top:3px;">Selecciona el módulo de carga.</p>
+    </div>
+    <div class="guide" data-guide="load">
+      <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="guide-title">Cómo usar esta sección</div>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-steps">
+          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Carga Unificada:</strong> Pega tablas de Repites, Retiros, K8 o Envío y Retiro copiadas directo de Excel. El sistema detecta el tipo automáticamente.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>Cruce de Datos:</strong> Sube los Excel de Plan + Conversión para resolver DESTINOS. El cruce de ORÍGENES requiere ISO + RTE_TO.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Sesión JSON:</strong> Guarda o restaura todo tu progreso desde un archivo local. Útil al cambiar de equipo.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Proyectos:</strong> Carga el .xlsx semanal de proyectos. Se filtra por los vehículos definidos en <code>Parámetros</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Duplicados:</strong> Sube el Plan SR para detectar ISOs repetidas contra el Dashboard. Marca las filas en rojo.</div></div>
+          <div class="guide-step"><span class="guide-step-num">6</span><div>Cuando termines, ve a <strong>Dashboard</strong> para gestionar la tabla o a <strong>Plantillas</strong> para generar el correo final.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-auto">
+      <div class="module-card" onclick="openModal('modal-unified')">
+        <div class="module-icon" style="background:var(--accentBg);color:var(--blue);">CU</div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Carga Unificada</h3><p style="font-size:10px;color:var(--textFaint);">Pega Repites, Retiros, K8 o Envío y Retiro desde Excel.</p></div>
+      </div>
+      <div class="module-card" onclick="openModal('modal-crossing')">
+        <div class="module-icon" style="background:rgba(58,90,140,0.1);color:var(--textSub);">CD</div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Cruce de Datos</h3><p style="font-size:10px;color:var(--textFaint);">Cruce de Destinos (Plan + Conv) y Orígenes.</p></div>
+      </div>
+      <div class="module-card" onclick="openModal('modal-session')">
+        <div class="module-icon" style="background:rgba(42,101,72,0.1);color:#3d8860;">SJ</div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Sesión JSON</h3><p style="font-size:10px;color:var(--textFaint);">Guardar o cargar tu progreso.</p></div>
+      </div>
+      <div class="module-card" onclick="openModal('modal-projects')">
+        <div class="module-icon" style="background:rgba(58,114,172,0.08);color:var(--textSub);">PR</div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Proyectos</h3><p style="font-size:10px;color:var(--textFaint);">Cargar documento proyectos.</p></div>
+      </div>
+      <div class="module-card" onclick="openModal('modal-duplicates-upload')">
+        <div class="module-icon" style="background:rgba(154,53,53,0.09);color:#c04848;">DP</div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Duplicados</h3><p style="font-size:10px;color:var(--textFaint);">Detectar ISOs duplicadas vs Dashboard.</p></div>
+      </div>
+    </div>
+    <div id="load-session-info" class="hidden" style="margin-top:20px;padding:12px 16px;border-radius:10px;background:rgba(58,114,172,0.08);border:1px solid rgba(58,114,172,0.22);font-size:12px;color:var(--textSub);text-align:center;">
+      Tienes <strong id="load-count">0</strong> datos cargados. Ve al <strong style="color:var(--blue);">Dashboard</strong> para gestionarlos.
+    </div>
+  </div>
+</div>
+
+<!-- TAB: DASHBOARD -->
+<div id="tab-dashboard" class="tab-pane" style="padding:0;">
+  <div class="guide" data-guide="dashboard" style="margin:10px 12px 0;">
+    <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="guide-title">Atajos y navegación tipo Excel</div>
+      <span class="guide-toggle"></span>
+    </div>
+    <div class="guide-body">
+      <div class="guide-steps">
+        <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Navegación:</strong> <span class="guide-kbd">Tab</span> / <span class="guide-kbd">Shift+Tab</span>, <span class="guide-kbd">Enter</span> / <span class="guide-kbd">↓</span>, <span class="guide-kbd">↑</span>, <span class="guide-kbd">Home</span>/<span class="guide-kbd">End</span> extremos de fila, <span class="guide-kbd">Ctrl+Home</span>/<span class="guide-kbd">Ctrl+End</span> inicio/fin de tabla.</div></div>
+        <div class="guide-step"><span class="guide-step-num">2</span><div><strong>PageUp</strong>/<strong>PageDown</strong> saltan 10 filas. <strong>F2</strong> entra al modo edición de la celda activa.</div></div>
+        <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Selección múltiple:</strong> Click + arrastrar para rango. Click en el <strong>número de fila</strong> selecciona la fila entera. <span class="guide-kbd">Esc</span> limpia.</div></div>
+        <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Copiar / pegar:</strong> <span class="guide-kbd">Ctrl+C</span> y <span class="guide-kbd">Ctrl+V</span>. <span class="guide-kbd">Supr</span>/<span class="guide-kbd">Backspace</span> borran. <span class="guide-kbd">Ctrl+Z</span> deshace.</div></div>
+        <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Barra de fórmulas</strong> (arriba) muestra la referencia tipo Excel (ej. <code>C7</code>) y permite editar el valor de la celda activa.</div></div>
+        <div class="guide-step"><span class="guide-step-num">6</span><div><strong>Cabeceras:</strong> Letras (A, B, C…) y números de fila activos se iluminan en azul. La fila activa se resalta.</div></div>
+        <div class="guide-step"><span class="guide-step-num">7</span><div><strong>Filtros:</strong> Click en <code>▾</code> de la cabecera para filtrar por valor u ordenar A→Z. <strong>Reemplazar / Columnas</strong> abren paneles.</div></div>
+        <div class="guide-step"><span class="guide-step-num">8</span><div><strong>Copiar ISOs:</strong> <code>ISOs</code> todas; <code>ISOs Leslie</code> sólo gestiones de proyectos; <code>ISOs HD</code> el resto.</div></div>
+        <div class="guide-step"><span class="guide-step-num">9</span><div><strong>Filas duplicadas</strong> aparecen en rojo. El contador inferior derecho avisa cuántas hay.</div></div>
+      </div>
+    </div>
+  </div>
+  <div id="dash-stats-bar" class="dash-stats-bar hidden">
+    <span style="font-size:9px;font-weight:600;color:var(--textFaint);text-transform:uppercase;letter-spacing:.06em;">Gestiones:</span>
+    <div id="dash-stats-content" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+  <div class="dash-toolbar">
+    <div class="dash-search-wrap">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="dash-search" class="input" placeholder="Buscar en tabla...">
+    </div>
+    <button id="btn-replace-toggle" class="btn btn-secondary" style="padding:4px 10px;">Reemplazar</button>
+    <button id="btn-col-toggle" class="btn btn-secondary" style="padding:4px 10px;">Columnas</button>
+    <div style="margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;">
+      <button id="btn-copy-isos-dash" class="btn btn-secondary" style="padding:4px 10px;">ISOs</button>
+      <button id="btn-copy-leslie" class="btn btn-green" style="padding:4px 10px;">ISOs Leslie</button>
+      <button id="btn-copy-hd" class="btn btn-purple" style="padding:4px 10px;">ISOs HD</button>
+      <button id="btn-copy-table-dash" class="btn btn-secondary" style="padding:4px 10px;">Copiar HTML</button>
+      <button id="btn-clear-dash" class="btn btn-danger" style="padding:4px 10px;">Limpiar</button>
+      <button id="btn-save-dash" class="btn btn-primary" style="padding:4px 10px;">Guardar</button>
+    </div>
+  </div>
+  <div id="dash-col-panel" class="col-panel">
+    <div style="width:100%;font-size:9px;font-weight:700;color:var(--textFaint);text-transform:uppercase;margin-bottom:2px;">Visibilidad de Columnas</div>
+    <div id="dash-col-checks" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+  <div id="formula-bar" class="formula-bar">
+    <span id="cell-name-box" class="cell-name-box">—</span>
+    <span class="formula-bar-fx">fx</span>
+    <input type="text" id="formula-bar-input" class="formula-bar-input" placeholder="Selecciona una celda…" readonly>
+  </div>
+  <div id="replace-bar" class="replace-bar">
+    <span style="font-size:10px;font-weight:600;color:var(--textSub);">Buscar y Reemplazar:</span>
+    <input type="text" id="replace-search" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Buscar...">
+    <span style="color:var(--textFaint);">→</span>
+    <input type="text" id="replace-with" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Reemplazar por...">
+    <button id="btn-do-replace" class="btn btn-primary" style="padding:4px 12px;">Reemplazar Todo</button>
+    <span style="font-size:9px;opacity:0.5;font-style:italic;">Afecta solo columnas visibles</span>
+  </div>
+  <div class="spreadsheet-wrap custom-scrollbar" id="dash-spreadsheet">
+    <div id="dash-empty-state" class="empty-state hidden">
+      <div class="empty-icon">+</div>
+      <div>
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:6px;">No hay datos</h3>
+        <p style="font-size:12px;color:var(--textFaint);margin-bottom:18px;">Empieza creando una tabla vacía o carga un archivo.</p>
+      </div>
+      <button id="btn-create-new" class="btn btn-primary" style="padding:10px 28px;font-size:13px;">+ Crear Tabla Nueva</button>
+    </div>
+    <table class="dash-table" id="dash-table">
+      <thead id="dash-thead"></thead>
+      <tbody id="dash-tbody"></tbody>
+    </table>
+  </div>
+  <div class="dash-bottom">
+    <button id="btn-add-row" class="btn btn-secondary" style="padding:3px 10px;">+ Nueva fila</button>
+    <div style="font-size:10px;color:var(--textSub);">
+      Total: <span id="dash-total" style="color:var(--text);font-family:var(--font-mono);font-weight:700;">0</span>
+      &nbsp;|&nbsp;
+      Vista: <span id="dash-filtered" style="color:var(--text);font-family:var(--font-mono);font-weight:700;">0</span>
+      &nbsp;<span id="dash-dup-indicator" style="display:none;color:var(--red);font-weight:700;font-size:10px;">! ISOs duplicadas en tabla</span>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: DUPLICATES -->
+<div id="tab-duplicates" class="tab-pane">
+  <div class="tab-inner" style="display:flex;flex-direction:column;height:100%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:13px;font-weight:700;">Revisión de Duplicados</h2>
+      <button id="btn-export-dups" class="btn btn-secondary">Exportar CSV</button>
+    </div>
+    <div class="guide" data-guide="duplicates">
+      <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="guide-title">Cómo interpretar esta tabla</div>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-steps">
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Carga el archivo <strong>Plan</strong> desde <code>Cargar → Duplicados</code>. El sistema lee ISO + Vehículo de cada fila.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se <strong>filtra</strong> el archivo por los vehículos definidos en <code>Parámetros → Duplicados</code> (ej. <code>VPV01</code>).</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div>Se muestran <strong>todas esas filas</strong>, no sólo las duplicadas. Cada una se compara contra el Dashboard.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div>Las filas marcadas <strong style="color:#c04848;">Duplicada</strong> son ISOs que también existen en el Dashboard. Las marcadas <strong>Solo en archivo</strong> no.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div>Usa <strong>Exportar CSV</strong> para llevarte el detalle (ISO, vehículo, destino, gestión, estado).</div></div>
+        </div>
+      </div>
+    </div>
+    <div id="dup-info-banner" class="hidden" style="margin-bottom:10px;padding:10px 14px;border-radius:8px;background:rgba(154,53,53,0.08);border:1px solid rgba(154,53,53,0.28);font-size:11px;color:var(--textSub);"></div>
+    <div style="flex:1;overflow:auto;border:1px solid var(--borderSoft);border-radius:8px;background:var(--bgCardAlt);" class="custom-scrollbar">
+      <table class="dash-table" style="width:100%;">
+        <thead><tr>
+          <th style="padding:8px;">ISO</th>
+          <th style="padding:8px;text-align:center;">Estado</th>
+          <th style="padding:8px;">Vehículo</th>
+          <th style="padding:8px;">Destino</th>
+          <th style="padding:8px;">Gestión en Dashboard</th>
+        </tr></thead>
+        <tbody id="dup-tbody">
+          <tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">Sube el archivo Plan en "Cargar Datos" para ver duplicados.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: PROJECTS -->
+<div id="tab-projects" class="tab-pane">
+  <div class="tab-inner" style="display:flex;flex-direction:column;height:100%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:13px;font-weight:700;color:var(--text);">Proyectos <span id="proj-name-label" style="color:var(--textSub);"></span></h2>
+      <button id="btn-export-proj" class="btn btn-secondary">Exportar CSV</button>
+    </div>
+    <div class="guide" data-guide="projects">
+      <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="guide-title">Cómo se construye esta vista</div>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-steps">
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el archivo de proyectos en <code>Cargar → Proyectos</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se filtra por los vehículos de <code>Parámetros → Proyectos</code>. Edita la lista para incluir más.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div>El nombre que aparece junto al título viene del campo <code>Nombre del Transporte</code> en parámetros.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div>Estas filas se incluyen automáticamente en las plantillas <strong>RUTEO PM</strong> y <strong>LESLIE</strong>.</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;border:1px solid var(--borderSoft);border-radius:8px;background:var(--bgCardAlt);" class="custom-scrollbar">
+      <table class="dash-table" style="width:100%;">
+        <thead id="proj-thead"><tr>
+          <th style="padding:8px;">ISO</th>
+          <th style="padding:8px;">Vehículo</th>
+          <th style="padding:8px;">Dirección</th>
+        </tr></thead>
+        <tbody id="proj-tbody">
+          <tr><td colspan="3" style="padding:28px;text-align:center;color:var(--textFaint);">Sube archivo de Proyectos en "Cargar Datos".</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: EXPORT -->
+<div id="tab-export" class="tab-pane">
+  <div class="tab-inner">
+    <div class="guide" data-guide="export">
+      <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="guide-title">Opciones de exportación</div>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-steps">
+          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Excel (.xlsx):</strong> Descarga la tabla principal con todas las columnas visibles para abrir en Excel/Sheets.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>JSON:</strong> Respaldo completo (filas + proyectos + duplicados). Sirve para restaurar luego desde <code>Cargar → Sesión JSON</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Copiar Tabla HTML:</strong> Copia con formato Outlook al portapapeles — pega directo en el correo manteniendo estilos.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>ISOs Actuales:</strong> Bloque listo para pegar — solo los códigos ISO uno por línea.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Resumen por Gestión:</strong> Cuenta de filas agrupadas por tipo (Repite, K8, Postventa, etc.).</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2" style="gap:22px;">
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card" style="text-align:center;">
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:5px;">Exportar Archivo</h3>
+          <p style="font-size:11px;color:var(--textFaint);margin-bottom:16px;">Descarga la sesión actual para Excel o como JSON de respaldo.</p>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button id="btn-export-xlsx" class="btn btn-primary">Excel (.xlsx)</button>
+            <button id="btn-export-json-alt" class="btn btn-secondary">JSON</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:12px;font-weight:600;margin-bottom:5px;">Copiar Tabla (Outlook)</h3>
+          <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Copia la vista actual con formato HTML para pegar en un correo.</p>
+          <button id="btn-copy-table" class="btn btn-primary" style="width:100%;justify-content:center;">Copiar Tabla HTML</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card" style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
+            <h3 style="font-size:12px;font-weight:600;">ISOs Actuales</h3>
+            <button id="btn-copy-isos" class="btn btn-secondary" style="padding:3px 9px;font-size:10px;">Copiar ISOs</button>
+          </div>
+          <textarea id="export-isos-text" class="input textarea custom-scrollbar" readonly style="height:90px;font-size:10px;font-family:var(--font-mono);resize:none;" placeholder="Aquí aparecerán las ISOs..."></textarea>
+          <h3 style="font-size:12px;font-weight:600;margin-top:16px;margin-bottom:7px;">Resumen por Gestión</h3>
+          <div id="export-stats" style="font-size:11px;font-family:var(--font-mono);max-height:120px;overflow-y:auto;" class="custom-scrollbar">
+            <span style="opacity:0.4;font-style:italic;">Sin datos</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: TEMPLATES -->
+<div id="tab-templates" class="tab-pane">
+  <div class="tab-inner">
+    <div class="guide" data-guide="templates">
+      <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="guide-title">Cómo usar las plantillas de correo</div>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-steps">
+          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>RUTEO PM:</strong> Resumen completo (Repites + Postventa + K8 + Corrección + Proyectos) listo para Outlook.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>REPITES:</strong> Filas marcadas como <code>CORREO REPITES = SI</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>POST VENTA:</strong> Filas con DESTINO igual a los valores configurados en <code>Parámetros → Postventa</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>LESLIE:</strong> Toma del archivo de Proyectos. El nombre y los textos vienen de <code>Parámetros</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div>Variables disponibles en los intros: <code>{fecha}</code>, <code>{empresa}</code>, <code>{numVeh}</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">6</span><div>Click en <strong>Copiar HTML</strong> y pega directo en Outlook — el formato (fuente, colores, tablas) se mantiene.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-auto" style="margin-bottom:22px;">
+      <div class="tpl-card">
+        <div class="tpl-inner" style="border-color:var(--blue);">
+          <div class="tpl-row">
+            <h3 style="font-size:12px;font-weight:700;">RUTEO PM</h3>
+            <button class="btn btn-secondary btn-copy-tpl" data-tpl="ruteo_pm" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
+          </div>
+          <p style="font-size:10px;color:var(--textFaint);">Resumen completo: Repites, PV, Corrección de Ruta, K8 y Proyectos</p>
+        </div>
+      </div>
+      <div class="tpl-card">
+        <div class="tpl-inner" style="border-color:var(--blue);">
+          <div class="tpl-row">
+            <h3 style="font-size:12px;font-weight:700;">REPITES</h3>
+            <button class="btn btn-secondary btn-copy-tpl" data-tpl="repites" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
+          </div>
+          <p style="font-size:10px;color:var(--textFaint);">Filas con CORREO REPITES = SI</p>
+        </div>
+      </div>
+      <div class="tpl-card">
+        <div class="tpl-inner" style="border-color:var(--textFaint);">
+          <div class="tpl-row">
+            <h3 style="font-size:12px;font-weight:700;">POST VENTA</h3>
+            <button class="btn btn-secondary btn-copy-tpl" data-tpl="pv" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
+          </div>
+          <p style="font-size:10px;color:var(--textFaint);">Gestión Postventa por DESTINO</p>
+        </div>
+      </div>
+      <div class="tpl-card">
+        <div class="tpl-inner" style="border-color:#3d8860;">
+          <div class="tpl-row">
+            <h3 id="tpl-leslie-title" style="font-size:12px;font-weight:700;">LESLIE</h3>
+            <button class="btn btn-secondary btn-copy-tpl" data-tpl="leslie" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
+          </div>
+          <p style="font-size:10px;color:var(--textFaint);">Proyectos B2C — tabla ISO / VEHÍCULO / DIRECCIÓN</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: PARAMS -->
+<div id="tab-params" class="tab-pane">
+  <div class="tab-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div>
+        <h2 style="font-size:14px;font-weight:700;">Parámetros</h2>
+        <p style="font-size:11px;color:var(--textSub);margin-top:3px;">Configura vehículos, textos y criterios. Los cambios se guardan automáticamente.</p>
+      </div>
+      <div style="display:flex;gap:5px;">
+        <button id="btn-export-params" class="btn btn-secondary" style="padding:4px 10px;">Exportar</button>
+        <button onclick="document.getElementById('file-import-params').click()" class="btn btn-secondary" style="padding:4px 10px;">Importar</button>
+        <button id="btn-reset-params" class="btn btn-danger" style="padding:4px 9px;">Reset</button>
+        <input type="file" id="file-import-params" accept=".json" class="hidden">
+      </div>
+    </div>
+    <div id="params-container"></div>
+  </div>
+</div>
+
+<!-- TAB: TRANSFORM (NEW) -->
+<div id="tab-transform" class="tab-pane" style="flex-direction:column;">
+  <!-- Toolbar -->
+  <div class="transform-toolbar">
+    <span style="font-size:12px;font-weight:600;color:var(--textSub);">Transformar Archivo de Ruteo</span>
+    <div style="margin-left:auto;display:flex;gap:5px;">
+      <button id="btn-transform-download" class="btn btn-primary" disabled style="padding:4px 13px;">Transformar y Descargar</button>
+      <button id="btn-transform-clear" class="btn btn-danger" style="padding:4px 10px;">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="guide" data-guide="transform" style="margin:10px 12px 0;">
+    <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="guide-title">Cómo funciona la transformación</div>
+      <span class="guide-toggle"></span>
+    </div>
+    <div class="guide-body">
+      <div class="guide-steps">
+        <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el <strong>.xlsx de ruteo</strong> original. Las columnas se preservan y solo se editan algunas.</div></div>
+        <div class="guide-step"><span class="guide-step-num">2</span><div>Selecciona la <strong>Fecha Programada</strong>. Se convierte al formato ruteo (<code>DD-MMM-YY</code>) automáticamente.</div></div>
+        <div class="guide-step"><span class="guide-step-num">3</span><div><strong>ID_REFERENCIA</strong> se cruza contra el Dashboard usando la columna ISO. Si encuentra match, se considera <em>cruzada</em>.</div></div>
+        <div class="guide-step"><span class="guide-step-num">4</span><div>Edita la columna <strong>COMENTARIO BO</strong> — su contenido se concatena a NOTAS al descargar.</div></div>
+        <div class="guide-step"><span class="guide-step-num">5</span><div>Click en <strong>Transformar y Descargar</strong> para obtener el .xlsx final con FECHA + NOTAS aplicadas.</div></div>
+        <div class="guide-step"><span class="guide-step-num">6</span><div>Las celdas <code>azul</code> se modifican, las <code>verdes</code> marcan cruces con el Dashboard.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config bar -->
+  <div class="transform-config">
+    <!-- File upload -->
+    <div class="transform-config-block" style="flex:0 0 auto;">
+      <div class="field-label">Archivo Ruteo (.xlsx)</div>
+      <label style="display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border-radius:3px;border:1px solid var(--borderSoft);background:rgba(255,255,255,0.03);cursor:pointer;font-size:11px;font-weight:500;transition:all 0.15s;" id="transform-file-label">
+        <span id="transform-file-name" style="color:var(--textFaint);">Subir archivo...</span>
+        <input type="file" id="file-transform-up" accept=".xlsx,.csv" class="hidden">
+      </label>
+    </div>
+
+    <!-- Date picker -->
+    <div class="transform-config-block" style="flex:0 0 auto;">
+      <div class="field-label">Fecha Programada</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="date" id="transform-date" class="input" style="width:160px;padding:6px 10px;font-size:12px;">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div class="transform-date-display" id="transform-date-display">—</div>
+          <div style="font-size:9px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.06em;">Formato ruteo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="transform-config-block" style="flex:1;min-width:180px;">
+      <div class="field-label">Estado</div>
+      <div id="transform-stats" style="font-size:11px;color:var(--textSub);display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="color:var(--textFaint);font-style:italic;">Sin archivo cargado</span>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="transform-config-block" style="flex:0 0 auto;">
+      <div class="field-label">Columnas modificadas</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;">
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.12);color:var(--blue);border:1px solid rgba(58,114,172,0.28);font-weight:700;">FECHA_PROGRAMADA</span>
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(42,101,72,0.14);color:var(--green);border:1px solid rgba(42,101,72,0.32);font-weight:700;">ID_REFERENCIA</span>
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.08);color:var(--textSub);border:1px solid rgba(58,114,172,0.2);font-weight:700;">NOTAS ← COMENTARIO BO</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table / Empty state -->
+  <div id="transform-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:12px;color:var(--textFaint);">
+    <div style="width:36px;height:36px;border:1px solid var(--borderSoft);border-radius:3px;display:flex;align-items:center;justify-content:center;opacity:0.4;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Sin archivo cargado</div>
+      <div style="font-size:11px;">Sube un archivo .xlsx de ruteo para comenzar</div>
+    </div>
+  </div>
+
+  <div id="transform-spreadsheet-wrap" class="transform-spreadsheet custom-scrollbar hidden">
+    <table class="transform-table" id="transform-table">
+      <thead><tr id="transform-thead-row"></tr></thead>
+      <tbody id="transform-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Bottom bar -->
+  <div id="transform-bottom" class="transform-bottom hidden">
+    <div style="font-size:10px;color:var(--textSub);">
+      Filas: <span id="transform-total" style="color:var(--text);font-family:var(--font-mono);font-weight:700;">0</span>
+      &nbsp;|&nbsp;
+      Con GESTIÓN: <span id="transform-matched" style="color:#3d8860;font-family:var(--font-mono);font-weight:700;">0</span>
+      &nbsp;|&nbsp;
+      Sin cruce: <span id="transform-unmatched" style="color:#c04848;font-family:var(--font-mono);font-weight:700;">0</span>
+    </div>
+    <div style="font-size:10px;color:var(--textFaint);">Edita COMENTARIO BO → se añadirá a NOTAS al descargar</div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-unified" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-unified')">✕</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Carga Unificada</h3>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Pega cualquier tabla de Repites, Retiros, K8 o Envío y Retiro desde Excel.</p>
+    <textarea id="paste-unified" class="input textarea custom-scrollbar" style="height:140px;font-family:var(--font-mono);font-size:11px;margin-bottom:14px;" placeholder="Pega aquí los datos..."></textarea>
+    <button id="btn-process-unified" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Procesar y Cargar</button>
+    <div id="eyr-isos-box" class="hidden" style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(58,114,172,0.07);border:1px solid rgba(58,114,172,0.22);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:10px;font-weight:600;color:var(--textSub);">ISOs Envío y Retiro para Cruce</span>
+        <button id="btn-copy-eyr-isos" class="btn btn-secondary" style="padding:2px 8px;font-size:10px;">Copiar</button>
+      </div>
+      <textarea id="eyr-isos-text" class="input" readonly style="font-size:10px;font-family:var(--font-mono);height:56px;resize:none;"></textarea>
+    </div>
+  </div>
+</div>
+
+<div id="modal-selection" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">¿Qué tipo de gestión es?</h3>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron <span id="sel-iso-count" style="font-weight:700;color:var(--blue);">0</span> ISOs sin formato tabla. Selecciona el tipo:</p>
+    <div id="manual-gestion-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;"></div>
+    <button onclick="closeModal('modal-selection')" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Cancelar</button>
+  </div>
+</div>
+
+<div id="modal-k8" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Gestión K8 Detectada</h3>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron ISOs con posible gestión K8. ¿Qué tipo aplicar?</p>
+    <div id="k8-options-list" style="margin-bottom:16px;"></div>
+    <button id="btn-apply-k8" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Aplicar</button>
+  </div>
+</div>
+
+<div id="modal-crossing" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-crossing')">✕</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Cruce de Datos</h3>
+    <h4 style="font-size:13px;margin-bottom:8px;">Cruce de Destinos</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <label class="file-drop" style="padding:12px;">
+        <span style="font-size:12px;font-weight:700;">Plan File</span>
+        <span id="name-plan-cross" style="font-size:10px;color:var(--textFaint);">Requerido</span>
+        <input type="file" id="file-plan-cross" accept=".xlsx,.csv" class="hidden">
+      </label>
+      <label class="file-drop" style="padding:12px;">
+        <span style="font-size:12px;font-weight:700;">Conversión</span>
+        <span id="name-conv-cross" style="font-size:10px;color:var(--textFaint);">Requerido</span>
+        <input type="file" id="file-conv-cross" accept=".xlsx,.csv" class="hidden">
+      </label>
+    </div>
+    <button id="btn-run-cross-dest" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:20px;" disabled>⚡ Ejecutar Cruce Destinos</button>
+    <div style="height:1px;background:var(--borderSoft);margin-bottom:20px;"></div>
+    <h4 style="font-size:13px;margin-bottom:4px;">Cruce de Orígenes</h4>
+    <p style="font-size:10px;color:var(--textFaint);margin-bottom:10px;">El archivo debe tener columnas <strong>ISO</strong> y <strong>RTE_TO</strong>.</p>
+    <label class="file-drop" style="flex-direction:row;text-align:left;gap:12px;">
+      <div>
+        <div style="font-size:12px;font-weight:600;">Subir Excel Cruce Origen</div>
+        <div style="font-size:10px;color:var(--textFaint);">ISO + RTE_TO → asigna ORIGEN</div>
+      </div>
+      <input type="file" id="file-origin-cross" accept=".xlsx,.csv" class="hidden">
+    </label>
+  </div>
+</div>
+
+<div id="modal-session" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-session')">✕</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Sesión</h3>
+    <label class="file-drop" style="margin-bottom:12px;">
+      <span style="font-size:12px;font-weight:600;">Cargar Sesión Guardada (.json)</span>
+      <span style="font-size:10px;color:var(--textFaint);">Restaura tu progreso desde un archivo local</span>
+      <input type="file" id="file-load-session" accept=".json" class="hidden">
+    </label>
+    <button id="btn-save-session-modal" class="btn btn-secondary" style="width:100%;justify-content:center;padding:8px;">Guardar Sesión Actual (.json)</button>
+  </div>
+</div>
+
+<div id="modal-projects" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-projects')">✕</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:6px;">Proyectos</h3>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se filtrará automáticamente por los vehículos configurados en Parámetros.</p>
+    <label class="file-drop">
+      <span style="font-size:12px;font-weight:600;">Subir Archivo de Proyectos</span>
+      <span id="name-projects-up" style="font-size:10px;color:var(--textFaint);">Cargar .xlsx de Proyectos...</span>
+      <input type="file" id="file-projects-up" accept=".xlsx,.csv" class="hidden">
+    </label>
+  </div>
+</div>
+
+<div id="modal-duplicates-upload" class="modal-overlay" onclick="closeModal(this)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-duplicates-upload')">✕</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Duplicados</h3>
+    <label class="file-drop">
+      <span style="font-size:12px;font-weight:600;">Subir Plan Actual</span>
+      <span id="name-plan-dup-up" style="font-size:10px;color:var(--textFaint);">Para cruzar con Dashboard</span>
+      <input type="file" id="file-plan-dup-up" accept=".xlsx,.csv" class="hidden">
+    </label>
+  </div>
+</div>
+
+</div><!-- /main-content -->
+
+<div id="toast" class="toast">Mensaje</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const DEFAULT_PARAMS = {
+  // Vehículos
+  dupVehicles: ["VPV01"],
+  projVehicles: ["VPR01","VPR02"],
+  pvDestinos: ["VPV01","VPV02"],
+  corrExcludeDestinos: ["VPV01","VPV02","VPR01","VPR02"],
+  // Gestiones
+  leslieGestiones: ["ENVIO Y RETIRO","RETIRO","REPITE PROYECTO","REPITE LESLIE","REPITE ENVIO Y RETIRO"],
+  k8Types: ["K8 REGULAR","K8 PROYECTOS","K8 POSTVENTA","PROYECTO SUELTO"],
+  manualGestionTypes: ["RETIRO","REPITE","K8","ENVIO Y RETIRO","PROYECTO","SOLO ENVIO"],
+  // Textos de correo
+  emailRepitesIntro: "Buenas tardes @Despacho Ecommerce WH comparto repites",
+  emailPVIntro: "Favor su ayuda gestionando {numVeh}, para cumplir con la programación de post venta, @Despacho Ecommerce WH favor su ayuda gestionando los siguientes movimientos para armar las rutas:",
+  emailPVRecipient: "@Wilfredo Rugel",
+  emailLeslieIntro: "@Despacho Ecommerce WH Comparto las órdenes correspondientes al flujo de proyectos B2C que realizamos con {empresa}, el día {fecha}. Por favor, solicito su ayuda para procesar estas órdenes y ubicarlas en el andén 2A (Nave 4) para {empresa}, diferenciadas de los envío retiro. @Wilfredo Rugel favor se solicitan {numVeh} vehículos para cumplir con la programación de proyectos del día de mañana.",
+  emailRuteoPMIntro: "Buenas tardes, comparto ruteos PM",
+  projTemplateName: "Leslie",
+  // Encabezados de sección en correo
+  sectionTitleRepites: "Repites",
+  sectionTitlePV: "Postventa",
+  sectionTitleK8: "K8",
+  sectionTitleCorr: "Corrección de Ruta",
+  sectionTitleProj: "Proyectos",
+  // Formato Outlook
+  outlookFontFamily: "Aptos,Calibri,Arial,sans-serif",
+  outlookFontSize: "12pt",
+  outlookHeaderBg: "#0051BA",
+  outlookHeaderColor: "#FFDA1A",
+  outlookBorderColor: "#000000",
+  // Transformar
+  transformDateFormat: "DD-MMM-YY",
+  transformCommentSeparator: " | ",
+  // Comportamiento
+  autoSaveSession: true,
+  highlightDuplicates: true,
+  confirmBeforeClear: true,
+  defaultK8Type: "K8 REGULAR"
+};
+const COLS = ["ISO","GESTIÓN","ORIGEN","DESTINO","VEH","CORREO REPITES","COMENTARIO_RAW"];
+function leslieGestionSet() { return new Set((params.leslieGestiones || []).map(g => String(g).trim().toUpperCase())); }
+let params = { ...DEFAULT_PARAMS };
+let rows = [];
+let filteredRows = [];
+let colFilters = {};
+let pendingColFilters = {};
+let sortCol = null;
+let sortAsc = true;
+let hiddenCols = new Set();
+let history = [];
+let crossingPlanData = null;
+let crossingConvData = null;
+let projectsData = [];
+let duplicatesPlanData = [];
+let pendingIsos = null;
+let pendingK8Rows = null;
+let selectedCells = new Set();
+let selectionStart = null;
+let isDragging = false;
+let editingCell = null;
+let activeFilterCol = null;
+
+// Transform state
+let transformData = [];
+let transformComments = {};
+let transformHeaders = [];
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  loadData();
+  setupTabs();
+  renderParams();
+  renderManualGestionModal();
+  renderK8ModalOptions();
+  renderDashboard();
+  renderDuplicates();
+  renderProjects();
+  setupEventListeners();
+  updateBadges();
+  updateSessionInfo();
+  document.getElementById("btn-save-dash")?.addEventListener("click", saveSession);
+  document.getElementById("btn-export-json-alt")?.addEventListener("click", saveSession);
+  document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
+    alert("Atajos tipo Excel:\n\nNAVEGACIÓN\n  Tab / Shift+Tab   Mover derecha / izquierda\n  Enter / ↓          Mover abajo\n  ↑                  Mover arriba\n  Home / End         Inicio / fin de fila\n  Ctrl+Home / Ctrl+End  Primera / última celda\n  PageUp / PageDown  Saltar 10 filas\n  F2                 Entrar al modo edición\n\nSELECCIÓN\n  Click + arrastrar  Seleccionar rango\n  Click en #fila     Seleccionar fila completa\n  Esc                Limpiar selección\n\nEDICIÓN\n  Ctrl+C / Ctrl+V    Copiar / pegar\n  Ctrl+Z             Deshacer\n  Supr / Backspace   Borrar celdas seleccionadas");
+  });
+});
+
+// ============================================================
+// UTILS
+// ============================================================
+function genId() { return Math.random().toString(36).substr(2, 9) + Date.now().toString(36); }
+function showToast(msg, isError = false) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.style.background = isError ? "rgba(154,53,53,0.85)" : "rgba(21,32,48,0.97)";
+  t.style.borderColor = isError ? "rgba(154,53,53,0.5)" : "rgba(58,114,172,0.4)";
+  t.style.color = isError ? "#e08080" : "var(--text)";
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+function openModal(id) { document.getElementById(id)?.classList.add("active"); }
+function closeModal(id) {
+  if (typeof id === "string") document.getElementById(id)?.classList.remove("active");
+  else if (id?.classList?.contains("modal-overlay")) id.classList.remove("active");
+}
+function saveHistory() { history.push(JSON.stringify(rows)); if (history.length > 30) history.shift(); }
+function undo() {
+  if (!history.length) return;
+  rows = JSON.parse(history.pop());
+  saveData(); renderDashboard(); showToast("Deshecho");
+}
+function saveData() {
+  try {
+    // Always persist parameters themselves
+    localStorage.setItem("rpm_params", JSON.stringify(params));
+    if (params.autoSaveSession === false) return;
+    localStorage.setItem("rpm_rows", LZString.compressToUTF16(JSON.stringify(rows)));
+    localStorage.setItem("rpm_projects", LZString.compressToUTF16(JSON.stringify(projectsData)));
+    localStorage.setItem("rpm_dups", JSON.stringify(duplicatesPlanData));
+    localStorage.setItem("rpm_hidden", JSON.stringify([...hiddenCols]));
+  } catch(e) { console.error("Save error", e); }
+}
+function loadData() {
+  try {
+    const p = localStorage.getItem("rpm_params");
+    if (p) params = { ...DEFAULT_PARAMS, ...JSON.parse(p) };
+    const r = localStorage.getItem("rpm_rows");
+    if (r) rows = JSON.parse(LZString.decompressFromUTF16(r) || "[]");
+    const pr = localStorage.getItem("rpm_projects");
+    if (pr) projectsData = JSON.parse(LZString.decompressFromUTF16(pr) || "[]");
+    const dp = localStorage.getItem("rpm_dups");
+    if (dp) {
+      const parsed = JSON.parse(dp);
+      // Backward-compat: old format was an array of ISO strings
+      duplicatesPlanData = Array.isArray(parsed)
+        ? parsed.map(x => typeof x === "string" ? { iso: x, vehiculo: "", destino: "", tipo: "" } : x)
+        : [];
+    }
+    const hc = localStorage.getItem("rpm_hidden");
+    if (hc) hiddenCols = new Set(JSON.parse(hc));
+  } catch(e) { console.error("Load error", e); }
+}
+function saveSession() {
+  const data = JSON.stringify({ rows, projectsData, duplicatesPlanData });
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "Sesion_RuteoPM_" + Date.now() + ".json";
+  a.click(); URL.revokeObjectURL(url);
+  showToast("Sesión guardada");
+}
+function updateSessionInfo() {
+  const box = document.getElementById("load-session-info");
+  const cnt = document.getElementById("load-count");
+  if (!box) return;
+  if (rows.length > 0) { box.classList.remove("hidden"); if(cnt) cnt.textContent = rows.length; }
+  else { box.classList.add("hidden"); }
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function setupTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      const pane = document.getElementById("tab-" + btn.getAttribute("data-tab"));
+      if (pane) pane.classList.add("active");
+      const tab = btn.getAttribute("data-tab");
+      if (tab === "dashboard") renderDashboard();
+      if (tab === "duplicates") renderDuplicates();
+      if (tab === "projects") renderProjects();
+      if (tab === "params") renderParams();
+      if (tab === "export") updateExportTab();
+      if (tab === "templates") updateTemplateTitles();
+      if (tab === "transform") renderTransformTable();
+    });
+  });
+}
+function updateBadges() {
+  const dbg = document.getElementById("badge-dashboard");
+  if (dbg) { dbg.textContent = rows.length; dbg.classList.toggle("hidden", rows.length === 0); }
+  const pbg = document.getElementById("badge-projects");
+  if (pbg) { pbg.textContent = projectsData.length; pbg.classList.toggle("hidden", projectsData.length === 0); }
+  // New logic: count records whose vehicle matches the parameterized list AND whose ISO is in dashboard
+  const dupVehSet = new Set((params.dupVehicles || []).map(v => String(v).trim().toUpperCase()));
+  const dashIsoSet = new Set(rows.map(r => String(r.ISO || "").trim().toUpperCase()).filter(Boolean));
+  const dCount = duplicatesPlanData.filter(rec => {
+    const veh = String(rec.vehiculo || "").trim().toUpperCase();
+    const iso = String(rec.iso || "").trim().toUpperCase();
+    return dupVehSet.has(veh) && dashIsoSet.has(iso);
+  }).length;
+  const dupbg = document.getElementById("badge-duplicates");
+  if (dupbg) { dupbg.textContent = dCount; dupbg.classList.toggle("hidden", dCount === 0); }
+}
+
+// ============================================================
+// PARSE
+// ============================================================
+function sanH(h) { return h.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+function parsePaste(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const sep = lines[0].includes("\t") ? "\t" : (lines[0].includes(";") ? ";" : ",");
+  return lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, "")));
+}
+function applyTabularLogic(v, isRetiroTable, cIsoIdx, cVehIdx, cComIdx, cOriIdx, source) {
+  const iso = (v[cIsoIdx] || "").trim().toUpperCase().replace("NAN","");
+  if (!iso) return null;
+  const veh = cVehIdx !== -1 ? (v[cVehIdx] || "").trim().toUpperCase().replace("NAN","") : "";
+  const com = cComIdx !== -1 ? (v[cComIdx] || "").trim().toUpperCase().replace("NAN","") : "";
+  const ori = cOriIdx !== -1 ? (v[cOriIdx] || "").trim().toUpperCase().replace("NAN","") : "";
+  let g = isRetiroTable ? "RETIRO" : "REPITE";
+  if (!isRetiroTable && ori === "RETIRO") g = "RETIRO";
+  const eyr = (com.includes("ENVIO") && com.includes("RETIRO")) || com.includes("ENVIO Y RETIRO");
+  if (veh) {
+    if (veh.includes("LESLIE") && veh.includes("PROYECTO")) g = "REPITE PROYECTO";
+    else if (veh.includes("LESLIE")) g = eyr ? "REPITE ENVIO Y RETIRO" : "REPITE LESLIE";
+    else if (eyr) g = "REPITE ENVIO Y RETIRO";
+  } else if (!isRetiroTable && eyr) {
+    g = "REPITE ENVIO Y RETIRO";
+  }
+  const correoRepites = g.includes("REPITE") ? "SI" : "";
+  return {
+    _ikid: genId(), ISO: iso, "GESTIÓN": g,
+    ORIGEN: ori || (g === "RETIRO" ? "RETIRO" : ""),
+    DESTINO: "", "CORREO REPITES": correoRepites,
+    COMENTARIO_RAW: com, VEH: veh, _SOURCE: source
+  };
+}
+function procesarUnificado() {
+  const raw = (document.getElementById("paste-unified")?.value || "").trim();
+  if (!raw) return showToast("No hay datos", true);
+  const lines = raw.split(/\r?\n/);
+  const sep = lines[0].includes("\t") ? "\t" : (lines[0].includes(";") ? ";" : ",");
+  const rawHeaders = lines[0].split(sep).map(sanH);
+  saveHistory();
+  if (rawHeaders.includes("ASO GENERADA")) {
+    const cIsoIdx = rawHeaders.indexOf("ASO GENERADA");
+    const isosGen = [];
+    const data = lines.slice(1).map(line => {
+      const v = line.split(sep);
+      const iso = (v[cIsoIdx] || "").trim().toUpperCase();
+      if (iso) isosGen.push(iso);
+      return { _ikid: genId(), ISO: iso, "GESTIÓN": "ENVIO Y RETIRO", ORIGEN: "PENDIENTE", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "", _SOURCE: "EyR" };
+    }).filter(r => r.ISO);
+    if (data.length) {
+      rows = [...rows, ...data];
+      saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+      document.getElementById("eyr-isos-text").value = isosGen.join(", ");
+      document.getElementById("eyr-isos-box").classList.remove("hidden");
+      showToast("Cargadas " + data.length + " filas Envío y Retiro");
+    }
+    document.getElementById("paste-unified").value = "";
+    return;
+  }
+  if (rawHeaders.length > 1) {
+    const isRetiroTable = rawHeaders[7] === "ISO" || rawHeaders[7] === "ASO";
+    const cIsoIdx = isRetiroTable ? 7 : rawHeaders.findIndex(h => h === "ISO" || h === "ASO" || h.includes("UNIDAD") || h.includes("ID") || h.includes("TITULO"));
+    if (cIsoIdx !== -1) {
+      const cVehIdx = rawHeaders.findIndex(h => h === "VEH" || h === "VEHICULO" || h === "PATENTE" || h === "MODELO");
+      const cComIdx = rawHeaders.findIndex(h => h === "COMENTARIO" || h === "COMENTARIOS" || h === "DETAIL" || h === "OBSERVACION");
+      const cOriIdx = rawHeaders.findIndex(h => h === "ORIGEN" || h === "TRANS");
+      let data = lines.slice(1).map(line => {
+        const v = line.split(sep);
+        return applyTabularLogic(v, isRetiroTable, cIsoIdx, cVehIdx, cComIdx, cOriIdx, "Tabular");
+      }).filter(Boolean);
+      if (isRetiroTable) {
+        const seenIsos = new Set();
+        const before = data.length;
+        data = data.filter(r => {
+          if (seenIsos.has(r.ISO)) return false;
+          seenIsos.add(r.ISO);
+          return true;
+        });
+        const removed = before - data.length;
+        if (removed > 0) showToast("Se eliminaron " + removed + " ISOs duplicadas en Retiros", false);
+      }
+      if (data.length) {
+        const k8rows = data.filter(r => r["GESTIÓN"] && r["GESTIÓN"].includes("K8"));
+        rows = [...rows, ...data];
+        saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+        document.getElementById("paste-unified").value = "";
+        closeModal("modal-unified");
+        showToast("Cargadas " + data.length + " filas");
+        if (k8rows.length) { pendingK8Rows = k8rows; openK8Modal(); }
+        return;
+      }
+    }
+  }
+  const isos = raw.split(/[\n\r,;\t ]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+  if (isos.length) {
+    pendingIsos = isos;
+    document.getElementById("sel-iso-count").textContent = isos.length;
+    document.getElementById("paste-unified").value = "";
+    closeModal("modal-unified");
+    openModal("modal-selection");
+    return;
+  }
+  showToast("No se detectaron datos", true);
+}
+function renderManualGestionModal() {
+  const grid = document.getElementById("manual-gestion-grid");
+  if (!grid) return;
+  grid.innerHTML = (params.manualGestionTypes || []).map(g =>
+    '<button class="btn btn-secondary btn-sel-gestion" data-g="' + escHtml(g) + '">' + escHtml(g) + '</button>'
+  ).join("");
+}
+function renderK8ModalOptions() {
+  const list = document.getElementById("k8-options-list");
+  if (!list) return;
+  const defaultK8 = params.defaultK8Type || (params.k8Types || [])[0] || "K8 REGULAR";
+  list.innerHTML = (params.k8Types || []).map(t => {
+    const sel = t === defaultK8 ? " selected" : "";
+    const checked = t === defaultK8 ? " checked" : "";
+    return '<div class="k8-option' + sel + '" data-k8="' + escHtml(t) + '"><span style="font-size:12px;font-weight:700;">' + escHtml(t) + '</span><input type="radio" name="k8type"' + checked + '></div>';
+  }).join("");
+}
+function openK8Modal() {
+  renderK8ModalOptions();
+  openModal("modal-k8");
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+function setupEventListeners() {
+  document.getElementById("btn-process-unified")?.addEventListener("click", procesarUnificado);
+  document.getElementById("btn-copy-eyr-isos")?.addEventListener("click", () => {
+    const t = document.getElementById("eyr-isos-text"); t.select();
+    navigator.clipboard.writeText(t.value).catch(() => document.execCommand("copy"));
+    showToast("ISOs copiadas");
+  });
+  document.getElementById("manual-gestion-grid")?.addEventListener("click", e => {
+    const btn = e.target.closest(".btn-sel-gestion");
+    if (!btn) return;
+    const gest = btn.getAttribute("data-g");
+    if (!pendingIsos) return;
+    saveHistory();
+    const newRows = pendingIsos.map(iso => ({
+      _ikid: genId(), ISO: iso, "GESTIÓN": gest,
+      ORIGEN: gest === "K8" ? "K8" : (gest === "RETIRO" ? "RETIRO" : ""),
+      DESTINO: "", VEH: "",
+      "CORREO REPITES": gest.includes("REPITE") ? "SI" : "",
+      COMENTARIO_RAW: gest, _SOURCE: "Manual"
+    }));
+    rows = [...rows, ...newRows];
+    pendingIsos = null;
+    saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+    closeModal("modal-selection");
+    showToast(newRows.length + " ISOs cargadas como " + gest);
+    if (gest.includes("K8")) { pendingK8Rows = newRows; openK8Modal(); }
+  });
+  document.getElementById("k8-options-list")?.addEventListener("click", e => {
+    const opt = e.target.closest(".k8-option");
+    if (!opt) return;
+    opt.parentElement.querySelectorAll(".k8-option").forEach(o => o.classList.remove("selected"));
+    opt.classList.add("selected");
+    const radio = opt.querySelector('input[type=radio]');
+    if (radio) radio.checked = true;
+  });
+  document.getElementById("btn-apply-k8")?.addEventListener("click", () => {
+    const type = document.querySelector(".k8-option.selected")?.getAttribute("data-k8") || params.defaultK8Type || "K8 REGULAR";
+    if (pendingK8Rows) {
+      const ids = new Set(pendingK8Rows.map(r => r._ikid));
+      rows = rows.map(r => ids.has(r._ikid) ? { ...r, "GESTIÓN": type } : r);
+      saveData(); renderDashboard();
+      showToast(pendingK8Rows.length + " ISOs → " + type);
+      pendingK8Rows = null;
+    }
+    closeModal("modal-k8");
+  });
+  document.getElementById("file-plan-cross")?.addEventListener("change", e => {
+    if (e.target.files[0]) {
+      document.getElementById("name-plan-cross").textContent = e.target.files[0].name;
+      readExcelFile(e.target.files[0], j => { crossingPlanData = j; checkCrossReady(); });
+    }
+  });
+  document.getElementById("file-conv-cross")?.addEventListener("change", e => {
+    if (e.target.files[0]) {
+      document.getElementById("name-conv-cross").textContent = e.target.files[0].name;
+      readExcelFile(e.target.files[0], j => { crossingConvData = j; checkCrossReady(); });
+    }
+  });
+  document.getElementById("btn-run-cross-dest")?.addEventListener("click", () => {
+    if (!crossingPlanData || !crossingConvData) return;
+    saveHistory();
+    const vehConvMap = {};
+    crossingConvData.forEach(r => {
+      const vehIni = (r["VEH INICIAL"] || r["VEH_INICIAL"] || "").toString().trim().toUpperCase();
+      const vehFin = (r["VEH FINAL"] || r["VEH_FINAL"] || "").toString().trim().toUpperCase();
+      if (vehIni && vehFin) vehConvMap[vehIni] = vehFin;
+    });
+    const planVehMap = {};
+    crossingPlanData.forEach(r => {
+      const iso = (r["Título"] || r["ISO"] || "").toString().trim();
+      const vehPlan = (r["Vehículo"] || r["VEHÍCULO"] || r["VEH"] || "").toString().trim().toUpperCase();
+      if (iso) planVehMap[iso] = vehPlan;
+    });
+    let updated = 0;
+    rows.forEach(r => {
+      const isoKey = (r.ISO || "").toString().trim();
+      const vehPlan = planVehMap[isoKey];
+      if (!vehPlan) return;
+      const vehFinal = vehConvMap[vehPlan] || vehPlan;
+      if (vehFinal) { r.DESTINO = vehFinal; updated++; }
+    });
+    saveData(); renderDashboard(); closeModal("modal-crossing");
+    showToast("Cruce destinos: " + updated + " actualizadas");
+  });
+  document.getElementById("file-origin-cross")?.addEventListener("change", e => {
+    if (!e.target.files[0]) return;
+    readExcelFile(e.target.files[0], json => {
+      saveHistory();
+      const originMap = {};
+      json.forEach(r => {
+        let iso = r["ISO"] || r["Título"] || r["TITULO"] || r["Title"] || r["TITLE"];
+        let rte = r["RTE_TO"] || r["Rte_To"] || r["rte_to"] || r["ORIGEN"];
+        if (iso && rte) originMap[String(iso).trim().toUpperCase()] = String(rte).trim().toUpperCase();
+      });
+      let updated = 0;
+      rows.forEach(r => {
+        const isoKey = String(r.ISO || "").trim().toUpperCase();
+        const origin = originMap[isoKey];
+        if (origin) { r.ORIGEN = origin; updated++; }
+      });
+      saveData(); renderDashboard(); closeModal("modal-crossing");
+      showToast("Cruce orígenes: " + updated + " actualizadas");
+    });
+  });
+  document.getElementById("btn-save-session-modal")?.addEventListener("click", () => {
+    saveSession(); closeModal("modal-session");
+  });
+  document.getElementById("file-load-session")?.addEventListener("change", e => {
+    if (!e.target.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.rows) rows = data.rows;
+        if (data.projectsData) projectsData = data.projectsData;
+        if (data.duplicatesPlanData) duplicatesPlanData = data.duplicatesPlanData;
+        saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+        closeModal("modal-session");
+        showToast("Sesión restaurada");
+      } catch { showToast("Error JSON", true); }
+    };
+    reader.readAsText(e.target.files[0]);
+  });
+  document.getElementById("file-projects-up")?.addEventListener("change", e => {
+    if (!e.target.files[0]) return;
+    document.getElementById("name-projects-up").textContent = e.target.files[0].name;
+    readExcelFile(e.target.files[0], json => {
+      const validVehicles = params.projVehicles.map(v => v.toUpperCase());
+      const isDos = json.length > 0 && ("VEHÍCULO" in json[0] || "Vehículo" in json[0]);
+      let filtered;
+      if (isDos) {
+        filtered = json.filter(r => {
+          const v = (r["VEHÍCULO"] || r["Vehículo"] || "").toUpperCase();
+          return validVehicles.includes(v);
+        }).map(r => ({ ...r, _tipo: "dos" }));
+      } else {
+        filtered = json.map(r => ({ ...r, _tipo: "uno" }));
+      }
+      projectsData = filtered;
+      saveData(); updateBadges(); renderProjects(); closeModal("modal-projects");
+      showToast("Proyectos cargados: " + projectsData.length);
+    });
+  });
+  document.getElementById("file-plan-dup-up")?.addEventListener("change", e => {
+    if (!e.target.files[0]) return;
+    document.getElementById("name-plan-dup-up").textContent = e.target.files[0].name;
+    readExcelFile(e.target.files[0], json => {
+      const records = [];
+      json.forEach(r => {
+        const iso = String(r["Título"] || r["ISO"] || r["Title"] || "").trim();
+        if (!iso || iso === "INICIO" || iso === "FIN") return;
+        const vehiculo = String(
+          r["Vehículo"] || r["VEHÍCULO"] || r["VEHICULO"] || r["Vehiculo"] ||
+          r["VEH"] || r["Vehículo Origen"] || r["DESTINO"] || ""
+        ).trim();
+        const destino = String(r["Destino"] || r["Dirección"] || r["DIRECCIÓN"] || r["Direccion"] || "").trim();
+        const tipo = String(r["Tipo"] || r["TIPO"] || r["Gestión"] || r["GESTIÓN"] || "").trim();
+        records.push({ iso: iso, vehiculo: vehiculo, destino: destino, tipo: tipo });
+      });
+      duplicatesPlanData = records;
+      saveData(); updateBadges(); renderDuplicates(); closeModal("modal-duplicates-upload");
+      showToast("Plan cargado: " + records.length + " filas");
+    });
+  });
+  document.getElementById("dash-search")?.addEventListener("input", renderDashboard);
+  document.getElementById("btn-col-toggle")?.addEventListener("click", () => {
+    document.getElementById("dash-col-panel").classList.toggle("visible");
+  });
+  document.getElementById("btn-replace-toggle")?.addEventListener("click", () => {
+    document.getElementById("replace-bar").classList.toggle("visible");
+  });
+  document.getElementById("btn-do-replace")?.addEventListener("click", () => {
+    const find = document.getElementById("replace-search").value;
+    const rep = document.getElementById("replace-with").value;
+    if (!find) return;
+    saveHistory();
+    let updated = 0;
+    const visCols = COLS.filter(c => !hiddenCols.has(c));
+    filteredRows.forEach(r => {
+      visCols.forEach(c => {
+        if (r[c] && String(r[c]).toLowerCase().includes(find.toLowerCase())) {
+          r[c] = String(r[c]).replace(new RegExp(find.replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&"),"gi"), rep);
+          updated++;
+        }
+      });
+    });
+    saveData(); renderDashboard();
+    showToast(updated + " valores reemplazados");
+  });
+  document.getElementById("btn-add-row")?.addEventListener("click", addRow);
+  document.getElementById("btn-create-new")?.addEventListener("click", addRow);
+  document.getElementById("btn-clear-dash")?.addEventListener("click", () => {
+    if (!params.confirmBeforeClear || confirm("¿Limpiar toda la tabla?")) {
+      saveHistory(); rows = []; saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+    }
+  });
+  document.getElementById("btn-copy-leslie")?.addEventListener("click", () => {
+    const isos = rows.filter(r => leslieGestionSet().has(String(r["GESTIÓN"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
+    if (!isos.length) return showToast("Sin ISOs Leslie", true);
+    navigator.clipboard.writeText(isos.join(", ")).then(() => showToast(isos.length + " ISOs Leslie copiadas")).catch(() => {});
+  });
+  document.getElementById("btn-copy-hd")?.addEventListener("click", () => {
+    const isos = rows.filter(r => !leslieGestionSet().has(String(r["GESTIÓN"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
+    if (!isos.length) return showToast("Sin ISOs HD", true);
+    navigator.clipboard.writeText(isos.join(", ")).then(() => showToast(isos.length + " ISOs HD copiadas")).catch(() => {});
+  });
+  document.getElementById("btn-copy-isos-dash")?.addEventListener("click", () => {
+    const isos = filteredRows.map(r => r.ISO).filter(Boolean);
+    if (!isos.length) return showToast("Sin ISOs", true);
+    navigator.clipboard.writeText(isos.join(", ")).then(() => showToast(isos.length + " ISOs copiadas")).catch(() => {});
+  });
+  document.getElementById("btn-copy-table-dash")?.addEventListener("click", copyVisibleTableHTML);
+  document.getElementById("btn-export-xlsx")?.addEventListener("click", () => {
+    if (!rows.length) return showToast("Sin datos", true);
+    const sortedRows = [...rows].sort((a,b) => String(a.DESTINO||"").toUpperCase().localeCompare(String(b.DESTINO||"").toUpperCase()));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sortedRows), "Dashboard");
+    if (projectsData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projectsData), "Proyectos");
+    XLSX.writeFile(wb, "Ruteo_Postventa_" + new Date().toISOString().split("T")[0] + ".xlsx");
+  });
+  document.getElementById("btn-copy-table")?.addEventListener("click", () => {
+    if (!filteredRows.length) return showToast("Tabla vacía", true);
+    const visCols = COLS.filter(c => !hiddenCols.has(c));
+    const sortedRows = [...filteredRows].sort((a,b) => String(a.DESTINO||"").toUpperCase().localeCompare(String(b.DESTINO||"").toUpperCase()));
+    const html = buildHTMLTable(visCols, sortedRows, false);
+    const plain = sortedRows.map(r => visCols.map(c => r[c]||"").join("\t")).join("\n");
+    copyAsHTML(html, plain); showToast("Tabla copiada con formato HTML");
+  });
+  document.getElementById("btn-copy-isos")?.addEventListener("click", () => {
+    const t = document.getElementById("export-isos-text"); t.select();
+    navigator.clipboard.writeText(t.value).then(() => showToast("ISOs copiadas")).catch(() => {
+      document.execCommand("copy"); showToast("ISOs copiadas");
+    });
+  });
+  document.getElementById("btn-export-dups")?.addEventListener("click", () => {
+    const dupVehSet = new Set((params.dupVehicles || []).map(v => String(v).trim().toUpperCase()));
+    const filtered = duplicatesPlanData.filter(rec => dupVehSet.has(String(rec.vehiculo || "").trim().toUpperCase()));
+    if (!filtered.length) return showToast("Sin filas para los vehículos parametrizados", true);
+    const dashIsoSet = new Set(rows.map(r => String(r.ISO || "").trim().toUpperCase()).filter(Boolean));
+    let csv = "ISO,Vehículo,Destino,Tipo,En Dashboard,Gestión Dashboard\n";
+    filtered.forEach(rec => {
+      const isoUp = String(rec.iso || "").trim().toUpperCase();
+      const inDash = dashIsoSet.has(isoUp);
+      const matches = inDash ? rows.filter(r => String(r.ISO || "").trim().toUpperCase() === isoUp) : [];
+      csv += '"' + rec.iso + '","' + (rec.vehiculo || "") + '","' + (rec.destino || "") + '","' + (rec.tipo || "") + '","' + (inDash ? "SI" : "NO") + '","' + matches.map(m => m["GESTIÓN"] || "").join(", ") + '"\n';
+    });
+    const blob = new Blob(["\uFEFF"+csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Duplicados.csv"; a.click();
+  });
+  document.getElementById("btn-export-proj")?.addEventListener("click", () => {
+    if (!projectsData.length) return showToast("Sin proyectos", true);
+    const cols = Object.keys(projectsData[0]).filter(c => !c.startsWith("_"));
+    let csv = cols.join(",") + "\n";
+    projectsData.forEach(r => { csv += cols.map(c => '"' + (r[c]||"") + '"').join(",") + "\n"; });
+    const blob = new Blob(["\uFEFF"+csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Proyectos.csv"; a.click();
+  });
+
+  // ---- TRANSFORM EVENT LISTENERS ----
+  document.getElementById("transform-date")?.addEventListener("input", e => {
+    const disp = document.getElementById("transform-date-display");
+    if (disp) disp.textContent = formatDateForRuteo(e.target.value) || "—";
+  });
+  document.getElementById("file-transform-up")?.addEventListener("change", e => {
+    if (!e.target.files[0]) return;
+    const fname = e.target.files[0].name;
+    document.getElementById("transform-file-name").textContent = fname;
+    document.getElementById("transform-file-name").style.color = "var(--text)";
+    readExcelFile(e.target.files[0], json => {
+      transformData = json;
+      transformComments = {};
+      transformHeaders = json.length ? Object.keys(json[0]) : [];
+      renderTransformTable();
+      showToast("Archivo cargado: " + json.length + " filas");
+    });
+  });
+  document.getElementById("btn-transform-download")?.addEventListener("click", downloadTransformed);
+  document.getElementById("btn-transform-clear")?.addEventListener("click", () => {
+    if (transformData.length && !confirm("¿Limpiar datos de transformación?")) return;
+    transformData = [];
+    transformComments = {};
+    transformHeaders = [];
+    document.getElementById("transform-file-name").textContent = "Subir archivo...";
+    document.getElementById("transform-file-name").style.color = "var(--textFaint)";
+    document.getElementById("transform-date-display").textContent = "—";
+    document.getElementById("transform-date").value = "";
+    renderTransformTable();
+    showToast("Datos limpiados");
+  });
+
+  // KEYBOARD SHORTCUTS
+  document.addEventListener("keydown", async e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      if (selectedCells.size === 0) return;
+      const matrix = getSelectedAsMatrix();
+      if (!matrix) return;
+      e.preventDefault();
+      const text = matrix.map(r => r.join("\t")).join("\n");
+      navigator.clipboard.writeText(text).then(() => showToast("Copiado")).catch(() => {});
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      const hasSelection = selectedCells.size > 0;
+      const hasEditCell = !!editingCell;
+      if (!hasSelection && !hasEditCell) return;
+      e.preventDefault();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) return;
+        const matrix = parsePaste(text);
+        if (!matrix.length) return;
+        const visCols = COLS.filter(c => !hiddenCols.has(c));
+        let startR, startC;
+        if (hasSelection) {
+          const coords = getSelectionCoords();
+          if (!coords.length) return;
+          startR = coords[0].r; startC = coords[0].c;
+        } else {
+          startR = filteredRows.findIndex(r => r._ikid === editingCell.rId);
+          startC = visCols.indexOf(editingCell.col);
+          if (startR < 0 || startC < 0) return;
+        }
+        saveHistory();
+        for (let i = 0; i < matrix.length; i++) {
+          const tR = startR + i;
+          if (tR >= filteredRows.length) break;
+          for (let j = 0; j < matrix[i].length; j++) {
+            const tC = startC + j;
+            if (tC >= visCols.length) break;
+            filteredRows[tR][visCols[tC]] = matrix[i][j];
+          }
+        }
+        saveData(); renderDashboard(); showToast("Pegado");
+      } catch(err) { console.error("Paste error:", err); showToast("Error al pegar", true); }
+      return;
+    }
+    if (!editingCell && selectedCells.size > 1 && (e.key === "Delete" || e.key === "Backspace")) {
+      e.preventDefault();
+      saveHistory();
+      selectedCells.forEach(sel => {
+        const [rId, col] = sel.split(":");
+        const r = rows.find(x => x._ikid === rId);
+        if (r) r[col] = "";
+      });
+      saveData(); renderDashboard();
+    }
+  });
+  document.addEventListener("mouseup", () => { isDragging = false; });
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".filter-dropdown") && !e.target.closest(".filter-btn")) {
+      closeActiveFilterDropdown(false);
+    }
+  });
+
+  // ============================================================
+  // EXCEL HELPER
+  // ============================================================
+  function readExcelFile(file, callback) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        callback(XLSX.utils.sheet_to_json(ws, { defval: "" }));
+      } catch { showToast("Error leyendo Excel", true); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+} // end setupEventListeners
+
+// ============================================================
+// DASHBOARD RENDER
+// ============================================================
+function addRow() {
+  saveHistory();
+  rows.push({ _ikid: genId(), ISO: "", "GESTIÓN": "", ORIGEN: "", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "" });
+  saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
+  const s = document.getElementById("dash-spreadsheet"); s.scrollTop = s.scrollHeight;
+}
+function applyFilters() {
+  const term = (document.getElementById("dash-search")?.value || "").toLowerCase();
+  filteredRows = rows.filter(r => {
+    for (const col in colFilters) {
+      if (colFilters[col] && colFilters[col].size > 0 && !colFilters[col].has(r[col] || "")) return false;
+    }
+    if (term) return Object.values(r).some(v => String(v).toLowerCase().includes(term));
+    return true;
+  });
+  if (sortCol) {
+    filteredRows.sort((a, b) => {
+      const va = String(a[sortCol] || ""); const vb = String(b[sortCol] || "");
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+}
+function renderColPanel() {
+  const container = document.getElementById("dash-col-checks");
+  if (!container) return;
+  let html = "";
+  COLS.forEach(c => {
+    const isVis = !hiddenCols.has(c);
+    html += '<label class="col-toggle-label' + (isVis?" active":"") + '" data-col="' + c + '" onclick="toggleColVis(\'' + c + '\');event.preventDefault();"><input type="checkbox" ' + (isVis?"checked":"") + ' style="accent-color:var(--blue);pointer-events:none;"> ' + c + '</label>';
+  });
+  container.innerHTML = html;
+}
+function renderDashboard() {
+  const thead = document.getElementById("dash-thead");
+  const tbody = document.getElementById("dash-tbody");
+  if (!thead || !tbody) return;
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  const isEmpty = rows.length === 0;
+  document.getElementById("dash-empty-state").classList.toggle("hidden", !isEmpty);
+  document.getElementById("dash-table").style.display = isEmpty ? "none" : "table";
+  document.getElementById("dash-stats-bar").classList.toggle("hidden", isEmpty);
+  const statsCounts = {};
+  rows.forEach(r => { const g = (r["GESTIÓN"] || "").trim(); if (g) statsCounts[g] = (statsCounts[g] || 0) + 1; });
+  let statsHtml = "";
+  for (const [k, v] of Object.entries(statsCounts)) {
+    statsHtml += '<div class="stat-chip"><span class="stat-chip-val">' + v + '</span><span class="stat-chip-lbl">' + k + '</span></div>';
+  }
+  document.getElementById("dash-stats-content").innerHTML = statsHtml;
+  renderColPanel();
+  if (isEmpty) { document.getElementById("dash-total").textContent = 0; document.getElementById("dash-filtered").textContent = 0; return; }
+  applyFilters();
+  const isoCounts = {};
+  rows.forEach(r => { const val = (r.ISO || "").trim().toLowerCase(); if (val) isoCounts[val] = (isoCounts[val] || 0) + 1; });
+  const hasDups = Object.values(isoCounts).some(v => v > 1);
+  const dupIndicator = document.getElementById("dash-dup-indicator");
+  if (dupIndicator) dupIndicator.style.display = hasDups ? "inline" : "none";
+  // Excel column letters: A, B, C, …, Z, AA, AB, …
+  function colLetter(n){ let s = ""; n++; while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+  let trLetters = '<th class="row-num row-num-corner-top"></th>';
+  visCols.forEach((_, i) => { trLetters += '<th class="col-letter" data-col-idx="' + i + '">' + colLetter(i) + '</th>'; });
+  trLetters += '<th></th>';
+  let trH = '<th class="row-num row-num-corner-bot">#</th>';
+  visCols.forEach((col, i) => {
+    const isActive = colFilters[col] && colFilters[col].size > 0;
+    trH += '<th class="col-name" data-col-idx="' + i + '" style="' + (isActive ? 'color:var(--blue);' : '') + '"><div class="th-inner"><span>' + col + '</span><button class="filter-btn' + (isActive?" active":"") + '" onclick="toggleFilterDropdown(\'' + col + '\',this)">▾</button></div></th>';
+  });
+  trH += '<th style="width:88px;"></th>';
+  thead.innerHTML = '<tr class="col-letters-row">' + trLetters + '</tr><tr class="col-names-row">' + trH + '</tr>';
+  let tbodyHtml = "";
+  filteredRows.forEach((r, idx) => {
+    const isoKey = (r.ISO || "").trim().toLowerCase();
+    const isRetiro = String(r["GESTIÓN"] || "").trim().toUpperCase() === "RETIRO";
+    const isDup = (params.highlightDuplicates !== false) && !isRetiro && isoCounts[isoKey] > 1;
+    tbodyHtml += '<tr class="' + (isDup ? "dup-row" : "") + '"><td class="row-num" style="' + (isDup ? "color:var(--red);" : "") + '" onclick="selectEntireRow(' + idx + ')" title="Seleccionar fila">' + (idx + 1) + '</td>';
+    visCols.forEach((col, cIdx) => {
+      tbodyHtml += '<td class="' + (col === "ISO" && isDup ? "dup-cell" : "") + '"><input type="text" id="cell-' + idx + '-' + cIdx + '" value="' + escHtml(r[col] || "") + '" data-rid="' + r._ikid + '" data-col="' + col + '" onchange="cellChanged(this)" onfocus="onCellFocus(this)" onblur="editingCell=null" onmousedown="onCellMouseDown(event,' + idx + ',' + cIdx + ')" onmouseenter="onCellMouseEnter(' + idx + ',' + cIdx + ')" onkeydown="cellKeyDown(event,' + idx + ',' + cIdx + ')"></td>';
+    });
+    tbodyHtml += '<td><div class="row-actions"><button class="act-btn" style="color:var(--blue);" onclick="cycleGestion(\'' + r._ikid + '\')" title="Ciclar Gestión">↻</button><button class="act-btn" style="color:var(--green);" onclick="duplicateRow(\'' + r._ikid + '\')" title="Duplicar">⧉</button><button class="act-btn" style="color:var(--red);" onclick="deleteRow(\'' + r._ikid + '\')" title="Eliminar">✕</button></div></td></tr>';
+  });
+  tbody.innerHTML = tbodyHtml;
+  document.getElementById("dash-total").textContent = rows.length;
+  document.getElementById("dash-filtered").textContent = filteredRows.length;
+  restoreSelection();
+}
+function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function _excelColLetter(n){ let s = ""; n++; while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+function _updateFormulaBar(input, ri, ci) {
+  const nameBox = document.getElementById("cell-name-box");
+  const fInput = document.getElementById("formula-bar-input");
+  if (nameBox) nameBox.textContent = _excelColLetter(ci) + (ri + 1);
+  if (fInput) {
+    fInput.readOnly = false;
+    fInput.value = input.value;
+    fInput.oninput = () => { input.value = fInput.value; };
+    fInput.onchange = () => { input.value = fInput.value; cellChanged(input); };
+  }
+}
+function _highlightActiveRowCol(ri, ci) {
+  document.querySelectorAll(".dash-table tr.row-active").forEach(t => t.classList.remove("row-active"));
+  document.querySelectorAll(".dash-table .col-letter-active, .dash-table .col-name-active").forEach(t => { t.classList.remove("col-letter-active"); t.classList.remove("col-name-active"); });
+  const tr = document.querySelector('#dash-tbody tr:nth-child(' + (ri + 1) + ')');
+  if (tr) tr.classList.add("row-active");
+  document.querySelectorAll('.col-letter[data-col-idx="' + ci + '"]').forEach(t => t.classList.add("col-letter-active"));
+  document.querySelectorAll('.col-name[data-col-idx="' + ci + '"]').forEach(t => t.classList.add("col-name-active"));
+}
+function onCellFocus(input) {
+  editingCell = { rId: input.dataset.rid, col: input.dataset.col };
+  selectedCells.clear();
+  selectedCells.add(input.dataset.rid + ":" + input.dataset.col);
+  highlightSelection();
+  // Parse ri/ci from id "cell-<ri>-<ci>"
+  const m = (input.id || "").match(/^cell-(\d+)-(\d+)$/);
+  if (m) {
+    const ri = parseInt(m[1], 10), ci = parseInt(m[2], 10);
+    _updateFormulaBar(input, ri, ci);
+    _highlightActiveRowCol(ri, ci);
+  }
+}
+function cellChanged(input) {
+  saveHistory();
+  const r = rows.find(x => x._ikid === input.dataset.rid);
+  if (r) r[input.dataset.col] = input.value;
+  saveData(); updateBadges();
+}
+function cellKeyDown(e, ri, ci) {
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  const maxC = visCols.length - 1;
+  const maxR = filteredRows.length - 1;
+  const focusCell = (r2, c2) => { const el = document.getElementById("cell-" + r2 + "-" + c2); if (el) { el.focus(); setSelection(r2, c2, r2, c2); return true; } return false; };
+  if (e.key === "Escape") {
+    e.currentTarget.blur(); selectedCells.clear(); highlightSelection(); return;
+  }
+  if (e.key === "F2") {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+    return;
+  }
+  if (e.key === "Home") {
+    e.preventDefault();
+    if (e.ctrlKey) focusCell(0, 0);
+    else focusCell(ri, 0);
+    return;
+  }
+  if (e.key === "End") {
+    e.preventDefault();
+    if (e.ctrlKey) focusCell(maxR, maxC);
+    else focusCell(ri, maxC);
+    return;
+  }
+  if (e.key === "PageDown") { e.preventDefault(); focusCell(Math.min(ri + 10, maxR), ci); return; }
+  if (e.key === "PageUp") { e.preventDefault(); focusCell(Math.max(ri - 10, 0), ci); return; }
+  if (e.key === "Tab") {
+    e.preventDefault();
+    if (e.shiftKey) {
+      if (ci > 0) focusCell(ri, ci - 1);
+      else if (ri > 0) focusCell(ri - 1, maxC);
+    } else {
+      if (ci < maxC) focusCell(ri, ci + 1);
+      else if (ri < maxR) focusCell(ri + 1, 0);
+    }
+    return;
+  }
+  if (!e.shiftKey) {
+    if (e.key === "ArrowUp") { e.preventDefault(); if (ri > 0) focusCell(ri-1, ci); }
+    else if (e.key === "ArrowDown" || e.key === "Enter") { e.preventDefault(); if (ri < maxR) focusCell(ri+1, ci); }
+    else if (e.key === "ArrowLeft") { if (e.currentTarget.selectionStart === 0 && ci > 0) { e.preventDefault(); focusCell(ri, ci-1); } }
+    else if (e.key === "ArrowRight") { if (e.currentTarget.selectionStart === e.currentTarget.value.length && ci < maxC) { e.preventDefault(); focusCell(ri, ci+1); } }
+  }
+}
+function toggleColVis(col) {
+  if (hiddenCols.has(col)) hiddenCols.delete(col); else hiddenCols.add(col);
+  saveData(); renderDashboard();
+}
+function deleteRow(id) { saveHistory(); rows = rows.filter(r => r._ikid !== id); saveData(); renderDashboard(); updateBadges(); updateSessionInfo(); }
+function duplicateRow(id) {
+  saveHistory();
+  const idx = rows.findIndex(r => r._ikid === id);
+  if (idx >= 0) { rows.splice(idx + 1, 0, { ...rows[idx], _ikid: genId() }); saveData(); renderDashboard(); updateBadges(); }
+}
+function cycleGestion(id) {
+  const gestions = ["REPITE","RETIRO","K8","ENVIO Y RETIRO","SOLO ENVIO","PROYECTO","REPITE ENVIO Y RETIRO"];
+  saveHistory();
+  const row = rows.find(r => r._ikid === id);
+  if (row) {
+    const cur = String(row["GESTIÓN"] || "").toUpperCase();
+    row["GESTIÓN"] = gestions[(gestions.indexOf(cur) + 1) % gestions.length];
+    saveData(); renderDashboard();
+  }
+}
+function copyVisibleTableHTML() {
+  if (!filteredRows.length) return showToast("Tabla vacía", true);
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  const html = buildHTMLTable(visCols, filteredRows, false);
+  const plain = filteredRows.map(r => visCols.map(c => r[c]||"").join("\t")).join("\n");
+  copyAsHTML(html, plain);
+  showToast("Tabla HTML copiada (filas y columnas visibles)");
+}
+// Cell selection
+function onCellMouseDown(e, ri, ci) {
+  if (e.target.tagName === "INPUT" && !e.shiftKey) return;
+  e.preventDefault(); isDragging = true; selectionStart = {r:ri, c:ci};
+  clearSelection(); addToSelection(ri, ci); highlightSelection();
+}
+function onCellMouseEnter(ri, ci) {
+  if (!isDragging || !selectionStart) return;
+  clearSelection();
+  const rMin = Math.min(selectionStart.r, ri), rMax = Math.max(selectionStart.r, ri);
+  const cMin = Math.min(selectionStart.c, ci), cMax = Math.max(selectionStart.c, ci);
+  for (let r = rMin; r <= rMax; r++) for (let c = cMin; c <= cMax; c++) addToSelection(r, c);
+  highlightSelection();
+}
+function addToSelection(r, c) {
+  if (!filteredRows[r]) return;
+  const visCols = COLS.filter(col => !hiddenCols.has(col));
+  selectedCells.add(filteredRows[r]._ikid + ":" + visCols[c]);
+}
+function clearSelection() { selectedCells.clear(); }
+function setSelection(r1, c1, r2, c2) {
+  clearSelection();
+  const rMin = Math.min(r1,r2), rMax = Math.max(r1,r2), cMin = Math.min(c1,c2), cMax = Math.max(c1,c2);
+  for (let r = rMin; r <= rMax; r++) for (let c = cMin; c <= cMax; c++) addToSelection(r, c);
+  selectionStart = {r:r1, c:c1};
+  highlightSelection();
+}
+function highlightSelection() {
+  document.querySelectorAll(".dash-table td.selected").forEach(td => td.classList.remove("selected"));
+  document.querySelectorAll(".dash-table td input").forEach(inp => {
+    if (selectedCells.has(inp.dataset.rid + ":" + inp.dataset.col)) inp.closest("td")?.classList.add("selected");
+  });
+}
+function restoreSelection() { highlightSelection(); }
+window.selectEntireRow = function(ri) {
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  setSelection(ri, 0, ri, visCols.length - 1);
+  const first = document.getElementById("cell-" + ri + "-0");
+  if (first) first.focus();
+};
+function getSelectionCoords() {
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  const coords = [];
+  selectedCells.forEach(sel => {
+    const parts = sel.split(":");
+    const rId = parts[0]; const col = parts[1];
+    const r = filteredRows.findIndex(x => x._ikid === rId);
+    const c = visCols.indexOf(col);
+    if (r >= 0 && c >= 0) coords.push({r, c});
+  });
+  return coords.sort((a,b) => a.r - b.r || a.c - b.c);
+}
+function getSelectedAsMatrix() {
+  const coords = getSelectionCoords(); if (!coords.length) return null;
+  const visCols = COLS.filter(c => !hiddenCols.has(c));
+  const matrix = []; let curR = -1; let rowArr = [];
+  coords.forEach(coord => {
+    if (coord.r !== curR) { if (rowArr.length) matrix.push(rowArr); rowArr = []; curR = coord.r; }
+    rowArr.push(filteredRows[coord.r][visCols[coord.c]] || "");
+  });
+  if (rowArr.length) matrix.push(rowArr);
+  return matrix;
+}
+
+// ============================================================
+// FILTER DROPDOWN
+// ============================================================
+function checkCrossReady() {
+  const btn = document.getElementById("btn-run-cross-dest");
+  if (btn) btn.disabled = !(crossingPlanData && crossingConvData);
+}
+function toggleFilterDropdown(col, btn) {
+  if (activeFilterCol === col) { closeActiveFilterDropdown(false); return; }
+  closeActiveFilterDropdown(false);
+  activeFilterCol = col;
+  pendingColFilters[col] = colFilters[col] ? new Set(colFilters[col]) : null;
+  const th = btn.closest("th");
+  const uniqueVals = [...new Set(rows.map(r => r[col] || ""))].sort((a,b) => String(a).localeCompare(String(b)));
+  const dd = document.createElement("div");
+  dd.className = "filter-dropdown"; dd.id = "active-filter-dd";
+  dd.innerHTML =
+    '<div class="filter-dd-header">' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',true)">↑ Ordenar A→Z</button>' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&!sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',false)">↓ Ordenar Z→A</button>' +
+    '</div>' +
+    '<div class="filter-dd-search"><input type="text" id="filter-dd-search-input" class="input" style="padding:4px 8px;font-size:10px;" placeholder="Buscar valor..." oninput="renderFilterDDList(\'' + col + '\')"></div>' +
+    '<div class="filter-dd-list custom-scrollbar" id="filter-dd-list">' + renderFilterDDListHtml(col, uniqueVals, pendingColFilters[col], "") + '</div>' +
+    '<div class="filter-dd-footer">' +
+    '<button style="font-size:9px;color:var(--textFaint);background:none;border:none;cursor:pointer;" onclick="closeActiveFilterDropdown(false)">Cancelar</button>' +
+    '<div style="display:flex;gap:6px;align-items:center;">' +
+    '<button style="font-size:9px;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline;" onclick="clearFilter(\'' + col + '\')">Borrar filtro</button>' +
+    '<button class="filter-dd-apply" onclick="applyFilterDD(\'' + col + '\')">✓ Aplicar</button>' +
+    '</div></div>';
+  th.style.position = "relative";
+  th.appendChild(dd);
+  btn.classList.add("active");
+  document.getElementById("filter-dd-search-input")?.focus();
+}
+window.applyFilterDD = function(col) {
+  const pending = pendingColFilters[col];
+  if (pending === null) { delete colFilters[col]; } else { colFilters[col] = pending; }
+  closeActiveFilterDropdown(true); renderDashboard();
+};
+function renderFilterDDListHtml(col, uniqueVals, currentFilter, search) {
+  const filtered = search ? uniqueVals.filter(v => String(v).toLowerCase().includes(search.toLowerCase())) : uniqueVals;
+  const allSelected = !currentFilter || currentFilter.size === 0;
+  let html = '<label class="filter-dd-item" style="border-bottom:1px solid var(--borderSoft);margin-bottom:2px;"><input type="checkbox" ' + (allSelected?"checked":"") + ' style="accent-color:var(--blue);" onchange="togglePendingFilterAll(\'' + col + '\', this.checked)"><span style="font-weight:700;font-size:10px;">(Seleccionar Todo)</span></label>';
+  filtered.forEach(v => {
+    const checked = allSelected || (currentFilter && currentFilter.has(v));
+    const vEsc = escHtml(String(v));
+    html += '<label class="filter-dd-item"><input type="checkbox" ' + (checked?"checked":"") + ' style="accent-color:var(--blue);" onchange="togglePendingFilterVal(\'' + col + '\',\'' + vEsc + '\',this.checked)"><span style="font-size:10px;color:' + (v?'var(--text)':'var(--textFaint)') + ';">' + (v !== "" ? vEsc : "(Vacío)") + '</span></label>';
+  });
+  return html;
+}
+window.renderFilterDDList = function(col) {
+  const search = document.getElementById("filter-dd-search-input")?.value || "";
+  const uniqueVals = [...new Set(rows.map(r => r[col] || ""))].sort((a,b) => String(a).localeCompare(String(b)));
+  const list = document.getElementById("filter-dd-list");
+  if (list) list.innerHTML = renderFilterDDListHtml(col, uniqueVals, pendingColFilters[col], search);
+};
+window.togglePendingFilterAll = function(col, checked) {
+  if (checked) { pendingColFilters[col] = null; } else { pendingColFilters[col] = new Set(); }
+  window.renderFilterDDList(col);
+};
+window.togglePendingFilterVal = function(col, val, checked) {
+  const uniqueVals = [...new Set(rows.map(r => r[col] || ""))];
+  if (!pendingColFilters[col]) {
+    pendingColFilters[col] = new Set(uniqueVals.filter(v => v !== val)); return;
+  }
+  if (checked) pendingColFilters[col].add(val); else pendingColFilters[col].delete(val);
+  if (pendingColFilters[col].size === uniqueVals.length) pendingColFilters[col] = null;
+  window.renderFilterDDList(col);
+};
+window.clearFilter = function(col) {
+  delete colFilters[col]; delete pendingColFilters[col];
+  closeActiveFilterDropdown(true); renderDashboard();
+};
+window.setSort = function(col, asc) { sortCol = col; sortAsc = asc; closeActiveFilterDropdown(true); renderDashboard(); };
+function closeActiveFilterDropdown(rerender) {
+  document.getElementById("active-filter-dd")?.remove();
+  if (activeFilterCol) delete pendingColFilters[activeFilterCol];
+  activeFilterCol = null;
+  if (rerender) renderDashboard();
+}
+
+// ============================================================
+// DUPLICATES — UPDATED
+// ============================================================
+function renderDuplicates() {
+  const tbody = document.getElementById("dup-tbody");
+  const banner = document.getElementById("dup-info-banner");
+  if (!tbody) return;
+
+  if (!duplicatesPlanData.length) {
+    if (banner) banner.classList.add("hidden");
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">Sube el archivo Plan en "Cargar Datos" para ver duplicados.</td></tr>';
+    return;
+  }
+
+  const dupVehList = (params.dupVehicles || []).map(v => String(v).trim().toUpperCase());
+  const dupVehSet = new Set(dupVehList);
+  if (!dupVehSet.size) {
+    if (banner) banner.classList.add("hidden");
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">No hay vehículos parametrizados. Configura <strong>Parámetros → Duplicados</strong>.</td></tr>';
+    return;
+  }
+
+  // Step 1: Filter the file rows by the parameterized vehicles
+  const filtered = duplicatesPlanData.filter(rec => dupVehSet.has(String(rec.vehiculo || "").trim().toUpperCase()));
+
+  // Step 2: Check which of those ISOs exist in the dashboard
+  const dashIsoMap = new Map();
+  rows.forEach(r => {
+    const k = String(r.ISO || "").trim().toUpperCase();
+    if (!k) return;
+    if (!dashIsoMap.has(k)) dashIsoMap.set(k, []);
+    dashIsoMap.get(k).push(r);
+  });
+
+  if (!filtered.length) {
+    if (banner) {
+      banner.classList.remove("hidden");
+      banner.innerHTML = 'No se encontraron filas con vehículo en <strong>' + dupVehList.join(", ") + '</strong>.';
+    }
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">Sin coincidencias.</td></tr>';
+    return;
+  }
+
+  const dupRows = filtered.filter(rec => dashIsoMap.has(String(rec.iso || "").trim().toUpperCase()));
+  if (banner) {
+    banner.classList.remove("hidden");
+    banner.innerHTML = 'Filtrado por vehículo en <strong style="color:var(--blue);">' + dupVehList.join(", ") + '</strong>: ' +
+      '<strong>' + filtered.length + ' fila(s)</strong> en el archivo Plan. ' +
+      'De ellas, <strong style="color:#c04848;">' + dupRows.length + ' están duplicadas</strong> en el Dashboard.';
+  }
+
+  // Group filtered records by vehicle
+  const byVehicle = {};
+  filtered.forEach(rec => {
+    const v = String(rec.vehiculo || "").trim().toUpperCase() || "—";
+    if (!byVehicle[v]) byVehicle[v] = [];
+    byVehicle[v].push(rec);
+  });
+
+  let html = "";
+  Object.keys(byVehicle).sort().forEach(veh => {
+    const list = byVehicle[veh];
+    const dupCount = list.filter(r => dashIsoMap.has(String(r.iso || "").trim().toUpperCase())).length;
+    const okCount = list.length - dupCount;
+    html += '<tr><td colspan="5" style="padding:5px 10px;background:rgba(58,114,172,0.08);border-left:2px solid var(--blue);position:sticky;top:30px;z-index:5;">' +
+      '<span style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.04em;font-family:var(--font-mono);">' + escHtml(veh) + '</span>' +
+      '<span style="font-size:10px;color:var(--textFaint);margin-left:8px;">' + list.length + ' fila(s) en archivo</span>' +
+      (dupCount > 0 ? '<span style="font-size:10px;font-weight:700;color:#c04848;margin-left:10px;background:rgba(154,53,53,0.14);padding:1px 7px;border-radius:2px;">' + dupCount + ' duplicada(s)</span>' : '') +
+      (okCount > 0 ? '<span style="font-size:10px;font-weight:700;color:#3d8860;margin-left:6px;background:rgba(42,101,72,0.14);padding:1px 7px;border-radius:2px;">' + okCount + ' no en dashboard</span>' : '') +
+      '</td></tr>';
+
+    list.forEach(rec => {
+      const isoUp = String(rec.iso || "").trim().toUpperCase();
+      const isDup = dashIsoMap.has(isoUp);
+      const matches = isDup ? dashIsoMap.get(isoUp) : [];
+      const rowBg = isDup ? "rgba(154,53,53,0.07)" : "transparent";
+      const statusBadge = isDup
+        ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(154,53,53,0.14);color:#c04848;border:1px solid rgba(154,53,53,0.32);"><span style="width:5px;height:5px;border-radius:50%;background:#c04848;"></span>Duplicada</span>'
+        : '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(58,114,172,0.1);color:var(--textSub);border:1px solid rgba(58,114,172,0.25);"><span style="width:5px;height:5px;border-radius:50%;background:var(--textSub);"></span>Solo en archivo</span>';
+      const vehBadge = '<span style="display:inline-flex;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(58,114,172,0.1);color:var(--blue);border:1px solid rgba(58,114,172,0.25);font-family:var(--font-mono);">' + escHtml(rec.vehiculo || "—") + '</span>';
+      const dashGest = matches.length
+        ? matches.map(m => '<span style="display:inline-flex;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:600;background:var(--accentBg);color:var(--blue);border:1px solid rgba(58,114,172,0.3);margin-right:3px;">' + escHtml(m["GESTIÓN"] || "?") + '</span>').join("")
+        : '<span style="font-size:10px;color:var(--textFaint);font-style:italic;">—</span>';
+      const destText = rec.destino
+        ? '<span style="font-size:10px;color:var(--textSub);">' + escHtml(rec.destino) + '</span>'
+        : '<span style="font-size:10px;color:var(--textFaint);">—</span>';
+      html += '<tr>' +
+        '<td style="padding:6px 10px 6px 26px;font-family:var(--font-mono);font-size:11px;background:' + rowBg + ';' + (isDup ? "color:#c04848;font-weight:700;" : "color:var(--text);") + '">' + escHtml(rec.iso) + '</td>' +
+        '<td style="padding:6px 10px;text-align:center;background:' + rowBg + ';">' + statusBadge + '</td>' +
+        '<td style="padding:6px 10px;background:' + rowBg + ';">' + vehBadge + '</td>' +
+        '<td style="padding:6px 10px;background:' + rowBg + ';">' + destText + '</td>' +
+        '<td style="padding:6px 10px;background:' + rowBg + ';">' + dashGest + '</td>' +
+        '</tr>';
+    });
+  });
+  tbody.innerHTML = html;
+}
+
+// ============================================================
+// PROJECTS
+// ============================================================
+function renderProjects() {
+  const tbody = document.getElementById("proj-tbody"); if (!tbody) return;
+  const label = document.getElementById("proj-name-label");
+  if (label) label.textContent = params.projTemplateName ? "— " + params.projTemplateName : "";
+  if (!projectsData.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:28px;text-align:center;color:var(--textFaint);">Sube archivo de Proyectos.</td></tr>'; return;
+  }
+  let html = "";
+  projectsData.forEach(p => {
+    const iso = p["Título"] || p["ISO"] || p["Title"] || "";
+    const veh = p["Vehículo"] || p["VEHÍCULO"] || p["VEHICULO"] || "";
+    const dir = p["Destino"] || p["Dirección"] || p["DIRECCIÓN"] || "";
+    html += '<tr><td style="padding:7px 10px;font-family:var(--font-mono);font-size:11px;">' + iso + '</td><td style="padding:7px 10px;">' + veh + '</td><td style="padding:7px 10px;">' + dir + '</td></tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+// ============================================================
+// EXPORT TAB
+// ============================================================
+function updateExportTab() {
+  const t = document.getElementById("export-isos-text");
+  if (t) t.value = filteredRows.map(r => r.ISO).filter(Boolean).join(", ");
+  const stats = {};
+  rows.forEach(r => { const g = r["GESTIÓN"] || ""; if (g) stats[g] = (stats[g] || 0) + 1; });
+  const el = document.getElementById("export-stats");
+  if (el) {
+    if (!Object.keys(stats).length) { el.innerHTML = '<span style="opacity:0.4;font-style:italic;">Sin datos</span>'; return; }
+    el.innerHTML = Object.entries(stats).map(function(entry) {
+      return '<div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--borderSoft);padding:4px 0;"><span>' + entry[0] + '</span><span style="font-weight:700;color:var(--blue);">' + entry[1] + '</span></div>';
+    }).join("");
+  }
+}
+
+// ============================================================
+// TEMPLATES
+// ============================================================
+function updateTemplateTitles() {
+  const el = document.getElementById("tpl-leslie-title");
+  if (el) el.textContent = (params.projTemplateName || "LESLIE").toUpperCase();
+}
+function buildHTMLTable(cols, data, clean) {
+  const ff = params.outlookFontFamily || "Aptos,Calibri,Arial,sans-serif";
+  const fs = params.outlookFontSize || "12pt";
+  const bc = params.outlookBorderColor || "#000000";
+  const hbg = params.outlookHeaderBg || "#0051BA";
+  const hcl = params.outlookHeaderColor || "#FFDA1A";
+  const tableStyle = "border-collapse:collapse;font-family:" + ff + ";font-size:" + fs + ";width:100%;";
+  const thStyle = clean
+    ? "border:1px solid " + bc + ";padding:6px 10px;font-weight:bold;text-align:center;background:none;color:#000000;"
+    : "border:1px solid " + bc + ";padding:6px 10px;font-weight:bold;text-align:center;background:" + hbg + ";color:" + hcl + ";";
+  const tdStyle = clean
+    ? "border:1px solid " + bc + ";padding:5px 10px;text-align:center;color:#000000;background:none;"
+    : "border:1px solid " + bc + ";padding:5px 10px;text-align:center;color:#000000;background:#ffffff;";
+  let html = '<table style="' + tableStyle + '"><thead><tr>';
+  cols.forEach(c => { html += '<th style="' + thStyle + '">' + c + '</th>'; });
+  html += '</tr></thead><tbody>';
+  data.forEach(r => {
+    html += '<tr>';
+    cols.forEach(c => { html += '<td style="' + tdStyle + '">' + (r[c] || "") + '</td>'; });
+    html += '</tr>';
+  });
+  return html + '</tbody></table>';
+}
+function sortByDestino(data) {
+  return [...data].sort((a,b) => String(a.DESTINO||"").toUpperCase().localeCompare(String(b.DESTINO||"").toUpperCase()));
+}
+function isPV(destino) {
+  const u = String(destino || "").trim().toUpperCase();
+  return params.pvDestinos.some(pv => { const p = pv.toUpperCase(); return u === p || u.includes(p); });
+}
+function isK8(r) {
+  const comm = String(r.COMENTARIO || r.COMENTARIO_RAW || "").toUpperCase();
+  const gest = String(r["GESTIÓN"] || "").toUpperCase();
+  return comm.includes("K8") || gest.includes("K8");
+}
+function _emailFontCss(){ return "font-family:" + (params.outlookFontFamily || "Aptos,sans-serif") + ";font-size:" + (params.outlookFontSize || "12pt") + ";"; }
+function emailIntroP(text, extraStyle){ return '<p style="' + _emailFontCss() + 'margin-bottom:12px;' + (extraStyle || '') + '">' + text.replace(/\n/g,"<br>") + '</p>'; }
+function emailSectionHeading(text){ return '<p style="' + _emailFontCss() + 'margin-top:16px;margin-bottom:8px;font-weight:bold;">' + text + '</p>'; }
+
+function getRuteoPMHtml() {
+  const intro = emailIntroP(params.emailRuteoPMIntro);
+  const dataRepites = sortByDestino(rows.filter(r => String(r["CORREO REPITES"]||"").toUpperCase() === "SI"));
+  let sRepites = "";
+  if (dataRepites.length) sRepites = emailSectionHeading(params.sectionTitleRepites || "Repites") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataRepites, true);
+  const dataPV = sortByDestino(rows.filter(r => isPV(r.DESTINO)));
+  let sPV = "";
+  if (dataPV.length) sPV = emailSectionHeading(params.sectionTitlePV || "Postventa") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataPV, true);
+  const dataK8 = sortByDestino(rows.filter(r => isK8(r)));
+  let sK8 = "";
+  if (dataK8.length) sK8 = emailSectionHeading(params.sectionTitleK8 || "K8") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataK8, true);
+  let sLeslie = "";
+  if (projectsData.length) {
+    const normalizedProj = projectsData
+      .filter(r => { const iso = String(r["Título"]||r["ISO"]||"").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
+      .map(r => ({ "ISO": r["Título"]||r["ISO"]||r["Title"]||"", "VEHÍCULO": r["Vehículo"]||r["VEHÍCULO"]||r["VEHICULO"]||"", "DIRECCIÓN": r["Destino"]||r["Dirección"]||r["DIRECCIÓN"]||"" }))
+      .sort((a,b) => String(a["VEHÍCULO"]||"").localeCompare(String(b["VEHÍCULO"]||"")));
+    if (normalizedProj.length) sLeslie = emailSectionHeading((params.sectionTitleProj || "Proyectos") + " " + params.projTemplateName) + buildHTMLTable(["ISO","VEHÍCULO","DIRECCIÓN"], normalizedProj, true);
+  }
+  const corrExcludeSet = new Set(params.corrExcludeDestinos.map(v => v.toUpperCase()));
+  const dataCorr = sortByDestino(rows.filter(r => {
+    if (String(r["CORREO REPITES"]||"").toUpperCase() === "SI") return false;
+    if (isPV(r.DESTINO)) return false;
+    if (isK8(r)) return false;
+    if (corrExcludeSet.has(String(r.DESTINO||"").toUpperCase())) return false;
+    return true;
+  }).map(r => ({ ...r, "GESTIÓN": "CORRECCION DE RUTA" })));
+  let sCorr = "";
+  if (dataCorr.length) sCorr = emailSectionHeading(params.sectionTitleCorr || "Corrección de Ruta") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataCorr, true);
+  return intro + sRepites + sPV + sCorr + sK8 + sLeslie;
+}
+function copyAsHTML(html, plain) {
+  try {
+    const blobHTML = new Blob([html], { type: "text/html" });
+    const blobText = new Blob([plain || html.replace(/<[^>]+>/g,"")], { type: "text/plain" });
+    navigator.clipboard.write([new ClipboardItem({ "text/html": blobHTML, "text/plain": blobText })]).catch(() => fallbackCopyHTML(html));
+  } catch { fallbackCopyHTML(html); }
+}
+function fallbackCopyHTML(html) {
+  const div = document.createElement("div");
+  div.contentEditable = true; div.style.position = "fixed"; div.style.left = "-9999px";
+  div.innerHTML = html; document.body.appendChild(div);
+  const range = document.createRange(); range.selectNodeContents(div);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  try { document.execCommand("copy"); } catch {}
+  document.body.removeChild(div);
+}
+
+// ============================================================
+// TEMPLATE BUTTONS
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".btn-copy-tpl").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const tpl = e.currentTarget.getAttribute("data-tpl");
+      let html = "", plain = "", title = "";
+      if (tpl === "ruteo_pm") {
+        html = getRuteoPMHtml();
+        plain = params.emailRuteoPMIntro + "\n\nRepites...\nPostventa...\nCorrección de Ruta...\nK8...\nProyectos...";
+        title = "Ruteo PM";
+      }
+      else if (tpl === "repites") {
+        const data = sortByDestino(rows.filter(r => String(r["CORREO REPITES"]||"").toUpperCase() === "SI"));
+        if (!data.length) return showToast("No hay filas con CORREO REPITES = SI", true);
+        const introHtml = emailIntroP(params.emailRepitesIntro);
+        html = introHtml + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], data);
+        plain = params.emailRepitesIntro + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÓN"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
+        title = "Repites";
+      }
+      else if (tpl === "pv") {
+        const data = sortByDestino(rows.filter(r => isPV(r.DESTINO)));
+        if (!data.length) return showToast("Sin datos de Postventa en columna DESTINO", true);
+        const vehsPV = [...new Set(data.map(r => String(r.DESTINO||"").trim()).filter(Boolean))];
+        const numVeh = vehsPV.length || 1;
+        const vehWord = numVeh === 1 ? "1 vehículo" : (numVeh + " vehículos");
+        const pvIntroText = params.emailPVIntro.replace("{numVeh}", vehWord);
+        const recipientPart = params.emailPVRecipient ? "Buenas tardes " + params.emailPVRecipient + ", " : "Buenas tardes, ";
+        const introHtml = emailIntroP(recipientPart + pvIntroText);
+        html = introHtml + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], data);
+        plain = recipientPart + pvIntroText + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÓN"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
+        title = "Post Venta";
+      }
+      else if (tpl === "leslie") {
+        if (!projectsData.length) return showToast("Sin datos de Proyectos cargados", true);
+        const allRows = projectsData
+          .filter(r => { const iso = String(r["Título"] || r["ISO"] || r["Title"] || "").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
+          .map(r => ({ "ISO": r["Título"] || r["ISO"] || r["Title"] || "", "VEHÍCULO": r["Vehículo"] || r["VEHÍCULO"] || r["VEHICULO"] || "", "DIRECCIÓN": r["Destino"] || r["Dirección"] || r["DIRECCIÓN"] || "" }));
+        if (!allRows.length) return showToast("Sin filas válidas de Proyectos", true);
+        const displayRows = [...allRows].sort((a,b) => String(a["VEHÍCULO"]||"").localeCompare(String(b["VEHÍCULO"]||"")));
+        const hoy = new Date(); const man = new Date(hoy); man.setDate(hoy.getDate() + 1);
+        const days = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+        const months = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+        const fechaStr = days[man.getDay()] + " " + man.getDate() + " de " + months[man.getMonth()] + " de " + man.getFullYear();
+        const uniqueVehs = [...new Set(displayRows.map(r => r["VEHÍCULO"]).filter(Boolean))];
+        const numVehLeslie = uniqueVehs.length || 1;
+        const empresa = params.projTemplateName || "Leslie";
+        const introText = params.emailLeslieIntro.replace(/\{fecha\}/g, fechaStr).replace(/\{empresa\}/g, empresa).replace(/\{numVeh\}/g, numVehLeslie);
+        const introHtml = emailIntroP(introText, "line-height:1.6;");
+        html = introHtml + buildHTMLTable(["ISO","VEHÍCULO","DIRECCIÓN"], displayRows);
+        plain = params.emailLeslieIntro + "\n\n" + displayRows.map(r => r["ISO"] + "\t" + r["VEHÍCULO"] + "\t" + r["DIRECCIÓN"]).join("\n");
+        title = empresa;
+      }
+      if (!html) return;
+      copyAsHTML(html, plain);
+      showToast("✓ Plantilla " + title + " copiada");
+      const origText = e.currentTarget.textContent;
+      e.currentTarget.textContent = "✓ Copiado!";
+      setTimeout(() => { e.currentTarget.textContent = origText; }, 2000);
+    });
+  });
+});
+
+// ============================================================
+// PARAMS
+// ============================================================
+const PARAM_GROUPS = [
+  { id: "vehiculos", label: "Vehículos", desc: "Listas que controlan clasificación y filtros." },
+  { id: "gestiones", label: "Gestiones",  desc: "Tipos de gestión disponibles en los modales." },
+  { id: "correo",    label: "Correo",     desc: "Intros, destinatarios y títulos de las plantillas." },
+  { id: "formato",   label: "Formato Outlook", desc: "Fuente y colores de las tablas de correo." },
+  { id: "transformar", label: "Transformar", desc: "Comportamiento de la pestaña Transformar." },
+  { id: "comportamiento", label: "Comportamiento", desc: "Opciones generales de la app." }
+];
+
+function renderParams() {
+  const container = document.getElementById("params-container");
+  if (!container) return;
+
+  function mkSection(groupId, icon, title, desc, bodyHtml) {
+    return '<div class="param-section" data-group="' + groupId + '" data-search="' + escHtml((title + " " + desc).toLowerCase()) + '">' +
+      '<div class="param-section-header">' +
+      '<div class="param-icon" style="background:rgba(58,114,172,0.12);color:var(--blue);">' + icon + '</div>' +
+      '<div><div style="font-size:13px;font-weight:700;">' + title + '</div>' +
+      '<div style="font-size:11px;color:var(--textFaint);margin-top:2px;line-height:1.5;">' + desc + '</div></div>' +
+      '</div><div class="param-body">' + bodyHtml + '</div></div>';
+  }
+  function mkTagList(key, placeholder) {
+    const color = "var(--blue)";
+    const tags = (params[key] || []).map(function(item) {
+      return '<span class="tag-item" style="background:rgba(58,114,172,0.12);color:' + color + ';border:1px solid rgba(58,114,172,0.28);">' + escHtml(item) + '<button class="tag-remove" onclick="removeTag(\'' + key + '\',\'' + escHtml(item) + '\')">✕</button></span>';
+    }).join("");
+    return '<div class="tag-list" id="tags-' + key + '">' + tags + '</div>' +
+      '<div class="tag-add-row"><input id="tag-input-' + key + '" type="text" class="input" placeholder="' + placeholder + '" style="font-family:var(--font-mono);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addTag(\'' + key + '\');}">' +
+      '<button class="btn btn-secondary" style="padding:5px 10px;" onclick="addTag(\'' + key + '\')">+</button></div>';
+  }
+  function mkTextField(key, label, multiline, helper) {
+    const lbl = '<div class="field-label">' + label + (helper ? '<span style="color:var(--textFaint);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px;">' + helper + '</span>' : '') + '</div>';
+    if (multiline) {
+      return '<div>' + lbl + '<textarea class="input textarea" rows="3" onchange="updateTextParam(\'' + key + '\',this.value)">' + escHtml(params[key] || "") + '</textarea></div>';
+    }
+    return '<div>' + lbl + '<input type="text" class="input" value="' + escHtml(params[key] || "") + '" onchange="updateTextParam(\'' + key + '\',this.value)"></div>';
+  }
+  function mkColorField(key, label) {
+    const val = params[key] || "#000000";
+    return '<div><div class="field-label">' + label + '</div>' +
+      '<div class="param-color-row">' +
+      '<input type="color" value="' + escHtml(val) + '" oninput="updateColorParam(\'' + key + '\',this.value)">' +
+      '<input type="text" value="' + escHtml(val) + '" oninput="updateColorParam(\'' + key + '\',this.value)">' +
+      '</div></div>';
+  }
+  function mkToggle(key, label, desc) {
+    const checked = params[key] ? " checked" : "";
+    return '<div class="param-toggle-row">' +
+      '<div><div class="param-toggle-label">' + label + '</div><div class="param-toggle-desc">' + desc + '</div></div>' +
+      '<label class="param-switch"><input type="checkbox"' + checked + ' onchange="updateBoolParam(\'' + key + '\',this.checked)"><span class="param-switch-slider"></span></label>' +
+      '</div>';
+  }
+  function mkSelect(key, label, options) {
+    const cur = params[key] || "";
+    const opts = options.map(o => '<option value="' + escHtml(o) + '"' + (o === cur ? ' selected' : '') + '>' + escHtml(o) + '</option>').join("");
+    return '<div><div class="field-label">' + label + '</div><select class="input" onchange="updateTextParam(\'' + key + '\',this.value)">' + opts + '</select></div>';
+  }
+  function mkVarsCheatsheet(vars) {
+    return '<div class="param-vars-cheatsheet">' +
+      vars.map(v => '<span class="param-var-chip" onclick="copyVar(\'' + v + '\')" title="Click para copiar">' + v + '</span>').join("") +
+      '</div>';
+  }
+
+  // ============================================================
+  // SIDEBAR
+  // ============================================================
+  const sidebar =
+    '<div class="params-search-wrap">' +
+    '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>' +
+    '<input type="text" id="params-search" placeholder="Buscar parámetro..." oninput="filterParams(this.value)">' +
+    '</div>' +
+    PARAM_GROUPS.map((g, i) =>
+      '<button class="params-nav-btn' + (i === 0 ? ' active' : '') + '" data-group="' + g.id + '" onclick="scrollToParamGroup(\'' + g.id + '\')">' +
+      '<span>' + g.label + '</span>' +
+      '</button>'
+    ).join("");
+
+  // ============================================================
+  // GROUP: VEHÍCULOS
+  // ============================================================
+  const vehiculos =
+    '<div class="params-group-title" id="grp-vehiculos">Vehículos</div>' +
+    mkSection("vehiculos", "DUP", "Duplicados", "Vehículos del Plan SR que se consideran Postventa al detectar duplicados.",
+      mkTagList("dupVehicles", "Ej: VPV01")) +
+    mkSection("vehiculos", "PRY", "Proyectos", "Vehículos del archivo de Proyectos que se incluyen automáticamente.",
+      mkTagList("projVehicles", "Ej: VPR01") +
+      mkTextField("projTemplateName", "Nombre del Transporte", false, "Aparece en plantillas como \"Proyectos {nombre}\"")) +
+    mkSection("vehiculos", "PV", "Postventa", "Valores en columna DESTINO que se consideran Postventa.",
+      mkTagList("pvDestinos", "Ej: VPV01")) +
+    mkSection("vehiculos", "EXC", "Exclusiones", "Valores de DESTINO que se excluyen de Corrección de Ruta.",
+      mkTagList("corrExcludeDestinos", "Ej: VPR01"));
+
+  // ============================================================
+  // GROUP: GESTIONES
+  // ============================================================
+  const gestiones =
+    '<div class="params-group-title" id="grp-gestiones">Gestiones</div>' +
+    mkSection("gestiones", "LSL", "Gestiones de Leslie / Proyectos", "Tipos de GESTIÓN considerados parte del flujo Leslie. Afecta el botón \"ISOs Leslie\" del Dashboard.",
+      mkTagList("leslieGestiones", "Ej: ENVIO Y RETIRO")) +
+    mkSection("gestiones", "K8", "Subtipos de K8", "Opciones que aparecen al detectar gestión K8 en una carga.",
+      mkTagList("k8Types", "Ej: K8 REGULAR") +
+      mkSelect("defaultK8Type", "Tipo K8 por defecto", params.k8Types || [])) +
+    mkSection("gestiones", "MAN", "Gestiones Manuales", "Botones disponibles al pegar ISOs sin formato tabla.",
+      mkTagList("manualGestionTypes", "Ej: RETIRO"));
+
+  // ============================================================
+  // GROUP: CORREO
+  // ============================================================
+  const correo =
+    '<div class="params-group-title" id="grp-correo">Textos de Correo</div>' +
+    mkSection("correo", "INT", "Introducciones", "Texto que abre cada plantilla. " + mkVarsCheatsheet(["{fecha}", "{empresa}", "{numVeh}"]),
+      mkTextField("emailRuteoPMIntro", "Intro Ruteo PM", true) +
+      mkTextField("emailRepitesIntro", "Intro Repites", true) +
+      mkTextField("emailPVIntro", "Intro Postventa", true) +
+      mkTextField("emailLeslieIntro", "Intro Proyectos / Leslie", true)) +
+    mkSection("correo", "DST", "Destinatarios", "Nombres a mencionar en los intros.",
+      mkTextField("emailPVRecipient", "Destinatario Postventa", false, "Aparece como \"Buenas tardes [destinatario], …\"")) +
+    mkSection("correo", "TTL", "Títulos de Sección", "Encabezados que separan cada tabla dentro del correo Ruteo PM.",
+      mkTextField("sectionTitleRepites", "Sección Repites", false) +
+      mkTextField("sectionTitlePV", "Sección Postventa", false) +
+      mkTextField("sectionTitleK8", "Sección K8", false) +
+      mkTextField("sectionTitleCorr", "Sección Corrección de Ruta", false) +
+      mkTextField("sectionTitleProj", "Sección Proyectos", false, "Se concatena con el Nombre del Transporte"));
+
+  // ============================================================
+  // GROUP: FORMATO OUTLOOK
+  // ============================================================
+  const formato =
+    '<div class="params-group-title" id="grp-formato">Formato Outlook</div>' +
+    mkSection("formato", "FNT", "Tipografía", "Fuente y tamaño usados en intros y tablas pegadas en Outlook.",
+      mkTextField("outlookFontFamily", "Familia tipográfica", false, "CSS font-family stack") +
+      mkTextField("outlookFontSize", "Tamaño", false, "Ej: 12pt, 11pt")) +
+    mkSection("formato", "COL", "Colores de Tabla", "Encabezado y bordes de las tablas en formato \"con color\" (no clean).",
+      mkColorField("outlookHeaderBg", "Fondo del Encabezado") +
+      mkColorField("outlookHeaderColor", "Texto del Encabezado") +
+      mkColorField("outlookBorderColor", "Color del Borde"));
+
+  // ============================================================
+  // GROUP: TRANSFORMAR
+  // ============================================================
+  const transformar =
+    '<div class="params-group-title" id="grp-transformar">Transformar</div>' +
+    mkSection("transformar", "TRF", "Pestaña Transformar", "Opciones para la conversión del archivo de ruteo.",
+      mkSelect("transformDateFormat", "Formato de Fecha", ["DD-MMM-YY", "DD-MM-YYYY", "YYYY-MM-DD", "MM/DD/YYYY"]) +
+      mkTextField("transformCommentSeparator", "Separador de Comentarios", false, "Carácter entre NOTAS existente y COMENTARIO BO"));
+
+  // ============================================================
+  // GROUP: COMPORTAMIENTO
+  // ============================================================
+  const comportamiento =
+    '<div class="params-group-title" id="grp-comportamiento">Comportamiento</div>' +
+    mkSection("comportamiento", "CFG", "Opciones Generales", "Cambia el comportamiento de la app.",
+      mkToggle("autoSaveSession", "Guardado automático", "Persiste cambios en localStorage al editar.") +
+      mkToggle("highlightDuplicates", "Resaltar duplicados", "Marca en rojo filas con ISOs repetidas en el Dashboard.") +
+      mkToggle("confirmBeforeClear", "Confirmar antes de limpiar", "Pide confirmación al pulsar \"Limpiar\" en el Dashboard."));
+
+  container.innerHTML =
+    '<div class="params-layout">' +
+    '<aside class="params-sidebar">' + sidebar + '</aside>' +
+    '<div class="params-content" id="params-content-scroll">' +
+    vehiculos + gestiones + correo + formato + transformar + comportamiento +
+    '<div class="params-empty-search hidden" id="params-empty-search">Sin resultados</div>' +
+    '</div>' +
+    '</div>';
+}
+window.copyVar = function(v){
+  navigator.clipboard.writeText(v).catch(() => {});
+  showToast("Variable " + v + " copiada");
+};
+window.filterParams = function(q){
+  const query = (q || "").trim().toLowerCase();
+  const sections = document.querySelectorAll(".param-section");
+  const titles = document.querySelectorAll(".params-group-title");
+  let visibleCount = 0;
+  sections.forEach(s => {
+    const txt = s.getAttribute("data-search") || "";
+    const match = !query || txt.includes(query);
+    s.classList.toggle("hidden-search", !match);
+    if (match) visibleCount++;
+  });
+  titles.forEach(t => {
+    const gid = t.id.replace("grp-", "");
+    const anyVisible = [...document.querySelectorAll('.param-section[data-group="' + gid + '"]')].some(s => !s.classList.contains("hidden-search"));
+    t.style.display = anyVisible ? "" : "none";
+  });
+  const empty = document.getElementById("params-empty-search");
+  if (empty) empty.classList.toggle("hidden", visibleCount > 0);
+};
+window.scrollToParamGroup = function(gid){
+  const target = document.getElementById("grp-" + gid);
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.querySelectorAll(".params-nav-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-group") === gid));
+};
+window.updateBoolParam = function(key, val){
+  params[key] = !!val;
+  saveData();
+  showToast("Parámetro guardado");
+  if (key === "highlightDuplicates") renderDashboard();
+};
+window.updateColorParam = function(key, val){
+  if (!/^#[0-9a-fA-F]{6}$/.test(val)) {
+    params[key] = val;
+    saveData();
+    return;
+  }
+  params[key] = val;
+  saveData();
+  document.querySelectorAll('[oninput*="' + key + '"]').forEach(el => { if (el.value !== val) el.value = val; });
+};
+function _onParamChanged(key) {
+  if (key === "manualGestionTypes") renderManualGestionModal();
+  if (key === "k8Types" || key === "defaultK8Type") renderK8ModalOptions();
+  if (key === "projTemplateName") { updateTemplateTitles?.(); renderProjects?.(); }
+  if (key === "leslieGestiones" || key === "highlightDuplicates") renderDashboard?.();
+  if (key === "dupVehicles") { renderDuplicates?.(); updateBadges?.(); }
+}
+window.addTag = function(key) {
+  const input = document.getElementById("tag-input-" + key);
+  if (!input) return;
+  const val = input.value.trim().toUpperCase();
+  if (val && !(params[key] || []).includes(val)) {
+    params[key] = [...(params[key] || []), val];
+    saveData(); renderParams(); _onParamChanged(key);
+  }
+  input.value = "";
+  document.getElementById("tag-input-" + key)?.focus();
+};
+window.removeTag = function(key, item) {
+  params[key] = (params[key] || []).filter(i => i !== item);
+  saveData(); renderParams(); _onParamChanged(key);
+};
+window.updateTextParam = function(key, value) {
+  params[key] = value;
+  saveData();
+  _onParamChanged(key);
+  showToast("Parámetro guardado");
+};
+document.getElementById("btn-reset-params")?.addEventListener("click", () => {
+  if (confirm("¿Restaurar parámetros por defecto?")) {
+    params = { ...DEFAULT_PARAMS };
+    saveData(); renderParams();
+    showToast("Parámetros restablecidos");
+  }
+});
+document.getElementById("btn-export-params")?.addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(params, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url;
+  a.download = "RuteoPM_Config_" + Date.now() + ".json"; a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("file-import-params")?.addEventListener("change", e => {
+  if (!e.target.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      params = { ...DEFAULT_PARAMS, ...JSON.parse(ev.target.result) };
+      saveData(); renderParams();
+      showToast("Configuración importada");
+    } catch { showToast("Error al leer JSON", true); }
+  };
+  reader.readAsText(e.target.files[0]);
+  e.target.value = "";
+});
+
+// ============================================================
+// TRANSFORM TAB — NEW
+// ============================================================
+const TRANSFORM_MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+function formatDateForRuteo(dateStr) {
+  // dateStr: "YYYY-MM-DD" from input[type=date]
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return "";
+  const y = parts[0], m = parseInt(parts[1]), d = parts[2];
+  const mon = TRANSFORM_MONTHS[m - 1];
+  if (!mon) return "";
+  const fmt = params.transformDateFormat || "DD-MMM-YY";
+  switch (fmt) {
+    case "DD-MM-YYYY": return d + "-" + String(m).padStart(2,"0") + "-" + y;
+    case "YYYY-MM-DD": return y + "-" + String(m).padStart(2,"0") + "-" + d;
+    case "MM/DD/YYYY": return String(m).padStart(2,"0") + "/" + d + "/" + y;
+    case "DD-MMM-YY":
+    default:           return d + "-" + mon + "-" + y.slice(2);
+  }
+}
+
+function renderTransformTable() {
+  const theadRow = document.getElementById("transform-thead-row");
+  const tbody = document.getElementById("transform-tbody");
+  const wrap = document.getElementById("transform-spreadsheet-wrap");
+  const empty = document.getElementById("transform-empty");
+  const bottom = document.getElementById("transform-bottom");
+  const dlBtn = document.getElementById("btn-transform-download");
+  if (!theadRow || !tbody) return;
+
+  if (!transformData.length) {
+    wrap.classList.add("hidden");
+    empty.style.display = "flex";
+    if (bottom) bottom.classList.add("hidden");
+    if (dlBtn) dlBtn.disabled = true;
+    document.getElementById("transform-stats").innerHTML = '<span style="color:var(--textFaint);font-style:italic;">Sin archivo cargado</span>';
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+  empty.style.display = "none";
+  if (bottom) bottom.classList.remove("hidden");
+  if (dlBtn) dlBtn.disabled = false;
+
+  // Build a gestión lookup map from dashboard
+  const gestMap = {};
+  rows.forEach(r => {
+    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÓN"] || "";
+  });
+
+  // Count matches
+  let matched = 0, unmatched = 0;
+  transformData.forEach(row => {
+    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    if (isoKey && gestMap[isoKey]) matched++; else if (isoKey) unmatched++;
+  });
+
+  // Determine display columns (skip internal _cols)
+  const displayCols = transformHeaders.filter(h => !String(h).startsWith("_"));
+
+  // Highlight columns
+  const HIGHLIGHT_BLUE = new Set(["FECHA_PROGRAMADA"]);
+  const HIGHLIGHT_GREEN = new Set(["ID_REFERENCIA"]);
+  const HIGHLIGHT_ORANGE = new Set(["NOTAS"]);
+
+  // Build header
+  let thHtml = "";
+  thHtml += '<th style="background:rgba(255,255,255,0.03);padding:5px 8px;font-size:9px;color:var(--textFaint);width:36px;">#</th>';
+  displayCols.forEach(col => {
+    let extra = "";
+    if (HIGHLIGHT_BLUE.has(col)) extra = " col-highlight";
+    else if (HIGHLIGHT_GREEN.has(col)) extra = ' style="background:rgba(42,101,72,0.18);color:var(--green);"';
+    else if (HIGHLIGHT_ORANGE.has(col)) extra = ' style="background:rgba(58,114,172,0.12);color:var(--textSub);"';
+    thHtml += '<th class="' + (HIGHLIGHT_BLUE.has(col) ? "col-highlight" : "") + '"' + (HIGHLIGHT_GREEN.has(col) || HIGHLIGHT_ORANGE.has(col) ? extra : '') + '>' + escHtml(String(col)) + '</th>';
+  });
+  // COMENTARIO BO column header
+  thHtml += '<th style="background:rgba(58,114,172,0.14);color:var(--blue);border-left:2px solid rgba(58,114,172,0.35);">COMENTARIO BO</th>';
+  theadRow.innerHTML = thHtml;
+
+  // Build body
+  let tbodyHtml = "";
+  transformData.forEach((row, idx) => {
+    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    const hasMatch = isoKey && !!gestMap[isoKey];
+    const comment = transformComments[idx] || "";
+    tbodyHtml += '<tr>';
+    tbodyHtml += '<td class="row-num" style="font-size:9px;color:var(--textFaint);padding:4px;text-align:center;">' + (idx + 1) + '</td>';
+    displayCols.forEach(col => {
+      let cellStyle = "";
+      let inputStyle = "";
+      if (HIGHLIGHT_BLUE.has(col)) { cellStyle = "background:rgba(58,114,172,0.08);"; inputStyle = "color:var(--blue);font-weight:600;"; }
+      else if (HIGHLIGHT_GREEN.has(col)) { cellStyle = "background:rgba(42,101,72,0.08);"; inputStyle = "color:" + (hasMatch ? "var(--green)" : "var(--textFaint)") + ";font-weight:600;"; }
+      else if (HIGHLIGHT_ORANGE.has(col)) { cellStyle = "background:rgba(58,114,172,0.04);"; }
+      tbodyHtml += '<td style="' + cellStyle + '"><input type="text" readonly value="' + escHtml(String(row[col] || "")) + '" style="padding:4px 7px;font-size:10px;' + inputStyle + '"></td>';
+    });
+    // COMENTARIO BO — editable
+    tbodyHtml += '<td style="background:rgba(58,114,172,0.05);border-left:2px solid rgba(58,114,172,0.22);">' +
+      '<input type="text" value="' + escHtml(comment) + '" placeholder="Añadir comentario..." ' +
+      'style="padding:4px 7px;font-size:10px;" ' +
+      'oninput="transformComments[' + idx + ']=this.value" ' +
+      'data-transform-idx="' + idx + '">' +
+      '</td>';
+    tbodyHtml += '</tr>';
+  });
+  tbody.innerHTML = tbodyHtml;
+
+  // Update stats
+  document.getElementById("transform-stats").innerHTML =
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.12);border:1px solid rgba(58,114,172,0.28);color:var(--blue);font-weight:700;font-family:var(--font-mono);">' + transformData.length + ' filas</span>' +
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(42,101,72,0.14);border:1px solid rgba(42,101,72,0.32);color:var(--green);font-weight:700;font-family:var(--font-mono);">' + matched + ' cruzadas</span>' +
+    (unmatched > 0 ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(154,53,53,0.12);border:1px solid rgba(154,53,53,0.3);color:var(--red);font-weight:700;font-family:var(--font-mono);">' + unmatched + ' sin cruce</span>' : '');
+
+  if (document.getElementById("transform-total")) document.getElementById("transform-total").textContent = transformData.length;
+  if (document.getElementById("transform-matched")) document.getElementById("transform-matched").textContent = matched;
+  if (document.getElementById("transform-unmatched")) document.getElementById("transform-unmatched").textContent = unmatched;
+}
+
+function downloadTransformed() {
+  if (!transformData.length) return showToast("Sin datos para transformar", true);
+
+  const dateStr = document.getElementById("transform-date").value;
+  const formattedDate = formatDateForRuteo(dateStr);
+  if (!formattedDate) return showToast("Selecciona una fecha primero", true);
+
+  // Build gestión map from dashboard
+  const gestMap = {};
+  rows.forEach(r => {
+    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÓN"] || "";
+  });
+
+  let updatedFecha = 0, updatedRef = 0, updatedNotas = 0;
+
+  // Transform rows
+  const transformed = transformData.map((row, idx) => {
+    const newRow = { ...row };
+
+    // 1. Update FECHA_PROGRAMADA
+    newRow["FECHA_PROGRAMADA"] = formattedDate;
+    updatedFecha++;
+
+    // 2. Update ID_REFERENCIA via ISO cross-reference
+    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    if (isoKey) {
+      const gest = gestMap[isoKey];
+      if (gest) {
+        newRow["ID_REFERENCIA"] = gest;
+        updatedRef++;
+      }
+    }
+
+    // 3. Append COMENTARIO BO to NOTAS
+    const comment = (transformComments[idx] || "").trim();
+    if (comment) {
+      const existingNotas = String(row["NOTAS"] || "").trim();
+      const sep = params.transformCommentSeparator || " ";
+      newRow["NOTAS"] = existingNotas ? existingNotas + sep + comment : comment;
+      updatedNotas++;
+    }
+
+    return newRow;
+  });
+
+  // Export to xlsx
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(transformed);
+  XLSX.utils.book_append_sheet(wb, ws, "Ruteo");
+  const filename = "Ruteo_Transformado_" + formattedDate.replace(/-/g,"") + ".xlsx";
+  XLSX.writeFile(wb, filename);
+
+  showToast("✓ Descargado: " + updatedFecha + " fechas, " + updatedRef + " gestiones, " + updatedNotas + " notas");
+}
+</script>
+</body>
+</html>

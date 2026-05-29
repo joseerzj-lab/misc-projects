@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Avance en Ruta</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.1.16/umd/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.js"></script>
+<!-- No external dependencies for geo-audit needed -->
+<style>
+:root{--ar-bg:#f6f8fa;--ar-bg-card:#ffffff;--ar-bg-card-alt:#f6f8fa;--ar-bg-hover:rgba(0,0,0,0.04);--ar-bg-active:rgba(0,0,0,0.06);--ar-text:#1f2328;--ar-text-sub:#3d444d;--ar-text-muted:#636c76;--ar-text-faint:#818b98;--ar-text-disabled:#adb5bd;--ar-border:rgba(0,0,0,0.09);--ar-border-soft:rgba(0,0,0,0.05)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;width:100%;overflow:hidden;font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f6f8fa;color:#1f2328}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:99px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.animate-spin{animation:spin 1s linear infinite}
+@keyframes bounce{0%,100%{transform:translateY(-25%) translateX(-50%)}50%{transform:translateY(0) translateX(-50%)}}
+.animate-bounce{animation:bounce 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ══════════════════════════════════════════════════════════════
+//  CONSTANTS & THEME (Light Mode Only)
+// ══════════════════════════════════════════════════════════════
+const TC = {
+  bg:'#f6f8fa', bgCard:'#ffffff', bgCardAlt:'#f6f8fa',
+  bgHover:'rgba(0,0,0,0.04)', bgActive:'rgba(0,0,0,0.06)',
+  text:'#1f2328', textSub:'#3d444d', textMuted:'#636c76',
+  textFaint:'#818b98', textDisabled:'#adb5bd',
+  border:'rgba(0,0,0,0.09)', borderSoft:'rgba(0,0,0,0.05)',
+  headerBg:'rgba(255,255,255,0.97)'
+};
+const isDark = false;
+
+const C = {
+  bg:'var(--ar-bg)',bgCard:'var(--ar-bg-card)',bgCardAlt:'var(--ar-bg-card-alt)',
+  bgHover:'var(--ar-bg-hover)',bgActive:'var(--ar-bg-active)',
+  border:'var(--ar-border)',borderSoft:'var(--ar-border-soft)',borderFocus:'rgba(56,139,253,0.5)',
+  text:'var(--ar-text)',textSub:'var(--ar-text-sub)',textMuted:'var(--ar-text-muted)',
+  textFaint:'var(--ar-text-faint)',textDisabled:'var(--ar-text-disabled)',
+  blue:'#7bb8ff',blueLight:'rgba(56,139,253,0.15)',blueBorder:'rgba(56,139,253,0.3)',bluePrimary:'#0051BA',
+  green:'#3fb950',greenBg:'rgba(63,185,80,0.12)',greenBorder:'rgba(63,185,80,0.3)',
+  orange:'#f0883e',orangeBg:'rgba(240,136,62,0.14)',orangeBorder:'rgba(240,136,62,0.35)',
+  red:'#ff7b72',redBg:'rgba(248,81,73,0.12)',redBorder:'rgba(248,81,73,0.25)',
+  purple:'#b19cd9',purpleBg:'rgba(177,156,217,0.12)',purpleBorder:'rgba(177,156,217,0.25)',
+  teal:'#2dd4bf',tealBg:'rgba(45,212,191,0.1)',tealBorder:'rgba(45,212,191,0.25)'
+};
+const T = {fontFamily:'"Inter",system-ui,-apple-system,sans-serif',fontMono:'"JetBrains Mono","Fira Code",monospace',xs:9,sm:10,base:11,md:12,lg:13,xl:15};
+const R = {sm:4,md:8,lg:10,xl:12,pill:20,full:9999};
+const SP = {1:4,2:8,3:12,4:16,5:20,6:24};
+
+const REPORT_TABS = [
+  {id:'carga',label:'Cargar Datos',icon:'📁',badgeVariant:'blue'},
+  {id:'reporte',label:'Tabla de Datos',icon:'📋',badgeVariant:'green'},
+  {id:'grafico',label:'Gráfico Interactivo',icon:'📊',badgeVariant:'purple'},
+  {id:'resumen',label:'Avance en Ruta',icon:'📝',badgeVariant:'yellow'},
+  {id:'isos',label:'ISOs por camion',icon:'🚚',badgeVariant:'orange'},
+  {id:'incidencias',label:'Incidencias',icon:'🚨',badgeVariant:'red'},
+  {id:'consultar',label:'Consultar ISOs',icon:'🔍',badgeVariant:'teal'},
+];
+
+// Recharts
+const RechartsMod = window.Recharts || {};
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip:RechartsTooltip,Legend,ResponsiveContainer,LabelList} = RechartsMod;
+// Framer Motion - not available via simple CDN in UMD, use passthrough
+const motion = {div: 'div', tr: 'tr', span: 'span', button: 'button', img: 'img', td: 'td'};
+const AnimatePresence = ({children}) => children;
+// Lucide
+const LucideIcons = window.lucideReact || {};
+const Search = LucideIcons.Search || (()=>React.createElement('span',null,'🔍'));
+const X_Icon = LucideIcons.X || (()=>React.createElement('span',null,'✕'));
+const Copy = LucideIcons.Copy || (()=>React.createElement('span',null,'📋'));
+const Maximize2 = LucideIcons.Maximize2 || (()=>React.createElement('span',null,'⛶'));
+const FileDown = LucideIcons.FileDown || (()=>React.createElement('span',null,'💾'));
+const FileSpreadsheet = LucideIcons.FileSpreadsheet || (()=>React.createElement('span',null,'📄'));
+const AlertTriangle = LucideIcons.AlertTriangle || (()=>React.createElement('span',null,'⚠'));
+const Truck = LucideIcons.Truck || (()=>React.createElement('span',null,'🚚'));
+const ImageIcon = LucideIcons.Image || (()=>React.createElement('span',null,'🖼'));
+const ChevronDown = LucideIcons.ChevronDown || (()=>React.createElement('span',null,'▼'));
+const ZoomIn = LucideIcons.ZoomIn || (()=>React.createElement('span',null,'+'));
+const ZoomOut = LucideIcons.ZoomOut || (()=>React.createElement('span',null,'-'));
+
+// ══════════════════════════════════════════════════════════════
+//  CSV PARSING
+// ══════════════════════════════════════════════════════════════
+function detectSep(line){const s=(line.match(/;/g)||[]).length,c=(line.match(/,/g)||[]).length;return s>c?';':','}
+function parseRow(line,sep){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"')inQ=!inQ;else if(ch===sep&&!inQ){r.push(cur.trim().replace(/^"|"$/g,''));cur=''}else cur+=ch}r.push(cur.trim().replace(/^"|"$/g,''));return r}
+function getKey(row,key){const k=Object.keys(row).find(k=>k.trim().toLowerCase()===key.toLowerCase());return k?row[k]:null}
+function termGradient(pct){const p=Math.max(0,Math.min(100,pct));if(p>=100)return{bg:'rgba(34,197,94,.25)',txt:'#22c55e'};if(p>=90)return{bg:'rgba(234,179,8,.2)',txt:'#eab308'};return{bg:'rgba(239,68,68,.15)',txt:'#ef4444'}}
+function formatPct(v){return parseFloat(v.toFixed(1)).toString().replace('.',',')+' %'}
+
+// Geo-audit logic removed per user request
+
+// ══════════════════════════════════════════════════════════════
+//  EXPORT UTILITIES (from exportUtils.ts)
+// ══════════════════════════════════════════════════════════════
+async function exportElementAsImage(el,filename,opts={}){const{mode='download',backgroundColor='#ffffff',onNotify,onBeforeExport,onAfterExport}=opts;try{if(onBeforeExport)onBeforeExport();const canvas=await html2canvas(el,{backgroundColor,scale:2,useCORS:true,logging:false,ignoreElements:e=>e.hasAttribute&&e.hasAttribute('data-html2canvas-ignore')});if(onAfterExport)onAfterExport();if(mode==='copy'){canvas.toBlob(blob=>{if(blob){navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(()=>onNotify&&onNotify('✓ Imagen copiada')).catch(()=>onNotify&&onNotify('❌ Error al copiar'))}});return}const link=document.createElement('a');link.download=filename+'.png';link.href=canvas.toDataURL('image/png');link.click();if(onNotify)onNotify('✓ Imagen descargada')}catch(e){if(onAfterExport)onAfterExport();if(onNotify)onNotify('❌ Error: '+e.message)}}
+
+// ══════════════════════════════════════════════════════════════
+//  PILL STYLE HELPER
+// ══════════════════════════════════════════════════════════════
+function pillStyle(level,extra){const map={high:{bg:C.redBg,color:C.red,border:C.redBorder},medium:{bg:C.orangeBg,color:C.orange,border:C.orangeBorder},low:{bg:C.greenBg,color:C.green,border:C.greenBorder},blue:{bg:C.blueLight,color:C.blue,border:C.blueBorder},purple:{bg:C.purpleBg,color:C.purple,border:'rgba(167,139,250,0.3)'},teal:{bg:C.tealBg,color:C.teal,border:C.tealBorder},muted:{bg:'rgba(0,0,0,0.04)',color:C.textFaint,border:C.border}};const m=map[level]||map.muted;return{display:'inline-flex',alignItems:'center',fontSize:T.xs,fontWeight:700,padding:'2px 8px',borderRadius:R.pill,background:m.bg,color:m.color,border:`1px solid ${m.border}`,whiteSpace:'nowrap',lineHeight:1.5,...extra}}
+
+// ══════════════════════════════════════════════════════════════
+//  UI COMPONENTS (DS.tsx, DropdownMenu, ImageModal, GlassHeader)
+// ══════════════════════════════════════════════════════════════
+
+function Badge({variant='muted',style:sx,children}){return <span style={pillStyle(variant,sx)}>{children}</span>}
+
+function Btn({onClick,variant='secondary',style:sx,disabled,children,...rest}){
+  const BTN={primary:{background:'linear-gradient(135deg,#0051BA,#1a6dd4)',color:'#fff',border:'1px solid rgba(56,139,253,0.4)',boxShadow:'0 4px 12px rgba(0,81,186,0.3)'},secondary:{background:'rgba(0,0,0,0.03)',color:TC.textSub,border:`1px solid ${TC.border}`},ghost:{background:'transparent',color:TC.textFaint,border:'1px solid transparent'},danger:{background:C.redBg,color:C.red,border:`1px solid ${C.redBorder}`},success:{background:C.greenBg,color:C.green,border:`1px solid ${C.greenBorder}`},warning:{background:C.orangeBg,color:C.orange,border:`1px solid ${C.orangeBorder}`},blue:{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueBorder}`}};
+  const b=BTN[variant]||BTN.secondary;
+  return <button onClick={onClick} disabled={disabled} style={{...b,fontSize:T.base,padding:'5px 12px',borderRadius:R.md,height:30,fontWeight:700,cursor:disabled?'not-allowed':'pointer',opacity:disabled?0.5:1,fontFamily:T.fontFamily,display:'inline-flex',alignItems:'center',gap:4,transition:'all 0.15s',...sx}} {...rest}>{children}</button>
+}
+
+function Card({style:sx,children,...rest}){
+  return <div style={{borderRadius:R.lg,border:`1px solid ${TC.border}`,background:TC.bgCard,boxShadow:'0 4px 24px rgba(0,0,0,0.08)',overflow:'hidden',padding:16,...sx}} {...rest}>{children}</div>
+}
+
+function DropdownMenu({children,options,closeOnSelect=true}){
+  const[open,setOpen]=React.useState(false);const ref=React.useRef(null);
+  React.useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h)},[]);
+  return <div ref={ref} style={{position:'relative',display:'inline-block'}}>
+    <button onClick={()=>setOpen(!open)} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:R.md,border:`1px solid ${TC.border}`,background:'rgba(0,0,0,0.03)',fontSize:T.sm,fontWeight:700,cursor:'pointer',color:TC.textSub,fontFamily:T.fontFamily}}>{children} <ChevronDown size={12}/></button>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,marginTop:4,minWidth:200,background:'#fff',border:`1px solid ${TC.border}`,borderRadius:R.lg,boxShadow:'0 8px 30px rgba(0,0,0,0.12)',zIndex:999,maxHeight:300,overflowY:'auto'}}>
+      {options.map((o,i)=><button key={i} onClick={()=>{o.onClick();if(closeOnSelect)setOpen(false)}} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:T.sm,fontWeight:600,color:TC.text,fontFamily:T.fontFamily,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>{o.Icon&&<span>{o.Icon}</span>}{o.label}</button>)}
+    </div>}
+  </div>
+}
+
+function GlassHeader({appName,icon,tabs,activeTab,onTabChange,badges}){
+  return <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:48,background:'rgba(255,255,255,0.95)',borderBottom:`1px solid ${TC.borderSoft}`,backdropFilter:'blur(12px)',gap:16,flexShrink:0}}>
+    <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>{icon}</span><span style={{fontSize:13,fontWeight:900,letterSpacing:'-0.02em',color:TC.text}}>{appName}</span></div>
+    <div style={{display:'flex',gap:2,marginLeft:16,flex:1}}>
+      {tabs.map(t=>{const isActive=activeTab===t.id;return <button key={t.id} onClick={()=>onTabChange(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 14px',borderRadius:R.pill,border:'none',background:isActive?'#0051BA':'transparent',color:isActive?'#fff':TC.textMuted,fontSize:10,fontWeight:700,cursor:'pointer',transition:'all 0.15s',fontFamily:T.fontFamily}}><span>{t.icon}</span>{t.label}{badges&&badges[t.id]>0&&<span style={{background:isActive?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.06)',padding:'1px 6px',borderRadius:99,fontSize:9,fontWeight:800}}>{badges[t.id]}</span>}</button>})}
+    </div>
+  </div>
+}
+
+function ImageModal({isOpen,onClose,images,initialIndex=0}){
+  const[idx,setIdx]=React.useState(initialIndex);const[zoom,setZoom]=React.useState(1);const[pos,setPos]=React.useState({x:0,y:0});
+  React.useEffect(()=>{setIdx(initialIndex);setZoom(1);setPos({x:0,y:0})},[initialIndex,isOpen]);
+  if(!isOpen||!images||images.length===0)return null;
+  const getDirectUrl=url=>{if(!url)return'';const m=url.match(/storage\.googleapis\.com\/([^/]+)\/(.+)/)||url.match(/storage\.cloud\.google\.com\/([^/]+)\/(.+)/);if(m)return`https://storage.googleapis.com/${m[1]}/${m[2]}`;return url};
+  const handleWheel=e=>{e.preventDefault();setZoom(z=>Math.max(0.5,Math.min(5,z+(e.deltaY>0?-0.2:0.2))))};
+  const src=getDirectUrl(images[idx]);
+  return <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(4px)'}}/>
+    <div style={{position:'relative',zIndex:1,maxWidth:'90vw',maxHeight:'90vh',display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+      <div style={{display:'flex',gap:8,marginBottom:8}}>
+        <button onClick={()=>setZoom(z=>Math.min(5,z+0.3))} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:R.full,width:32,height:32,color:'#fff',cursor:'pointer',fontSize:16}}>+</button>
+        <button onClick={()=>setZoom(z=>Math.max(0.5,z-0.3))} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:R.full,width:32,height:32,color:'#fff',cursor:'pointer',fontSize:16}}>−</button>
+        <button onClick={()=>{setZoom(1);setPos({x:0,y:0})}} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:R.pill,height:32,color:'#fff',cursor:'pointer',fontSize:10,fontWeight:700,padding:'0 12px'}}>Reset</button>
+        <button onClick={onClose} style={{background:'rgba(255,0,0,0.2)',border:'1px solid rgba(255,0,0,0.3)',borderRadius:R.full,width:32,height:32,color:'#ff6b6b',cursor:'pointer',fontSize:16}}>✕</button>
+      </div>
+      <div onWheel={handleWheel} style={{overflow:'hidden',borderRadius:12,maxWidth:'85vw',maxHeight:'75vh'}}>
+        <img src={src} alt="" style={{transform:`scale(${zoom}) translate(${pos.x}px,${pos.y}px)`,transition:'transform 0.15s',maxWidth:'85vw',maxHeight:'75vh',objectFit:'contain'}} onError={e=>{e.target.src='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="50%" y="50%" text-anchor="middle" fill="gray" font-size="14">Error</text></svg>'}}/>
+      </div>
+      {images.length>1&&<div style={{display:'flex',gap:8,marginTop:8}}>
+        <button onClick={()=>{setIdx(i=>(i-1+images.length)%images.length);setZoom(1)}} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:R.full,width:36,height:36,color:'#fff',cursor:'pointer',fontSize:18}}>◀</button>
+        <span style={{color:'#fff',fontSize:12,fontWeight:700,display:'flex',alignItems:'center'}}>{idx+1} / {images.length}</span>
+        <button onClick={()=>{setIdx(i=>(i+1)%images.length);setZoom(1)}} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:R.full,width:36,height:36,color:'#fff',cursor:'pointer',fontSize:18}}>▶</button>
+      </div>}
+    </div>
+  </div>
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TABLE MODAL (from TableModal.tsx)
+// ══════════════════════════════════════════════════════════════
+function TableModal({isOpen,onClose,title,subtitle,data:mData,columns,isConflictModal,onDeleteRow,onExportCSV}){
+  const[filter,setFilter]=React.useState('');const[sortCol,setSortCol]=React.useState('');const[sortDir,setSortDir]=React.useState(null);
+  const[sel,setSel]=React.useState({start:null,end:null});const[dragging,setDragging]=React.useState(false);
+  React.useEffect(()=>{const h=()=>setDragging(false);window.addEventListener('mouseup',h);return()=>window.removeEventListener('mouseup',h)},[]);
+  if(!isOpen)return null;
+  const visCols=columns.filter(c=>c!=='_isConflict'&&c!=='_refRow');
+  let filtered=mData;if(filter.trim()){const q=filter.toLowerCase();filtered=mData.filter(r=>visCols.some(c=>String(r[c]||'').toLowerCase().includes(q)))}
+  if(sortCol&&sortDir){filtered=[...filtered].sort((a,b)=>{const va=String(a[sortCol]||''),vb=String(b[sortCol]||'');return sortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va)})}
+  const handleSort=col=>{if(sortCol===col){if(sortDir==='asc')setSortDir('desc');else{setSortCol('');setSortDir(null)}}else{setSortCol(col);setSortDir('asc')}};
+  const copyTable=()=>{if(filtered.length===0)return;let t=visCols.join('\t')+'\n';filtered.forEach(r=>{t+=visCols.map(c=>String(r[c]||'').replace(/\t/g,' ')).join('\t')+'\n'});navigator.clipboard.writeText(t)};
+  let rMin=-1,rMax=-1,cMin=-1,cMax=-1;if(sel.start&&sel.end){rMin=Math.min(sel.start.r,sel.end.r);rMax=Math.max(sel.start.r,sel.end.r);cMin=Math.min(sel.start.c,sel.end.c);cMax=Math.max(sel.start.c,sel.end.c)}
+  return <div style={{position:'fixed',inset:0,zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}}/>
+    <div style={{position:'relative',zIndex:1,width:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:16,border:`1px solid ${TC.border}`,boxShadow:'0 20px 60px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'16px 24px',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div><div style={{fontWeight:800,fontSize:14,color:TC.text}}>{title}</div>{subtitle&&<div style={{fontSize:10,color:TC.textMuted,marginTop:2}}>{subtitle}</div>}</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Filtrar..." style={{border:`1px solid ${TC.border}`,borderRadius:R.md,padding:'4px 10px',fontSize:T.sm,width:180,outline:'none',fontFamily:T.fontFamily,color:TC.text}}/>
+          <Btn onClick={copyTable} variant="primary" style={{fontSize:10,padding:'4px 10px'}}><Copy size={12}/> Copiar</Btn>
+          {onExportCSV&&<Btn onClick={onExportCSV} style={{fontSize:10,padding:'4px 10px'}}><FileDown size={12}/> CSV</Btn>}
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:TC.textMuted,fontSize:18,padding:4}}>✕</button>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:0}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
+          <thead><tr>{visCols.map((c,ci)=><th key={c} onClick={()=>handleSort(c)} style={{padding:'8px 12px',textAlign:'left',fontWeight:800,borderBottom:`2px solid ${TC.borderSoft}`,background:TC.headerBg,position:'sticky',top:0,zIndex:5,cursor:'pointer',fontSize:10,color:TC.textSub,userSelect:'none'}}>{c} {sortCol===c?(sortDir==='asc'?'▲':'▼'):''}</th>)}</tr></thead>
+          <tbody>{filtered.map((row,ri)=>{const origIdx=mData.indexOf(row);const isConf=row._isConflict;return <tr key={ri} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:isConf?'rgba(249,115,22,0.06)':'transparent'}}>
+            {visCols.map((c,ci)=>{const isSel=ri>=rMin&&ri<=rMax&&ci>=cMin&&ci<=cMax;return <td key={c} style={{padding:'6px 12px',color:TC.text,position:'relative',cursor:'cell',background:isSel?'rgba(59,130,246,0.1)':'transparent',outline:isSel?'1px solid rgba(59,130,246,0.3)':'none'}} onMouseDown={()=>{setSel({start:{r:ri,c:ci},end:{r:ri,c:ci}});setDragging(true)}} onMouseEnter={()=>{if(dragging)setSel(p=>({...p,end:{r:ri,c:ci}}))}}>{String(row[c]||'')}</td>})}
+            {isConflictModal&&onDeleteRow&&<td style={{padding:'4px 8px',textAlign:'center'}}><button onClick={()=>onDeleteRow(origIdx)} style={{background:C.redBg,color:C.red,border:`1px solid ${C.redBorder}`,borderRadius:R.sm,padding:'2px 8px',fontSize:9,fontWeight:700,cursor:'pointer'}}>Eliminar</button></td>}
+          </tr>})}</tbody>
+        </table>
+        {filtered.length===0&&<div style={{padding:40,textAlign:'center',color:TC.textMuted,fontWeight:700}}>Sin resultados</div>}
+      </div>
+      <div style={{padding:'8px 24px',borderTop:`1px solid ${TC.borderSoft}`,background:TC.headerBg,fontSize:10,color:TC.textMuted,fontWeight:700}}>{filtered.length} fila(s)</div>
+    </div>
+  </div>
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TAB INCIDENCIAS (from TabIncidencias.tsx)
+// ══════════════════════════════════════════════════════════════
+function TabIncidencias({incidencias,selectedRegions}){
+  const[filterPat,setFilterPat]=React.useState('');const[imgModal,setImgModal]=React.useState({open:false,images:[],index:0});
+  const[expandedPats,setExpandedPats]=React.useState(new Set());
+  const getDirectUrl=url=>{if(!url)return'';const m=url.match(/storage\.googleapis\.com\/([^/]+)\/(.+)/)||url.match(/storage\.cloud\.google\.com\/([^/]+)\/(.+)/);if(m)return`https://storage.googleapis.com/${m[1]}/${m[2]}`;return url};
+  const allPats=Object.keys(incidencias||{}).sort();
+  const filtered=allPats.filter(p=>{
+    const d=incidencias[p];
+    const q=filterPat.toLowerCase();
+    const matchPat=p.toLowerCase().includes(q);
+    const matchISO=d.eventos.some(ev=>ev.iso.toLowerCase().includes(q));
+    if(filterPat&&!matchPat&&!matchISO)return false;
+    if(selectedRegions&&selectedRegions.size>0&&!selectedRegions.has(d.region))return false;
+    return true;
+  });
+  const totalInc=filtered.reduce((a,p)=>a+(incidencias[p].incidentCount||0),0);
+  const totalFotos=filtered.reduce((a,p)=>a+(incidencias[p].totalFotos||0),0);
+  
+  const togglePat=(pat,e)=>{
+    e.preventDefault();
+    setExpandedPats(prev=>{const n=new Set(prev);if(n.has(pat))n.delete(pat);else n.add(pat);return n});
+  };
+
+  return <div style={{height:'100%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+    <div style={{padding:'12px 24px',display:'flex',alignItems:'center',gap:12,borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,flexShrink:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:16}}>🚨</span><span style={{fontSize:13,fontWeight:800,color:TC.text}}>Incidencias</span></div>
+      <Badge variant="high">{totalInc} incidencias</Badge>
+      <Badge variant="purple">{totalFotos} fotos</Badge>
+      <div style={{flex:1}}/>
+      <input value={filterPat} onChange={e=>setFilterPat(e.target.value)} placeholder="Buscar patente o ISO..." style={{border:`1px solid ${TC.border}`,borderRadius:R.pill,padding:'5px 14px',fontSize:T.sm,width:250,outline:'none',fontFamily:T.fontFamily,color:TC.text}}/>
+    </div>
+    <div style={{flex:1,overflow:'auto',padding:24}}>
+      {filtered.length===0?<div style={{textAlign:'center',padding:60,opacity:0.3}}><div style={{fontSize:48}}>🚨</div><div style={{fontWeight:700,marginTop:8}}>No hay incidencias</div></div>:
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        {filtered.map(pat=>{const d=incidencias[pat];const isExp=expandedPats.has(pat);return <Card key={pat} style={{padding:0}}>
+          <div onClick={(e)=>togglePat(pat,e)} style={{padding:'12px 20px',borderBottom:isExp?`1px solid ${TC.borderSoft}`:'none',display:'flex',alignItems:'center',gap:12,background:isExp?'rgba(0,0,0,0.02)':'transparent',cursor:'pointer',transition:'background 0.2s'}}>
+            <span style={{transform:isExp?'rotate(180deg)':'rotate(0deg)',transition:'transform 0.2s',display:'flex',alignItems:'center'}}><ChevronDown size={16} color={TC.textMuted}/></span>
+            <span style={{fontSize:13,fontWeight:900,color:TC.text}}>{pat}</span>
+            <Badge variant="muted">{d.region}</Badge>
+            <Badge variant="blue">{d.empresa}</Badge>
+            <Badge variant="high">{d.incidentCount} PO(s)</Badge>
+            <Badge variant="purple">{d.totalFotos} fotos</Badge>
+          </div>
+          {isExp&&<div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
+            {d.eventos.map(ev=><div key={ev.id} style={{padding:12,borderRadius:R.md,border:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.01)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                <span style={{fontWeight:800,fontSize:11,color:TC.text,fontFamily:T.fontMono}}>{ev.iso}</span>
+                <Badge variant="muted">{ev.fecha}</Badge>
+                {ev.comuna&&<Badge variant="teal">{ev.comuna}</Badge>}
+                <Badge variant="medium">{ev.motivo}</Badge>
+                <Badge variant="muted">{ev.estado}</Badge>
+              </div>
+              {ev.comentario&&<div style={{fontSize:10,color:TC.textMuted,marginBottom:8,fontStyle:'italic'}}>💬 {ev.comentario}</div>}
+              {ev.fotos.length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {ev.fotos.map((f,fi)=><img key={fi} src={getDirectUrl(f)} alt="" onClick={()=>setImgModal({open:true,images:ev.fotos,index:fi})} style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:`2px solid ${TC.borderSoft}`,cursor:'pointer',transition:'transform 0.15s'}} onMouseEnter={e=>e.currentTarget.style.transform='scale(1.05)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'} onError={e=>{e.target.style.display='none'}}/>)}
+              </div>}
+            </div>)}
+          </div>}
+        </Card>})}
+      </div>}
+    </div>
+    <ImageModal isOpen={imgModal.open} onClose={()=>setImgModal({open:false,images:[],index:0})} images={imgModal.images} initialIndex={imgModal.index}/>
+  </div>
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAIN COMPONENT — ReporteRutas
+// ══════════════════════════════════════════════════════════════
+function ReporteRutas(){
+  const[fileName,setFileName]=React.useState('');
+  const[rawRows,setRawRows]=React.useState([]);
+  const[data,setData]=React.useState(null);
+  const[activeTab,setActiveTab]=React.useState('carga');
+  const[toast,setToast]=React.useState('');
+  const[viewMode,setViewMode]=React.useState('numbers');
+  const[expanded,setExpanded]=React.useState(new Set());
+  const[chartLayout,setChartLayout]=React.useState('vertical');
+  const[searchQuery,setSearchQuery]=React.useState('');
+  const[isSearchModalOpen,setIsSearchModalOpen]=React.useState(false);
+  const[selectedRegions,setSelectedRegions]=React.useState(new Set());
+  const[isSearching,setIsSearching]=React.useState(false);
+  const[sortConfig,setSortConfig]=React.useState({key:'',direction:null});
+  const[conflictModalOpen,setConflictModalOpen]=React.useState(false);
+  const[conflictModalData,setConflictModalData]=React.useState([]);
+  const[conflictModalCols,setConflictModalCols]=React.useState([]);
+  const[activePatente,setActivePatente]=React.useState('');
+  const[patenteModalOpen,setPatenteModalOpen]=React.useState(false);
+  const[patenteModalData,setPatenteModalData]=React.useState([]);
+  const[patenteModalCols,setPatenteModalCols]=React.useState([]);
+  const[searchResults,setSearchResults]=React.useState([]);
+  const[showConflictAlert,setShowConflictAlert]=React.useState(true);
+  const[selection,setSelection]=React.useState({start:null,end:null});
+  const[isDragging,setIsDragging]=React.useState(false);
+  const[chartRegion,setChartRegion]=React.useState('');
+  const[chartGroupBy,setChartGroupBy]=React.useState('patente');
+  const[summaryRegion,setSummaryRegion]=React.useState('ALL');
+  const[planData,setPlanData]=React.useState(null);
+  const[convData,setConvData]=React.useState(null);
+  const tableRef=React.useRef(null);const chartRef=React.useRef(null);const summaryRef=React.useRef(null);
+
+  // ── Consultar ISOs (GeoSort) state ──
+  const[isoInput,setIsoInput]=React.useState('');
+  const[isoResults,setIsoResults]=React.useState([]);
+  const[isoSearchQ,setIsoSearchQ]=React.useState('');
+  const[isoStatusFilter,setIsoStatusFilter]=React.useState('all');
+  const[isoImgModal,setIsoImgModal]=React.useState({open:false,images:[],index:0});
+
+  const handleMouseDown=(r,c)=>{setSelection({start:{r,c},end:{r,c}});setIsDragging(true)};
+  const handleMouseEnter=(r,c)=>{if(isDragging)setSelection(p=>({...p,end:{r,c}}))};
+  React.useEffect(()=>{const h=()=>setIsDragging(false);window.addEventListener('mouseup',h);return()=>window.removeEventListener('mouseup',h)},[]);
+
+  const flash=React.useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(''),2500)},[]);
+
+  // ── Consultar ISOs handlers ──
+  const consultarISOs=()=>{
+    if(!isoInput.trim()||!rawRows.length)return;
+    const isos=isoInput.split(/[\n\r,;\t ]+/).map(s=>s.trim()).filter(Boolean);
+    const ikeaRows=rawRows.filter(r=>(getKey(r,'Commerce')||'').toUpperCase().trim()==='IKEA');
+    const isoToVeh={};if(planData){const convMap={};if(convData)convData.rows.forEach(r=>{const ini=(getKey(r,'VEH INICIAL')||getKey(r,'Veh Inicial')||'').trim();const fin=(getKey(r,'VEH FINAL')||getKey(r,'Veh Final')||'').trim();if(ini&&fin)convMap[ini]=fin});planData.rows.forEach(r=>{const tit=(getKey(r,'Título')||getKey(r,'Titulo')||'').trim().toLowerCase();let veh=(getKey(r,'Vehículo')||getKey(r,'Vehiculo')||'').trim();if(tit&&veh)isoToVeh[tit]=convMap[veh]||veh})}
+    const res=[];
+    isos.forEach(iso=>{
+      const isoLower=iso.toLowerCase();
+      const matches=ikeaRows.filter(r=>(getKey(r,'ParentOrder')||'').trim().toLowerCase()===isoLower);
+      if(matches.length>0){
+        const uniqueStates=new Set(matches.map(m=>(getKey(m,'Estado')||'').toLowerCase()));
+        const hasMultipleStates=uniqueStates.size>1;
+        const seen=new Set();
+        matches.forEach(row=>{
+          const est=getKey(row,'Estado')||'';
+          const pat=getKey(row,'Patente')||'';
+          const key=`${est}|${pat}`;
+          if(seen.has(key))return;
+          seen.add(key);
+          res.push({iso,found:true,patente:pat,vehiculo:isoToVeh[isoLower]||pat,estado:est,comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||'',direccion:getKey(row,'Direccion')||getKey(row,'Dirección')||'',_multipleStates:hasMultipleStates});
+        });
+      }else{
+        res.push({iso,found:false,patente:'',vehiculo:'',estado:'',comentario:'',motivo:'',imageUrl:'',direccion:'',_multipleStates:false});
+      }
+    });
+    setIsoResults(res);
+    flash(`✓ ${res.filter(r=>r.found).length}/${res.length} encontrados`);
+  };
+
+  const copiarTablaISOs=()=>{
+    if(!isoResults.length)return;
+    const headers=['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega'];
+    let tsv=headers.join('\t')+'\n';
+    isoResults.forEach(r=>{tsv+=[r.iso+(!r.found?' [NO HALLADO]':''),r.patente,r.vehiculo,r.direccion,r.estado,r.comentario,r.motivo].join('\t')+'\n'});
+    navigator.clipboard?.writeText(tsv).then(()=>flash('✓ Tabla copiada al portapapeles'));
+  };
+
+  const filteredIsoResults=React.useMemo(()=>{
+    let r=isoResults;
+    if(isoStatusFilter==='found')r=r.filter(x=>x.found);
+    if(isoStatusFilter==='notfound')r=r.filter(x=>!x.found);
+    if(isoSearchQ.trim()){const q=isoSearchQ.trim().toLowerCase();r=r.filter(x=>x.iso.toLowerCase().includes(q)||x.estado.toLowerCase().includes(q)||x.direccion.toLowerCase().includes(q))}
+    return r;
+  },[isoResults,isoStatusFilter,isoSearchQ]);
+
+  // ── processCSVData ──
+  const processCSVData=(rows)=>{
+    const processed={};const estadosSet=new Set();const rawRowsByPO={};
+    setRawRows(rows);
+    rows.forEach(row=>{
+      const commerce=(getKey(row,'Commerce')||'').trim();const patente=(getKey(row,'Patente')||'').trim();
+      const region=(getKey(row,'Region')||'Sin Región').trim();const estado=(getKey(row,'Estado')||'Sin Estado').trim();
+      const parentOrder=(getKey(row,'ParentOrder')||'').trim();
+      const gestion=(getKey(row,'Gestión')||getKey(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
+      if(commerce.toLowerCase()!=='ikea'||!patente)return;
+      const empresa=(getKey(row,'Empresa')||getKey(row,'Transportista')||'Sin Empresa').trim();
+      estadosSet.add(estado);
+      if(!rawRowsByPO[parentOrder])rawRowsByPO[parentOrder]=[];
+      rawRowsByPO[parentOrder].push({...row,_empresa:empresa});
+      if(!processed[region])processed[region]={orders:new Set(),estados:{},gestiones:{},patentes:{}};
+      processed[region].orders.add(parentOrder);
+      if(!processed[region].estados[estado])processed[region].estados[estado]=new Set();
+      processed[region].estados[estado].add(parentOrder);
+      if(!processed[region].gestiones[gestion])processed[region].gestiones[gestion]=0;
+      processed[region].gestiones[gestion]++;
+      const pats=processed[region].patentes;
+      if(!pats[patente])pats[patente]={orders:new Set(),estados:{},gestiones:{},poStates:{}};
+      pats[patente].orders.add(parentOrder);
+      if(!pats[patente].estados[estado])pats[patente].estados[estado]=new Set();
+      pats[patente].estados[estado].add(parentOrder);
+      if(!pats[patente].poStates[parentOrder])pats[patente].poStates[parentOrder]=new Set();
+      pats[patente].poStates[parentOrder].add(estado);
+      if(!pats[patente].gestiones[gestion])pats[patente].gestiones[gestion]=0;
+      pats[patente].gestiones[gestion]++;
+    });
+    // Incidencias
+    const incidenciasByPatente={};
+    Object.entries(rawRowsByPO).forEach(([,poRows])=>{
+      if(poRows.length===0)return;
+      const firstRow=poRows[0];const patente=(getKey(firstRow,'Patente')||'').trim();
+      const region=(getKey(firstRow,'Region')||'Sin Región').trim();const empresa=firstRow._empresa||'Sin Empresa';
+      const allPendiente=poRows.every(r=>(getKey(r,'Estado')||'').trim().toLowerCase().includes('pendiente'));
+      if(allPendiente&&patente){
+        if(!incidenciasByPatente[patente])incidenciasByPatente[patente]={patente,region,empresa,totalFotos:0,eventos:[],incidentCount:0};
+        
+        const seenEvents = new Set();
+        poRows.forEach(row=>{
+          const imgUrl=(getKey(row,'imageUrl')||getKey(row,'foto')||getKey(row,'URL_FOTO')||'').trim();
+          const obsInc=(getKey(row,'Comentario')||getKey(row,'ComentarioNoEntrega')||getKey(row,'Comentario No Entrega')||'').trim();
+          const iso=(getKey(row,'ISO')||getKey(row,'TITULO')||getKey(row,'ParentOrder')||'').trim();
+          
+          // Deduplicación por (Imagen + Comentario) dentro de la misma Orden
+          const eventKey = `${imgUrl}|${obsInc}`;
+          if(seenEvents.has(eventKey)) return;
+          seenEvents.add(eventKey);
+
+          const estado=(getKey(row,'Estado')||'Sin Estado').trim();
+          const motivoInc=(getKey(row,'Motivo')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo No Entrega')||'').trim();
+          const fecha=(getKey(row,'Fechaentregareal')||getKey(row,'Fecha')||getKey(row,'FechaEntrega')||'').trim();
+          const comuna=(getKey(row,'Localidad')||getKey(row,'Comuna')||getKey(row,'CITY')||'').trim();
+          const fotos=imgUrl.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));
+          
+          incidenciasByPatente[patente].eventos.push({id:iso+'_'+Math.random().toString(36).substr(2,4),iso,fecha:fecha||'Sin fecha',motivo:motivoInc||(imgUrl?'Registro Fotográfico':'Incidencia'),comentario:obsInc,fotos,region,comuna,estado});
+          incidenciasByPatente[patente].totalFotos+=fotos.length;
+          incidenciasByPatente[patente].incidentCount++;
+        });
+      }
+    });
+    // Conflicts
+    const conflictedByPatente={};let hasConflicts=false;
+    Object.values(processed).forEach(rData=>{Object.entries(rData.patentes).forEach(([patente,pData])=>{
+      const conf=Object.entries(pData.poStates).filter(([,s])=>s.size>1).map(([po,s])=>({po,states:Array.from(s),rows:rawRowsByPO[po]||[]}));
+      if(conf.length){if(!conflictedByPatente[patente])conflictedByPatente[patente]=[];conflictedByPatente[patente].push(...conf);hasConflicts=true}
+    })});
+    setData({regions:processed,estados:[...estadosSet].sort(),conflictedByPatente,hasConflicts,incidenciasByPatente});
+    setSelectedRegions(new Set(Object.keys(processed)));setActiveTab('reporte');setChartRegion(Object.keys(processed).sort()[0]||'');
+  };
+
+  const exportToImage=async(elementRef,filename,mode='download')=>{const el=elementRef.current;if(!el){flash('❌ Elemento no encontrado');return}await exportElementAsImage(el,filename,{mode,backgroundColor:'#ffffff',onNotify:flash})};
+  const handleBarClick=p=>{if(!p||!p.patente)return;openPatenteModal(p.patente)};
+
+  const openPatenteModal=patente=>{
+    const rows=rawRows.filter(r=>(getKey(r,'Patente')||'').trim()===patente);
+    const knownCols=new Set(['commerce','patente','region','estado','parentorder']);
+    let extraCols=[];if(rows.length>0)extraCols=Object.keys(rows[0]).filter(k=>!knownCols.has(k.trim().toLowerCase()));
+    const cols=['Estado','Patente','Region','ParentOrder',...extraCols];
+    const pData=rows.map(r=>({Estado:(getKey(r,'Estado')||'').trim(),Patente:(getKey(r,'Patente')||'').trim(),Region:(getKey(r,'Region')||'').trim(),ParentOrder:(getKey(r,'ParentOrder')||'').trim(),...Object.fromEntries(extraCols.map(c=>[c,String(r[c]??'')]))}));
+    setActivePatente(patente);setPatenteModalCols(cols);setPatenteModalData(pData);setPatenteModalOpen(true);
+  };
+
+  const openConflictModal=(patente,e)=>{
+    e?.stopPropagation();if(!data||!data.conflictedByPatente[patente])return;
+    const conflicts=data.conflictedByPatente[patente];
+    const knownCols=new Set(['commerce','patente','region','estado','parentorder']);
+    let extraCols=[];if(conflicts[0].rows.length>0)extraCols=Object.keys(conflicts[0].rows[0]).filter(k=>!knownCols.has(k.trim().toLowerCase()));
+    const cols=['Estado','Patente','Region','ParentOrder',...extraCols,'_isConflict'];
+    const conflictedPOs=new Set(conflicts.map(c=>c.po));const cData=[];
+    conflicts.forEach(({po,rows:cRows})=>{cRows.forEach(r=>{cData.push({Estado:(getKey(r,'Estado')||'').trim(),Patente:(getKey(r,'Patente')||'').trim(),Region:(getKey(r,'Region')||'').trim(),ParentOrder:po,_isConflict:conflictedPOs.has(po),_refRow:r,...Object.fromEntries(extraCols.map(c=>[c,String(r[c]??'')]))})})}); 
+    setActivePatente(patente);setConflictModalCols(cols);setConflictModalData(cData);setConflictModalOpen(true);
+  };
+
+  const handleDeleteConflictRow=rowIndex=>{
+    const rowToRemove=conflictModalData[rowIndex];if(!rowToRemove)return;
+    const newRawRows=rawRows.filter(r=>r!==rowToRemove._refRow);
+    const newModalData=conflictModalData.filter((_,i)=>i!==rowIndex);
+    setConflictModalData(newModalData);processCSVData(newRawRows);flash('✓ Fila eliminada');
+    if(newModalData.length===0)setConflictModalOpen(false);
+  };
+
+  const exportModalDataCSV=(mdata,cols,filename)=>{
+    const csvCols=cols.filter(c=>c!=='_isConflict');
+    const escCSV=v=>{const s=String(v??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?`"${s.replace(/"/g,'""')}"`:s};
+    let csv=csvCols.map(escCSV).join(',')+'\n';mdata.forEach(row=>{csv+=csvCols.map(c=>escCSV(row[c]??'')).join(',')+'\n'});
+    const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`${filename}.csv`;link.click();
+  };
+
+  const allRegions=React.useMemo(()=>data?Object.keys(data.regions).sort():[],[data]);
+  const displayedRegions=React.useMemo(()=>{if(!data)return[];return allRegions.filter(r=>selectedRegions.has(r))},[data,allRegions,selectedRegions]);
+
+  const handleSort=key=>{setSortConfig(prev=>{if(prev.key===key){if(prev.direction==='asc')return{key,direction:'desc'};if(prev.direction==='desc')return{key:'',direction:null}}return{key,direction:'asc'}})};
+
+  const getSortedPatentes=React.useCallback(region=>{
+    if(!data||!data.regions[region])return[];const rd=data.regions[region];let pats=Object.keys(rd.patentes);
+    if(sortConfig.key&&sortConfig.direction){pats.sort((a,b)=>{const pdA=rd.patentes[a],pdB=rd.patentes[b];const totalA=pdA.orders.size,totalB=pdB.orders.size;let valA,valB;
+    if(sortConfig.key==='Total'){valA=totalA;valB=totalB}else{const vA=pdA.estados[sortConfig.key]?pdA.estados[sortConfig.key].size:0;const vB=pdB.estados[sortConfig.key]?pdB.estados[sortConfig.key].size:0;if(viewMode==='pct'){valA=totalA>0?(vA/totalA)*100:0;valB=totalB>0?(vB/totalB)*100:0}else{valA=vA;valB=vB}}
+    if(valA<valB)return sortConfig.direction==='asc'?-1:1;if(valA>valB)return sortConfig.direction==='asc'?1:-1;return 0})}else{pats.sort()}return pats},[data,sortConfig,viewMode]);
+
+  const chartData=React.useMemo(()=>{
+    if(!data||!chartRegion||!data.regions[chartRegion])return[];const rd=data.regions[chartRegion];const pats=Object.keys(rd.patentes);
+    const isoToVeh={};if(chartGroupBy==='vehiculo'&&planData){const convMap={};if(convData)convData.rows.forEach(r=>{const ini=(getKey(r,'VEH INICIAL')||getKey(r,'Veh Inicial')||'').trim();const fin=(getKey(r,'VEH FINAL')||getKey(r,'Veh Final')||'').trim();if(ini&&fin)convMap[ini]=fin});planData.rows.forEach(r=>{const tit=(getKey(r,'Título')||getKey(r,'Titulo')||'').trim().toLowerCase();let veh=(getKey(r,'Vehículo')||getKey(r,'Vehiculo')||'').trim();if(tit&&veh)isoToVeh[tit]=convMap[veh]||veh});}
+    const aggregated={};pats.forEach(pat=>{const pd=rd.patentes[pat];const orders=Array.from(pd.orders);if(chartGroupBy==='vehiculo'){orders.forEach(ord=>{const veh=isoToVeh[ord.toLowerCase()]||pat;const groupKey=`${veh} (${pat})`;if(!aggregated[groupKey])aggregated[groupKey]={patente:groupKey,terminados:0,planificados:0,pendientes:0,enRuta:0,total:0};aggregated[groupKey].total+=1;const states=pd.poStates[ord];if(states){states.forEach(e=>{const elow=e.toLowerCase();if(elow.includes('terminado'))aggregated[groupKey].terminados+=1;else if(elow.includes('planificado'))aggregated[groupKey].planificados+=1;else if(elow.includes('en ruta')||elow.includes('enruta'))aggregated[groupKey].enRuta+=1;else if(elow.includes('pendiente'))aggregated[groupKey].pendientes+=1;else aggregated[groupKey][e]=(aggregated[groupKey][e]||0)+1;})}})}else{if(!aggregated[pat])aggregated[pat]={patente:pat,terminados:0,planificados:0,pendientes:0,enRuta:0,total:0};aggregated[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const elow=e.toLowerCase();if(elow.includes('terminado'))aggregated[pat].terminados+=v;else if(elow.includes('planificado'))aggregated[pat].planificados+=v;else if(elow.includes('en ruta')||elow.includes('enruta'))aggregated[pat].enRuta+=v;else if(elow.includes('pendiente'))aggregated[pat].pendientes+=v;else aggregated[pat][e]=(aggregated[pat][e]||0)+v;})}});
+    return Object.values(aggregated).map(obj=>{obj.Terminado=obj.terminados;obj.Planificado=obj.planificados;obj.Pendiente=obj.pendientes;obj['En Ruta']=obj.enRuta;obj.totalNum=obj.total;obj.dummy=0.05;const val=obj.total>0?(obj.terminados/obj.total)*100:0;if(obj.terminados===0)obj.pctCompletado=0;else if(obj.planificados===0&&obj.enRuta===0)obj.pctCompletado=100;else obj.pctCompletado=Math.round(val);return obj}).sort((a,b)=>b.totalNum-a.totalNum).slice(0,80);
+  },[data,chartRegion,chartGroupBy,planData,convData]);
+
+  const parseGenericCSV=(file,callback)=>{const reader=new FileReader();reader.onload=ev=>{const text=ev.target?.result;const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return;const sep=detectSep(lines[0]);const headers=parseRow(lines[0],sep);const rows=lines.slice(1).map(line=>{const vals=parseRow(line,sep);const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj});callback({fileName:file.name,rows})};reader.readAsText(file,'UTF-8')};
+  const parseGenericXLSX=(file,callback)=>{const reader=new FileReader();reader.onload=ev=>{try{const data=new Uint8Array(ev.target.result);const workbook=window.XLSX.read(data,{type:'array'});const ws=workbook.Sheets[workbook.SheetNames[0]];const rows=window.XLSX.utils.sheet_to_json(ws,{defval:''});callback({fileName:file.name,rows})}catch(e){console.error(e);flash('❌ Error leyendo archivo')}};reader.readAsArrayBuffer(file)};
+  const parseFile=(file,cb)=>{if(file.name.toLowerCase().endsWith('.csv'))parseGenericCSV(file,cb);else parseGenericXLSX(file,cb)};
+  const handleFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setFileName(d.fileName);processCSVData(d.rows);flash('✓ Reporte procesado')});e.target.value=''};
+  const handlePlanFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setPlanData(d);flash('✓ Planificación cargada')});e.target.value=''};
+  const handleConvFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setConvData(d);flash('✓ Conversión cargada')});e.target.value=''};
+
+  const toggleRegion=r=>setExpanded(p=>{const n=new Set(p);n.has(r)?n.delete(r):n.add(r);return n});
+  const toggleAll=()=>{if(!data)return;setExpanded(p=>p.size>=allRegions.length?new Set():new Set(allRegions))};
+
+  const exportTableCSV=()=>{if(!data)return;const esc=v=>{const s=String(v??'');return(s.includes(',')||s.includes('"')||s.includes('\n')||s.includes(';'))?`"${s.replace(/"/g,'""')}"`:s};const sep=',';let csv=`Región / Patente${sep}${data.estados.map(esc).join(sep)}${sep}Total\n`;allRegions.forEach(region=>{const rd=data.regions[region];const total=rd.orders.size;let line=`${esc(region)}${sep}`;data.estados.forEach(e=>{const v=rd.estados[e]?rd.estados[e].size:0;line+=`${v>0?(viewMode==='pct'?formatPct((v/total)*100):v):''}${sep}`});line+=`${viewMode==='pct'?formatPct(100):total}\n`;csv+=line;const patentes=getSortedPatentes(region);patentes.forEach(pat=>{const pd=rd.patentes[pat];const pT=pd.orders.size;let pLine=` ${esc(pat)}${sep}`;data.estados.forEach(e=>{const v=pd.estados[e]?pd.estados[e].size:0;pLine+=`${v>0?(viewMode==='pct'?formatPct((v/pT)*100):v):''}${sep}`});pLine+=`${viewMode==='pct'?formatPct(100):pT}\n`;csv+=pLine})});const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`Reporte_Rutas_Tabla.csv`;link.click();flash('✓ Excel exportado')};
+
+  const exportSummaryCSV=()=>{if(!data)return;let csv=`Región\tÓrdenes\tVehículos\n`;const regionsToProcess=summaryRegion==='ALL'?allRegions:[summaryRegion];regionsToProcess.forEach(r=>{const rd=data.regions[r];if(!rd)return;csv+=`${r}\t${rd.orders.size}\t${Object.keys(rd.patentes).length}\n`});const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`Reporte_Rutas_Resumen.csv`;link.click();flash('✓ Excel exportado')};
+
+  const handleManualSearch=()=>{if(!searchQuery.trim()||rawRows.length===0){setSearchResults([]);flash('⚠️ Ingresa un término para buscar');return}setIsSearching(true);setTimeout(()=>{const q=searchQuery.toLowerCase().trim();const results=[];const primaryFields=['ParentOrder','TITULO','ISO','TITULO_ISO','TÍTULO','Referencia','Order','ISO/TITULO','Patente','Region'];for(let i=0;i<rawRows.length;i++){const row=rawRows[i];const commerce=(getKey(row,'Commerce')||'').toString().toLowerCase();if(commerce!=='ikea')continue;let match=false;for(const field of primaryFields){const val=(getKey(row,field)||'').toString().toLowerCase();if(val.includes(q)){match=true;break}}if(!match){const values=Object.values(row);for(let j=0;j<values.length;j++){if(String(values[j]).toLowerCase().includes(q)){match=true;break}}}if(match)results.push(row)}setSearchResults(results);setIsSearching(false);if(results.length>0)setIsSearchModalOpen(true);else flash('❌ No se encontraron resultados')},200)};
+
+  const displayedModalData=searchResults;
+  const copySearchData=()=>{if(displayedModalData.length===0)return;const keys=Object.keys(displayedModalData[0]);let text=keys.join('\t')+'\n';displayedModalData.forEach(row=>{text+=keys.map(k=>String(row[k]||'').replace(/\t/g,' ')).join('\t')+'\n'});navigator.clipboard?.writeText(text).then(()=>flash('✓ Tabla copiada'))};
+
+  // ════════════════════════════════════════════════════════
+  //  RENDER
+  // ════════════════════════════════════════════════════════
+  return <div style={{height:'100%',display:'flex',flexDirection:'column',background:TC.bg}}>
+    <GlassHeader appName="REPORTE DE RUTAS" icon="📊" tabs={REPORT_TABS} activeTab={activeTab} onTabChange={id=>setActiveTab(id)} badges={{reporte:data?.regions?Object.keys(data.regions).length:0}}/>
+    <div style={{flex:1,overflow:'hidden',position:'relative',background:TC.bg}}>
+
+{/* ─── TAB: CARGA ─── */}
+{activeTab==='carga'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:48,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+  <div style={{maxWidth:600,width:'100%'}}>
+    <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
+      <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:80,cursor:'pointer',border:'2px dashed rgba(56,189,248,.2)',borderRadius:12,transition:'all 0.2s'}}>
+        <div style={{fontSize:60}}>📂</div>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:TC.text}}>Cargar Reporte de Operación</div>
+          <div style={{fontSize:11,textTransform:'uppercase',letterSpacing:3,opacity:0.4,fontWeight:700,marginBottom:24,color:TC.text}}>CSV · UTF-8</div>
+          <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:8}}>
+            {['Commerce','Patente','Region','Estado','ParentOrder'].map(c=><Badge key={c} variant="muted" style={{fontSize:9}}>{c}</Badge>)}
+          </div>
+        </div>
+        <input type="file" accept=".csv" style={{display:'none'}} onChange={handleFile}/>
+        {fileName&&<div style={{marginTop:32,display:'flex',flexDirection:'column',alignItems:'center',gap:16}}>
+          <Badge variant="blue" style={{padding:'8px 20px'}}>✓ {fileName}</Badge>
+          <Btn onClick={()=>setActiveTab('reporte')} variant="primary" style={{padding:'12px 32px'}}>Ver Reporte Ahora</Btn>
+        </div>}
+      </label>
+    </Card>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:24}}>
+      <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
+        <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
+          <div style={{fontSize:24}}>📅</div>
+          <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Planificación</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
+          <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handlePlanFile}/>
+          {planData&&<Badge variant="blue" style={{marginTop:8}}>✓ {planData.fileName}</Badge>}
+        </label>
+      </Card>
+      <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
+        <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
+          <div style={{fontSize:24}}>🔄</div>
+          <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Conversión</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
+          <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handleConvFile}/>
+          {convData&&<Badge variant="blue" style={{marginTop:8}}>✓ {convData.fileName}</Badge>}
+        </label>
+      </Card>
+    </div>
+  </div>
+</div>}
+
+{/* ─── TAB: REPORTE ─── */}
+{activeTab==='reporte'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
+  <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📊</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    {/* Toolbar */}
+    <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:`1px solid rgba(0,0,0,0.05)`,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
+      <div style={{display:'flex',padding:4,borderRadius:99,background:'rgba(0,0,0,0.05)',border:`1px solid ${TC.border}`}}>
+        <button onClick={()=>setViewMode('numbers')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='numbers'?'#2563eb':'transparent',color:viewMode==='numbers'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>🔢 Números</button>
+        <button onClick={()=>setViewMode('pct')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='pct'?'#2563eb':'transparent',color:viewMode==='pct'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>📈 Porcentajes</button>
+      </div>
+      <DropdownMenu closeOnSelect={false} options={[{label:'Todas las Regiones',onClick:()=>setSelectedRegions(new Set(allRegions)),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},{label:'Ninguna',onClick:()=>setSelectedRegions(new Set()),Icon:<span>✕</span>},...allRegions.map(r=>({label:r,onClick:()=>setSelectedRegions(prev=>{const n=new Set(prev);n.has(r)?n.delete(r):n.add(r);return n}),Icon:<div style={{width:12,height:12,borderRadius:99,background:selectedRegions.has(r)?'#3b82f6':'rgba(0,0,0,0.1)'}}/>}))]}>
+        <span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Regiones ({selectedRegions.size})</span>
+      </DropdownMenu>
+      <div style={{flex:1}}/>
+      <div style={{marginLeft:'auto',display:'flex',gap:8}}>
+        <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(tableRef,'reporte_rutas_tabla','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(tableRef,'reporte_rutas_tabla','copy'),Icon:<Copy size={14}/>},{label:'Exportar Excel (CSV)',onClick:exportTableCSV,Icon:<FileSpreadsheet size={14}/>}]}><FileDown size={14}/> Exportar Tabla</DropdownMenu>
+        <Btn onClick={toggleAll} style={{fontSize:10,padding:'7px 16px'}}>{expanded.size>=allRegions.length?'⊟ Contraer':'⊞ Expandir'} todo</Btn>
+      </div>
+    </div>
+    {/* Alerts */}
+    {data.hasConflicts&&showConflictAlert&&<div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.25)',borderRadius:12,padding:12,display:'flex',alignItems:'center',gap:12,position:'relative'}}><AlertTriangle size={18} style={{color:'#f97316',flexShrink:0}}/><div style={{fontSize:13,paddingRight:32,color:TC.text}}><strong>⚠️ Conflictos de Estado:</strong> Hay ParentOrders con múltiples estados simultáneos.</div><button onClick={()=>setShowConflictAlert(false)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',padding:8,background:'none',border:'none',cursor:'pointer',color:'rgba(249,115,22,0.5)',fontSize:14}}>✕</button></div>}
+    {data.auditRisk&&Object.keys(data.auditRisk).length>0&&<div style={{background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:12,padding:12,display:'flex',alignItems:'center',gap:12}}><Truck size={18} style={{color:'#ef4444',flexShrink:0}}/><div style={{fontSize:13,color:TC.text}}><strong>🔍 Auditoría Geográfica:</strong> Se han detectado rutas con riesgo de Off-Route o Comuna Incorrecta.</div></div>}
+    {/* Main table */}
+    <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.borderSoft}`,boxShadow:'0 10px 40px rgba(0,0,0,0.06)'}}>
+      <div ref={tableRef} id="table-export-container" style={{overflowX:'auto'}}>
+        <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,borderCollapse:'collapse',background:TC.bgCard}}>
+          <thead><tr>
+            <th onClick={()=>handleSort('Región')} style={{textAlign:'left',padding:20,fontWeight:900,textTransform:'uppercase',letterSpacing:2,cursor:'pointer',background:TC.headerBg,color:'#000',borderBottom:`2px solid ${TC.borderSoft}`,fontSize:10}}>Región / Patente {sortConfig.key==='Región'?(sortConfig.direction==='asc'?'▲':'▼'):''}</th>
+            {data.estados.map(e=><th key={e} onClick={()=>handleSort(e)} style={{textAlign:'right',padding:20,fontWeight:900,textTransform:'uppercase',letterSpacing:1,whiteSpace:'nowrap',cursor:'pointer',background:TC.headerBg,color:'#000',borderBottom:`2px solid ${TC.borderSoft}`,fontSize:10}}>{e} {sortConfig.key===e?(sortConfig.direction==='asc'?'▲':'▼'):''}</th>)}
+            <th onClick={()=>handleSort('Total')} style={{textAlign:'right',padding:20,fontWeight:900,textTransform:'uppercase',letterSpacing:2,cursor:'pointer',background:TC.headerBg,color:'#000',borderBottom:`2px solid ${TC.borderSoft}`,fontSize:10}}>Total {sortConfig.key==='Total'?(sortConfig.direction==='asc'?'▲':'▼'):''}</th>
+          </tr></thead>
+          <tbody>
+            {displayedRegions.map(region=>{const rd=data.regions[region];const total=rd.orders.size;const isExp=expanded.has(region);const patentes=getSortedPatentes(region);
+            return <React.Fragment key={region}>
+              <tr onClick={()=>toggleRegion(region)} style={{cursor:'pointer',borderBottom:`1px solid ${TC.borderSoft}`,transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(59,130,246,0.06)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:20,fontWeight:700,color:'#0ea5e9'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{marginRight:16,opacity:0.4}}>{isExp?'▼':'▶'}</span>{region}</div>
+                </td>
+                {data.estados.map(e=>{const v=rd.estados[e]?rd.estados[e].size:0;return <td key={e} style={{padding:20,textAlign:'right',fontWeight:700,color:TC.text}}>{v>0?(viewMode==='pct'?formatPct((v/total)*100):v):<span style={{opacity:0.1}}>·</span>}</td>})}
+                <td style={{padding:20,textAlign:'right',fontWeight:900,color:TC.textSub,background:'rgba(0,0,0,0.02)'}}>{viewMode==='pct'?formatPct(100):total}</td>
+              </tr>
+              {isExp&&patentes.map((pat,pIdx)=>{const pd=rd.patentes[pat];const pT=pd.orders.size;const termIdx=data.estados.findIndex(e=>e.toLowerCase().includes('terminado'));
+              let sumPct=0;data.estados.forEach(e=>{const v=pd.estados[e]?pd.estados[e].size:0;sumPct+=pT>0?(v/pT)*100:0});const isConf=viewMode==='pct'&&sumPct>100.5;const hasConfData=data.conflictedByPatente[pat];
+              return <tr key={`${region}-${pat}`} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:isConf?'rgba(255,237,213,0.5)':'transparent',transition:'background 0.15s'}} onMouseEnter={e=>{if(!isConf)e.currentTarget.style.background='rgba(0,0,0,0.02)'}} onMouseLeave={e=>{if(!isConf)e.currentTarget.style.background='transparent'}}>
+                <td style={{padding:12,paddingLeft:56,position:'relative',display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{position:'absolute',left:40,top:'50%',transform:'translateY(-50%)',width:8,height:8,borderLeft:'2px solid rgba(0,0,0,0.15)',borderBottom:'2px solid rgba(0,0,0,0.15)'}}></span>
+                  <span style={{fontSize:12,fontWeight:900,color:isConf?'#c2410c':'#111827'}}>{pat}</span>
+                  {isConf&&hasConfData&&<button data-html2canvas-ignore onClick={e=>openConflictModal(pat,e)} style={{fontSize:9,background:'rgba(255,237,213,1)',color:'#c2410c',border:'1px solid #fdba74',padding:'2px 8px',borderRadius:99,cursor:'pointer',marginLeft:4}}>⚠️ Conflictos ({data.conflictedByPatente[pat].length} PO)</button>}
+                  <button data-html2canvas-ignore onClick={e=>{e.stopPropagation();openPatenteModal(pat)}} style={{fontSize:9,background:'rgba(239,246,255,1)',color:'#2563eb',border:'1px solid #bfdbfe',padding:'2px 8px',borderRadius:99,cursor:'pointer',marginLeft:4,display:'flex',alignItems:'center',gap:4}}><Search size={10}/> Ver filas</button>
+                </td>
+                {data.estados.map((e,ei)=>{const v=pd.estados[e]?pd.estados[e].size:0;const isTermCol=ei===termIdx;let finalPct=0;if(viewMode==='pct'&&pT>0){const finished=pd.estados[data.estados[termIdx]]?pd.estados[data.estados[termIdx]].size:0;finalPct=(finished/pT)*100}const display=v>0?(viewMode==='pct'?formatPct((v/pT)*100):v):(isTermCol&&viewMode==='pct'&&pT>0?formatPct(0):'');const finalDisplay=(isTermCol&&viewMode==='pct'&&pT>0)?formatPct(finalPct):display;const isTerm=viewMode==='pct'&&ei===termIdx&&pT>0&&!isConf;const grad=isTerm?termGradient(Math.round(finalPct)):null;return <td key={e} style={{padding:12,textAlign:'right',color:grad?grad.txt:(isConf?'#c2410c':TC.text),background:grad?grad.bg:'transparent',fontWeight:grad?800:400}}>{finalDisplay||<span style={{opacity:0.1}}>·</span>}</td>})}
+                <td style={{padding:12,textAlign:'right',fontWeight:700,opacity:0.3,color:TC.text}}>{viewMode==='pct'?formatPct(100):pT}</td>
+              </tr>})}
+            </React.Fragment>})}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+    </>}
+  </div>
+</div>}
+
+{/* ─── TAB: GRÁFICO ─── */}
+{activeTab==='grafico'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
+  <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📈</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
+      <DropdownMenu options={allRegions.map(r=>({label:r,onClick:()=>setChartRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:chartRegion===r?'#a855f7':'rgba(0,0,0,0.1)'}}/>}))}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Región: {chartRegion||'Seleccionar...'}</span></DropdownMenu>
+      <div style={{height:24,width:1,background:'rgba(0,0,0,0.08)',margin:'0 8px'}}/>
+      <div style={{display:'flex',padding:4,borderRadius:8,background:'rgba(0,0,0,0.04)',gap:4}}>
+        <button onClick={()=>setChartGroupBy('patente')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartGroupBy==='patente'?'#fff':'transparent',boxShadow:chartGroupBy==='patente'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartGroupBy==='patente'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Patente</button>
+        <button onClick={()=>setChartGroupBy('vehiculo')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartGroupBy==='vehiculo'?'#fff':'transparent',boxShadow:chartGroupBy==='vehiculo'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartGroupBy==='vehiculo'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Vehículo</button>
+      </div>
+      <div style={{height:24,width:1,background:'rgba(0,0,0,0.08)',margin:'0 8px'}}/>
+      <div style={{display:'flex',padding:4,borderRadius:8,background:'rgba(0,0,0,0.04)',gap:4}}>
+        <button onClick={()=>setChartLayout('vertical')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartLayout==='vertical'?'#fff':'transparent',boxShadow:chartLayout==='vertical'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartLayout==='vertical'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Bars Verticales</button>
+        <button onClick={()=>setChartLayout('horizontal')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartLayout==='horizontal'?'#fff':'transparent',boxShadow:chartLayout==='horizontal'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartLayout==='horizontal'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Bars Horizontales</button>
+      </div>
+      <div style={{flex:1}}/>
+      <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','copy'),Icon:<Copy size={14}/>}]}><FileDown size={14}/> Exportar Gráfico</DropdownMenu>
+    </div>
+    <Card style={{padding:24}}>
+      <div ref={chartRef} id="chart-export-container" style={{background:TC.bgCard,padding:24,borderRadius:16}}>
+        <div style={{textAlign:'center',marginBottom:24}}><h2 style={{fontSize:20,fontWeight:900,letterSpacing:'-0.02em',color:TC.text}}>Estado de Vehículos: {chartRegion}</h2></div>
+        <div style={{width:'100%',height:chartLayout==='horizontal'?Math.max(600,chartData.length*40):600}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout={chartLayout==='horizontal'?'vertical':'horizontal'} margin={{top:35,right:chartLayout==='horizontal'?80:20,left:chartLayout==='horizontal'?100:20,bottom:chartLayout==='horizontal'?20:60}} barCategoryGap="20%" onClick={e=>e&&e.activePayload&&handleBarClick(e.activePayload[0].payload)}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={chartLayout==='vertical'} vertical={chartLayout==='horizontal'}/>
+              {chartLayout==='vertical'?<><XAxis dataKey="patente" angle={-45} textAnchor="end" height={80} interval={0} tick={{fontSize:10,fill:TC.textSub}} label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:TC.textSub}}/><YAxis tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>:<><XAxis type="number" tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:TC.textSub}}/><YAxis dataKey="patente" type="category" width={90} tick={{fontSize:10,fill:TC.textSub}} label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>}
+              <RechartsTooltip cursor={{fill:'rgba(0,0,0,0.03)'}} contentStyle={{backgroundColor:TC.bgCard,borderColor:TC.border,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}} itemStyle={{fontSize:12,fontWeight:700}} formatter={(value,name)=>{if(name==='patente')return[value,'Patente'];if(name==='pctCompletado')return[formatPct(Number(value)),'Completado'];return[value,name]}}/>
+              <Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:20,fontSize:12}}/>
+              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={60}/>
+              <Bar dataKey="Planificado" stackId="a" fill="#f97316" radius={[0,0,0,0]} barSize={60}/>
+              <Bar dataKey="Pendiente" stackId="a" fill="#eab308" radius={[0,0,0,0]} barSize={60}/>
+              <Bar dataKey="En Ruta" stackId="a" fill="#ef4444" radius={[4,4,0,0]} barSize={60}/>
+              <Bar dataKey="dummy" stackId="a" fill="transparent" isAnimationActive={false} barSize={60}><LabelList dataKey="pctCompletado" position={chartLayout==='horizontal'?'right':'top'} offset={8} formatter={v=>formatPct(Number(v))} style={{fill:TC.text,fontSize:11,fontWeight:900,textAnchor:chartLayout==='horizontal'?'start':'middle'}}/></Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </Card>
+    </>}
+  </div>
+</div>}
+
+{/* ─── TAB: RESUMEN ─── */}
+{activeTab==='resumen'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
+  <div style={{maxWidth:800,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📝</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
+      <DropdownMenu options={[{label:'Todas las Regiones',onClick:()=>setSummaryRegion('ALL'),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setSummaryRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:summaryRegion===r?'#eab308':'rgba(0,0,0,0.1)'}}/>}))]}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Región: {summaryRegion==='ALL'?'Todas':summaryRegion}</span></DropdownMenu>
+      <div style={{flex:1}}/>
+      <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(summaryRef,'resumen_ejecutivo','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(summaryRef,'resumen_ejecutivo','copy'),Icon:<Copy size={14}/>},{label:'Exportar Datos (Excel)',onClick:exportSummaryCSV,Icon:<FileSpreadsheet size={14}/>}]}><FileDown size={14}/> Exportar Resumen</DropdownMenu>
+    </div>
+    <Card style={{padding:0,background:TC.bgCard,border:`1px solid ${TC.borderSoft}`,boxShadow:'0 10px 40px rgba(0,0,0,0.06)'}}>
+      <div ref={summaryRef} id="summary-export-container" style={{padding:32,background:TC.bgCard,borderRadius:16}}>
+        <div style={{textAlign:'center',marginBottom:32,paddingBottom:24,borderBottom:`1px solid ${TC.borderSoft}`}}>
+          <h2 style={{fontSize:24,fontWeight:900,letterSpacing:'-0.04em',color:TC.text}}>Avance en Ruta</h2>
+          <div style={{display:'flex',justifyContent:'center',marginTop:8}}><Badge variant="purple" style={{fontSize:10,padding:'4px 12px'}}>{summaryRegion==='ALL'?'Métricas Globales (Multiregión)':`Métricas de la Región: ${summaryRegion}`}</Badge></div>
+        </div>
+        {/* KPI cards */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:32}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            {(()=>{let totalOrders=0,totalPatentes=new Set(),terminados=0;const rtp=summaryRegion==='ALL'?allRegions:[summaryRegion];rtp.forEach(r=>{const rd=data.regions[r];if(!rd)return;totalOrders+=rd.orders.size;Object.keys(rd.patentes).forEach(p=>totalPatentes.add(p));Object.keys(rd.estados).forEach(e=>{if(e.toLowerCase().includes('terminado'))terminados+=rd.estados[e].size})});const pctTerminado=totalOrders>0?Math.round((terminados/totalOrders)*100):0;return<>
+              <div style={{padding:16,borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',border:`1px solid ${TC.borderSoft}`,background:'rgba(56,189,248,0.04)'}}><div style={{fontSize:28,fontWeight:900,color:'#0ea5e9'}}>{totalOrders}</div><div style={{fontSize:10,textTransform:'uppercase',letterSpacing:2,opacity:0.5,marginTop:4,fontWeight:700}}>Total Órdenes</div></div>
+              <div style={{padding:16,borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',border:`1px solid ${TC.borderSoft}`,background:'rgba(168,85,247,0.04)'}}><div style={{fontSize:28,fontWeight:900,color:'#a855f7'}}>{totalPatentes.size}</div><div style={{fontSize:10,textTransform:'uppercase',letterSpacing:2,opacity:0.5,marginTop:4,fontWeight:700}}>Vehículos Activos</div></div>
+              <div style={{padding:16,borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',border:`1px solid ${TC.borderSoft}`,background:'rgba(234,179,8,0.04)'}}><div style={{fontSize:28,fontWeight:900,color:'#eab308'}}>{totalPatentes.size?(totalOrders/totalPatentes.size).toFixed(1):0}</div><div style={{fontSize:10,textTransform:'uppercase',letterSpacing:2,opacity:0.5,marginTop:4,fontWeight:700}}>Promedio / Vehículo</div></div>
+              <div style={{padding:16,borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',border:`1px solid ${TC.borderSoft}`,background:'rgba(34,197,94,0.04)'}}><div style={{fontSize:28,fontWeight:900,color:'#22c55e'}}>{pctTerminado}%</div><div style={{fontSize:10,textTransform:'uppercase',letterSpacing:2,opacity:0.5,marginTop:4,fontWeight:700}}>Órdenes Terminadas</div><div style={{width:'100%',height:6,background:'rgba(0,0,0,0.04)',borderRadius:99,marginTop:8,overflow:'hidden'}}><div style={{height:'100%',background:'#22c55e',borderRadius:99,transition:'width 1s',width:`${pctTerminado}%`}}/></div></div>
+            </>})()}
+          </div>
+          {/* Distribución por Gestión */}
+          <div style={{padding:24,borderRadius:12,border:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.015)',display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:2,opacity:0.5,marginBottom:8}}>Distribución por Gestión</div>
+            {(()=>{const gMap={};const rtp=summaryRegion==='ALL'?allRegions:[summaryRegion];rtp.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.gestiones).forEach(([g,v])=>{gMap[g]=(gMap[g]||0)+v})});const total=Object.values(gMap).reduce((a,b)=>a+b,0);return Object.entries(gMap).sort((a,b)=>b[1]-a[1]).map(([g,v])=>{const p=total>0?Math.round((v/total)*100):0;let color='#3b82f6';if(g.includes('RECOMIENZO')||g.includes('REPITE'))color='#f97316';if(g.includes('RETIRO'))color='#8b5cf6';if(g.includes('EYR'))color='#ec4899';return<div key={g} style={{display:'flex',flexDirection:'column',gap:4}}><div style={{display:'flex',justifyContent:'space-between',fontSize:10,fontWeight:700}}><span style={{color:TC.text}}>{g}</span><span style={{color:TC.textMuted}}>{v} ({p}%)</span></div><div style={{width:'100%',height:6,background:'rgba(0,0,0,0.04)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',borderRadius:99,transition:'width 1s',width:`${p}%`,background:color}}/></div></div>})})()}
+          </div>
+        </div>
+        {/* Summary table */}
+        <div style={{borderRadius:12,border:`1px solid ${TC.borderSoft}`,overflow:'hidden',background:'rgba(255,255,255,0.5)'}}>
+          <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,borderCollapse:'collapse'}}>
+            <thead><tr style={{background:TC.headerBg}}>{['Región','Órdenes','Vehículos','% Avance'].map(h=><th key={h} style={{padding:12,textAlign:h==='Región'?'left':'right',borderBottom:`1px solid ${TC.borderSoft}`,fontWeight:900,color:'#000'}}>{h}</th>)}</tr></thead>
+            <tbody>{(summaryRegion==='ALL'?allRegions:[summaryRegion]).map(r=>{const rd=data.regions[r];if(!rd)return null;const totOrder=rd.orders.size;const totVeh=Object.keys(rd.patentes).length;let rTerminados=0;Object.keys(rd.estados).forEach(e=>{if(e.toLowerCase().includes('terminado'))rTerminados+=rd.estados[e].size});const rPct=totOrder>0?Math.round((rTerminados/totOrder)*100):0;return<tr key={r} style={{borderBottom:`1px solid ${TC.borderSoft}`}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.03)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><td style={{padding:12,fontWeight:700,color:TC.text}}>{r}</td><td style={{padding:12,textAlign:'right',fontWeight:700,opacity:0.7,color:TC.text}}>{totOrder}</td><td style={{padding:12,textAlign:'right',fontWeight:700,opacity:0.7,color:TC.text}}>{totVeh}</td><td style={{padding:12,textAlign:'right'}}><span style={{fontWeight:900,fontSize:13,color:rPct>=90?'#22c55e':rPct>=50?'#eab308':'#ef4444'}}>{rPct}%</span></td></tr>})}</tbody>
+          </table>
+        </div>
+      </div>
+    </Card>
+    </>}
+  </div>
+</div>}
+
+{/* ─── TAB: INCIDENCIAS ─── */}
+{activeTab==='incidencias'&&<div style={{position:'absolute',inset:0}}>
+  {data?<TabIncidencias incidencias={data.incidenciasByPatente} selectedRegions={selectedRegions}/>:
+  <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',opacity:0.3}}><span style={{fontSize:48,marginBottom:16}}>🚨</span><p style={{fontWeight:700}}>Carga un reporte para ver incidencias</p></div>}
+</div>}
+
+{/* ─── TAB: CONSULTAR ISOs ─── */}
+{activeTab==='consultar'&&<div style={{position:'absolute',inset:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+  {/* Header */}
+  <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 24px',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,flexShrink:0}}>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span style={{fontSize:16}}>🔍</span>
+      <span style={{fontSize:13,fontWeight:800,color:TC.text}}>Consultar ISOs</span>
+      <Badge variant="teal">GeoSort</Badge>
+    </div>
+  </div>
+
+  {!rawRows.length?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',opacity:0.3}}><span style={{fontSize:48,marginBottom:16}}>⚠️</span><p style={{fontWeight:700}}>Carga un reporte base en "Cargar Datos" primero</p></div>:
+  <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+    {/* Left Panel: Search */}
+    <div style={{width:350,borderRight:`1px solid ${TC.borderSoft}`,background:TC.bgCardAlt,padding:20,display:'flex',flexDirection:'column',gap:16,overflowY:'auto',flexShrink:0}}>
+      <div>
+        <h2 style={{fontSize:14,fontWeight:700,color:TC.text,margin:0}}>Ingresar ISOs</h2>
+        <p style={{fontSize:11,color:TC.textFaint,margin:'4px 0 0'}}>Pega las ISOs a buscar (separadas por línea, coma o espacio).</p>
+      </div>
+      <textarea value={isoInput} onChange={e=>setIsoInput(e.target.value)} placeholder={'Ej:\nISO-00123\nISO-00456'} style={{flex:1,width:'100%',minHeight:200,padding:14,borderRadius:10,background:TC.bgCard,color:TC.text,border:`1px solid ${TC.border}`,fontSize:11,fontFamily:T.fontMono,resize:'none',outline:'none',boxSizing:'border-box'}}/>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {isoInput.trim()&&<div style={{fontSize:10,color:TC.textFaint,fontFamily:T.fontMono,textAlign:'center'}}>📝 {isoInput.split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length} ISOs detectadas</div>}
+        <Btn variant="primary" onClick={consultarISOs} style={{width:'100%',padding:'10px'}} disabled={!isoInput.trim()}>🔎 Consultar</Btn>
+        <Btn variant="ghost" onClick={()=>{setIsoInput('');setIsoResults([])}} style={{width:'100%'}}>✕ Limpiar</Btn>
+      </div>
+    </div>
+    
+    {/* Right Panel: Results */}
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:TC.bgCard}}>
+      {isoResults.length===0?<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:TC.textDisabled}}>
+        <span style={{fontSize:40}}>📋</span>
+        <span style={{fontSize:13,fontWeight:600,color:TC.textSub}}>Realiza una búsqueda para ver resultados</span>
+      </div>:<>
+        {/* Stats bar */}
+        <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 20px',borderBottom:`1px solid ${TC.border}`,flexShrink:0,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontWeight:800,fontFamily:T.fontMono,color:'#22c55e',fontSize:T.xl}}>{filteredIsoResults.filter(r=>r.found).length}</span>
+            <span style={{fontSize:T.sm,color:TC.textFaint}}>encontrados</span>
+          </div>
+          <div style={{width:1,height:14,background:TC.border,flexShrink:0}}/>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontWeight:800,fontFamily:T.fontMono,color:'#ef4444',fontSize:T.xl}}>{filteredIsoResults.filter(r=>!r.found).length}</span>
+            <span style={{fontSize:T.sm,color:TC.textFaint}}>no hallados</span>
+          </div>
+          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:10,fontFamily:T.fontMono,color:TC.textFaint}}>{filteredIsoResults.length}/{isoResults.length} ISOs</span>
+            <Btn onClick={copiarTablaISOs} variant="primary" style={{fontSize:10,padding:'5px 12px'}}>📋 Copiar tabla</Btn>
+          </div>
+        </div>
+        {/* Filter bar */}
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 20px',borderBottom:`1px solid ${TC.border}`,flexShrink:0,background:TC.bgCardAlt}}>
+          <div style={{position:'relative',flex:1,maxWidth:320}}>
+            <Search size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:TC.textFaint,pointerEvents:'none'}}/>
+            <input value={isoSearchQ} onChange={e=>setIsoSearchQ(e.target.value)} placeholder="Buscar ISO, estado, dirección..." style={{width:'100%',padding:'6px 32px 6px 30px',background:TC.bgCard,border:`1px solid ${TC.border}`,borderRadius:R.md,color:TC.text,fontSize:11,fontFamily:T.fontMono,outline:'none',boxSizing:'border-box'}}/>
+            {isoSearchQ&&<button onClick={()=>setIsoSearchQ('')} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',padding:0,color:TC.textFaint}}>✕</button>}
+          </div>
+          {['all','found','notfound'].map(f=>
+            <button key={f} onClick={()=>setIsoStatusFilter(f)} style={{fontSize:10,fontWeight:700,padding:'4px 10px',borderRadius:R.pill,border:'1px solid',cursor:'pointer',background:isoStatusFilter===f?(f==='found'?'rgba(34,197,94,0.15)':f==='notfound'?'rgba(239,68,68,0.15)':'rgba(0,0,0,0.05)'):'transparent',color:isoStatusFilter===f?(f==='found'?'#22c55e':f==='notfound'?'#ef4444':TC.text):TC.textFaint,borderColor:isoStatusFilter===f?(f==='found'?'rgba(34,197,94,0.3)':f==='notfound'?'rgba(239,68,68,0.3)':TC.border):TC.borderSoft}}>
+              {f==='all'?'Todos':f==='found'?'✓ Encontrados':'✗ No hallados'}
+            </button>
+          )}
+        </div>
+        {/* Table */}
+        <div style={{flex:1,overflowY:'auto',overflowX:'auto',userSelect:'text'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:T.base,fontFamily:T.fontMono}}>
+            <thead><tr>
+              {['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Fotos'].map(h=>
+                <th key={h} style={{textAlign:'left',padding:'8px 14px',fontSize:T.sm,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',position:'sticky',top:0,zIndex:2,background:TC.bgCardAlt,color:TC.textDisabled,borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'nowrap'}}>{h}</th>
+              )}
+            </tr></thead>
+            <tbody>
+              {filteredIsoResults.map((r,i)=>{
+                const eL=(r.estado||'').toLowerCase();
+                const eColor=eL.includes('entregado')||eL.includes('exitoso')||eL.includes('completado')?'#22c55e':eL.includes('no entregado')||eL.includes('fallido')||eL.includes('rechazado')||eL.includes('cancelado')||eL.includes('devuelto')?'#ef4444':eL.includes('pendiente')||eL.includes('en ruta')||eL.includes('asignado')?'#3b82f6':'#f0883e';
+                const openPhotos=url=>{if(!url)return;const urls=url.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));if(urls.length>0){setIsoImgModal({open:true,images:urls,index:0})}};
+                const rowBg = !r.found?'rgba(239,68,68,0.04)':r._multipleStates?'rgba(239,68,68,0.1)':'transparent';
+                const rowHoverBg = !r.found?'rgba(239,68,68,0.08)':r._multipleStates?'rgba(239,68,68,0.15)':'rgba(0,0,0,0.02)';
+                return <tr key={`${r.iso}-${i}`} style={{background:rowBg}} onMouseEnter={e=>e.currentTarget.style.background=rowHoverBg} onMouseLeave={e=>e.currentTarget.style.background=rowBg}>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:r.found?'#eab308':'#ef4444'}}>
+                    {r.iso}{!r.found?' (NO HALLADO)':''}
+                  </td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:TC.text}}>{r.patente||'-'}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:'#8b5cf6'}}>{r.vehiculo||'-'}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.textSub,maxWidth:200,fontSize:T.sm}}>{r.direccion}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:eColor}}>{r.estado}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base}}>{r.comentario}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base}}>{r.motivo}</td>
+                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`}}>
+                    {r.imageUrl&&r.imageUrl.trim().length>0?
+                      <span onClick={()=>openPhotos(r.imageUrl)} style={{color:'#3b82f6',textDecoration:'underline',cursor:'pointer',fontWeight:700}}>Ver Fotos</span>:
+                      <span style={{color:TC.textFaint}}>Sin fotos</span>
+                    }
+                  </td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+      </>}
+    </div>
+  </div>}
+  <ImageModal isOpen={isoImgModal.open} onClose={()=>setIsoImgModal({open:false,images:[],index:0})} images={isoImgModal.images} initialIndex={isoImgModal.index}/>
+</div>}
+
+{/* ─── TAB: ISOs ─── */}
+{activeTab==='isos'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
+  <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>🚚</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'rgba(0,0,0,0.03)',padding:16,borderRadius:12,border:`1px solid ${TC.borderSoft}`}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <div style={{padding:8,background:'rgba(249,115,22,0.08)',color:'#f97316',borderRadius:8}}><Truck size={20}/></div>
+        <div><h2 style={{fontSize:18,fontWeight:700,color:TC.text}}>ISOs por Camión (Región Metropolitana)</h2><p style={{fontSize:10,opacity:0.5,fontFamily:T.fontMono,textTransform:'uppercase',letterSpacing:2}}>Cálculo exclusivo Región Metropolitana</p></div>
+      </div>
+      <Btn onClick={()=>{const rmData=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'))?.[1];if(!rmData){flash('❌ No se encontraron datos de RM');return}const vehicles=Object.keys(rmData.patentes);const isosReal=rmData.orders.size;const miniVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size>45);const camionVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size<=45);const isosMini=miniVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const isosCamion=camionVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const row=[new Date().toLocaleDateString(),vehicles.length,isosReal,(isosReal/vehicles.length).toFixed(2).replace('.',','),'','',miniVehicles.length,isosMini,miniVehicles.length?(isosMini/miniVehicles.length).toFixed(2).replace('.',','):'0,00',camionVehicles.length,isosCamion,camionVehicles.length?(isosCamion/camionVehicles.length).toFixed(2).replace('.',','):'0,00'];navigator.clipboard.writeText(row.join('\t')).then(()=>flash('✓ Datos copiados (Info solamente)'))}} variant="primary" style={{fontSize:11,padding:'8px 20px'}}><Copy size={14}/> Copiar Info solamente</Btn>
+    </div>
+    <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.borderSoft}`}}>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,borderCollapse:'collapse'}}>
+          <thead><tr style={{background:TC.headerBg}}>{['Fecha','Vehiculos','ISOs real','IxC real','ISOs teo.','IxC teo.','Mini','ISOs mini','IxMini','Camion','ISOs camion','IxCam'].map(h=><th key={h} style={{padding:16,textAlign:'center',fontWeight:700,textTransform:'uppercase',letterSpacing:'-0.02em',borderBottom:`1px solid ${TC.borderSoft}`,color:TC.textDisabled}}>{h}</th>)}</tr></thead>
+          <tbody>{(()=>{const rmEntry=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'));if(!rmEntry)return<tr><td colSpan={12} style={{padding:40,textAlign:'center',opacity:0.4,fontWeight:700}}>No se encontró la Región Metropolitana en los datos cargados</td></tr>;const rmData=rmEntry[1];const vehicles=Object.keys(rmData.patentes);const isosReal=rmData.orders.size;const miniVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size>45);const camionVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size<=45);const isosMini=miniVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const isosCamion=camionVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);return<tr style={{textAlign:'center',fontWeight:700,color:TC.text}}><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{new Date().toLocaleDateString()}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{vehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,fontWeight:900,color:'#0ea5e9'}}>{isosReal}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{(isosReal/vehicles.length).toFixed(2).replace('.',',')}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.03)'}}>-</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.03)'}}>-</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,color:'#a855f7'}}>{miniVehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{isosMini}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{miniVehicles.length?(isosMini/miniVehicles.length).toFixed(2).replace('.',','):'0,00'}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,color:'#f97316'}}>{camionVehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{isosCamion}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{camionVehicles.length?(isosCamion/camionVehicles.length).toFixed(2).replace('.',','):'0,00'}</td></tr>})()}</tbody>
+        </table>
+      </div>
+    </Card>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+      <Card style={{padding:24}}>
+        <h3 style={{fontSize:12,fontWeight:700,marginBottom:16,opacity:0.5,textTransform:'uppercase',letterSpacing:2}}>Distribución de Flota RM</h3>
+        <div style={{display:'flex',alignItems:'flex-end',gap:4,height:128}}>{(()=>{const rmEntry=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'));if(!rmEntry)return null;const rmData=rmEntry[1];const vehicles=Object.keys(rmData.patentes);const mini=vehicles.filter(v=>rmData.patentes[v].orders.size>45).length;const cam=vehicles.length-mini;const max=Math.max(mini,cam);return<><div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><div style={{width:'100%',background:'rgba(168,85,247,0.15)',borderTop:'4px solid #a855f7',borderRadius:'8px 8px 0 0',transition:'height 1s',height:`${(mini/max)*100}%`}}/><span style={{fontSize:10,fontWeight:700}}>Mini ({mini})</span></div><div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><div style={{width:'100%',background:'rgba(249,115,22,0.15)',borderTop:'4px solid #f97316',borderRadius:'8px 8px 0 0',transition:'height 1s',height:`${(cam/max)*100}%`}}/><span style={{fontSize:10,fontWeight:700}}>Camión ({cam})</span></div></>})()}</div>
+      </Card>
+      <Card style={{padding:24,display:'flex',flexDirection:'column',justifyContent:'center'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11}}><span style={{opacity:0.6}}>Criterio Mini:</span><span style={{fontWeight:700,textDecoration:'underline',color:'#a855f7'}}>&gt; 45 ISOs</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11}}><span style={{opacity:0.6}}>Criterio Camión:</span><span style={{fontWeight:700,textDecoration:'underline',color:'#f97316'}}>≤ 45 ISOs</span></div>
+          <div style={{paddingTop:16,borderTop:'1px dashed rgba(0,0,0,0.1)'}}/>
+          <p style={{fontSize:10,lineHeight:1.6,opacity:0.4,fontStyle:'italic',textAlign:'center'}}>"La eficiencia se mide en la capacidad de carga optimizada por tipología de vehículo."</p>
+        </div>
+      </Card>
+    </div>
+    </>}
+  </div>
+</div>}
+    </div>{/* end tabs container */}
+
+    {/* Toast */}
+    {toast&&<div style={{position:'fixed',bottom:40,left:'50%',transform:'translateX(-50%)',background:'#16a34a',color:'#fff',fontWeight:700,fontSize:11,padding:'12px 40px',borderRadius:99,boxShadow:'0 8px 32px rgba(0,0,0,0.2)',zIndex:9999}}>{toast}</div>}
+
+    {/* Search Modal */}
+    {isSearchModalOpen&&<>
+      <div onClick={()=>setIsSearchModalOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)',zIndex:100}}/>
+      <div style={{position:'fixed',inset:16,zIndex:101,display:'flex',flexDirection:'column',borderRadius:16,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,0.15)',background:TC.bgCard,border:`1px solid ${TC.border}`}}>
+        <div style={{padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{padding:8,background:'rgba(59,130,246,0.08)',color:'#3b82f6',borderRadius:8}}><Search size={18}/></div><h3 style={{fontWeight:700,fontSize:14,color:TC.text}}>Resultados para "{searchQuery}"</h3></div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><Btn onClick={copySearchData} disabled={displayedModalData.length===0} variant="primary" style={{fontSize:11,padding:'6px 14px'}}><Copy size={14}/> Copiar Tabla</Btn><button onClick={()=>setIsSearchModalOpen(false)} style={{padding:8,background:'none',border:'none',cursor:'pointer',color:TC.textMuted,fontSize:18}}>✕</button></div>
+        </div>
+        <div style={{flex:1,overflow:'auto',background:'#fff',padding:16,position:'relative'}}>
+          {isSearching&&<div style={{position:'absolute',inset:0,zIndex:10,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.7)',backdropFilter:'blur(2px)'}}><div className="animate-spin" style={{width:48,height:48,border:'4px solid #3b82f6',borderTopColor:'transparent',borderRadius:'50%'}}/><p style={{marginTop:16,fontWeight:700,fontSize:11,color:TC.text}}>Buscando...</p></div>}
+          {displayedModalData.length===0&&!isSearching?<div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#9ca3af',opacity:0.6}}><Maximize2 size={48} style={{marginBottom:16,opacity:0.5}}/><p style={{fontSize:13,fontWeight:700}}>No se encontraron datos</p></div>:
+          <div style={{display:'inline-block',minWidth:'100%'}}>
+            <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,whiteSpace:'nowrap',borderCollapse:'collapse'}}>
+              <thead><tr>{displayedModalData.length>0&&Object.keys(displayedModalData[0]).map(key=><th key={key} style={{padding:'8px 12px',textAlign:'left',fontWeight:700,border:`1px solid ${TC.borderSoft}`,position:'sticky',top:0,background:'#f3f4f6',zIndex:10,color:TC.textSub}}>{key}</th>)}</tr></thead>
+              <tbody>{(()=>{let rMin=-1,rMax=-1,cMin=-1,cMax=-1;if(selection.start&&selection.end){rMin=Math.min(selection.start.r,selection.end.r);rMax=Math.max(selection.start.r,selection.end.r);cMin=Math.min(selection.start.c,selection.end.c);cMax=Math.max(selection.start.c,selection.end.c)}return displayedModalData.map((row,idx)=><tr key={idx}>{Object.keys(row).map((key,cidx)=>{const isSelected=idx>=rMin&&idx<=rMax&&cidx>=cMin&&cidx<=cMax;return<td key={key} style={{padding:'6px 12px',border:`1px solid ${TC.borderSoft}`,color:TC.text,position:'relative',cursor:'cell',background:isSelected?'rgba(59,130,246,0.1)':'transparent',outline:isSelected?'1px solid rgba(59,130,246,0.3)':'none'}} onMouseDown={()=>handleMouseDown(idx,cidx)} onMouseEnter={()=>handleMouseEnter(idx,cidx)}>{String(row[key]||'')}</td>})}</tr>)})()}</tbody>
+            </table>
+          </div>}
+        </div>
+      </div>
+    </>}
+
+    {/* Conflict + Patente Modals */}
+    <TableModal isOpen={conflictModalOpen} onClose={()=>setConflictModalOpen(false)} title={`Conflictos — Patente: ${activePatente}`} subtitle={`${data?.conflictedByPatente[activePatente]?.length||0} ParentOrder(s) con múltiples estados`} data={conflictModalData} columns={conflictModalCols} isConflictModal={true} onDeleteRow={handleDeleteConflictRow} onExportCSV={()=>exportModalDataCSV(conflictModalData,conflictModalCols,`Conflictos_${activePatente}`)}/>
+    <TableModal isOpen={patenteModalOpen} onClose={()=>setPatenteModalOpen(false)} title="Detalle Patente" subtitle={`Viendo detalle de filas para ${activePatente}`} data={patenteModalData} columns={patenteModalCols} onExportCSV={()=>exportModalDataCSV(patenteModalData,patenteModalCols,`Detalle_${activePatente}`)}/>
+  </div>
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MOUNT
+// ══════════════════════════════════════════════════════════════
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<ReporteRutas/>);
+
+</script>
+</body>
+</html>

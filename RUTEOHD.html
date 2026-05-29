@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AM Route Builder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f1f5f9;--bgCard:#ffffff;--bgCardAlt:rgba(0,0,0,0.025);
+  --borderSoft:rgba(58,114,172,0.18);--text:#1a2e42;--textSub:#3d6080;
+  --textFaint:#5c7c98;--blue:#2563eb;--red:#b91c1c;--green:#15803d;
+  --orange:#ea580c;--yellow:#ca8a04;--purple:#7c3aed;
+  --accentBg:rgba(37,99,235,0.08);--borderFocus:#2563eb;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  --font-base:"Segoe UI",system-ui,-apple-system,sans-serif;
+  --radius-sm:3px;--radius-md:4px;--radius-lg:6px;--radius-xl:8px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
+  --shadow-lg:0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
+  --transition-fast:0.12s ease;--transition-normal:0.18s ease;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-base);min-height:100vh;display:flex;flex-direction:column;font-size:12px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(58,114,172,0.25);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(58,114,172,0.45)}
+#header{
+  background:var(--bgCard);border-bottom:1px solid var(--borderSoft);
+  box-shadow:var(--shadow-sm);padding:0 24px;
+  display:flex;align-items:center;gap:16px;height:52px;position:sticky;top:0;z-index:10;
+}
+#header .brand{font-size:14px;font-weight:700;white-space:nowrap;color:var(--text)}
+#header .brand span{opacity:.5;margin-right:6px}
+#tabs{display:flex;gap:2px;overflow-x:auto;flex:1}
+.tab-btn{
+  background:transparent;border:none;border-bottom:2px solid transparent;color:var(--textFaint);
+  cursor:pointer;padding:8px 14px;font-size:11px;font-weight:500;
+  white-space:nowrap;transition:all var(--transition-fast);font-family:var(--font-base);
+  border-radius:var(--radius-md) var(--radius-md) 0 0;margin-bottom:-1px;
+}
+.tab-btn:hover{color:var(--textSub);background:rgba(0,0,0,0.03)}
+.tab-btn.active{color:var(--blue);font-weight:600;border-bottom-color:var(--blue);background:var(--accentBg)}
+#main{flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;gap:20px;overflow-y:auto}
+.card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm)}
+.panel{width:100%;max-width:880px}
+.panel-sm{width:100%;max-width:520px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.upload-zone{
+  border:1px dashed var(--borderSoft);border-radius:var(--radius-lg);padding:28px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  cursor:pointer;transition:all var(--transition-normal);text-align:center;background:var(--bgCardAlt);
+}
+.upload-zone:hover{background:var(--accentBg);border-color:rgba(37,99,235,0.4)}
+.upload-zone .icon{font-size:2rem}
+.upload-zone .fname{font-size:11px;font-weight:600;word-break:break-all;max-width:200px;color:var(--textSub)}
+.tag-ok{font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;text-align:center;margin-top:6px}
+input[type=date],input[type=text]{
+  width:100%;padding:6px 10px;border-radius:var(--radius-md);border:1px solid var(--borderSoft);
+  background:var(--bgCard);color:var(--text);font-size:12px;outline:none;font-family:var(--font-base);
+  transition:border-color var(--transition-fast);box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);
+}
+input[type=date]:focus,input[type=text]:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+label.field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--textFaint);display:block;margin-bottom:3px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  border:1px solid transparent;border-radius:var(--radius-md);padding:6px 12px;font-size:11px;font-weight:500;
+  cursor:pointer;transition:background var(--transition-fast),transform 0.1s;outline:none;white-space:nowrap;font-family:var(--font-base);
+}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn-primary{background:var(--blue);color:#fff;border-color:rgba(0,0,0,0.15)}
+.btn-primary:hover:not(:disabled){background:#1d4ed8}
+.btn-secondary{background:rgba(0,0,0,0.04);color:var(--text);border-color:var(--borderSoft)}
+.btn-secondary:hover:not(:disabled){background:rgba(0,0,0,0.08)}
+.btn-danger{background:rgba(185,28,28,0.1);color:var(--red);border-color:rgba(185,28,28,0.25)}
+.btn-danger:hover:not(:disabled){background:rgba(185,28,28,0.18)}
+.btn-green{background:rgba(21,128,61,0.1);color:var(--green);border-color:rgba(21,128,61,0.25)}
+.btn-green:hover:not(:disabled){background:rgba(21,128,61,0.18)}
+.btn-yellow{background:rgba(234,88,12,0.1);color:var(--orange);border-color:rgba(234,88,12,0.25)}
+.btn-yellow:hover:not(:disabled){background:rgba(234,88,12,0.18)}
+.btn-full{width:100%}
+.btn-pill{border-radius:999px;padding:10px 28px}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-stack{display:flex;flex-direction:column;gap:8px}
+.lbl-blue{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.metrics{display:flex;justify-content:center;gap:40px;margin-top:20px}
+.metric{text-align:center}
+.metric .val{font-size:26px;font-weight:800;color:var(--blue);font-family:var(--font-mono)}
+.metric .key{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--textFaint);letter-spacing:.05em;margin-bottom:4px}
+.date-row{display:flex;justify-content:space-between;font-size:10px;font-family:var(--font-mono);color:var(--textFaint);margin-top:8px}
+#log-box{
+  width:100%;max-width:880px;border-radius:var(--radius-lg);border:1px solid var(--borderSoft);
+  background:var(--bgCardAlt);padding:10px;
+  font-family:var(--font-mono);font-size:10px;max-height:140px;overflow-y:auto;
+  display:flex;flex-direction:column;
+}
+.log-line{padding:3px 0;border-bottom:1px solid var(--borderSoft);display:flex;gap:10px}
+.log-line:last-child{border-bottom:none}
+.log-time{color:var(--textFaint);flex-shrink:0}
+.log-ok{color:var(--green)}.log-err{color:var(--red)}.log-warn{color:var(--orange)}.log-info{color:var(--blue)}
+#email-preview{background:#fff;border-radius:var(--radius-lg);color:#111;padding:20px;max-height:380px;overflow-y:auto;border:1px solid var(--borderSoft);box-shadow:var(--shadow-sm)}
+#email-preview table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
+#email-preview th{background:#0058A3;color:#fff;padding:6px 8px;border:1px solid #004080;text-align:center}
+#email-preview td{padding:5px 8px;border:1px solid #d0d0d0;text-align:center}
+.tab-section{display:none}.tab-section.active{display:flex;flex-direction:column;align-items:center;gap:20px;width:100%}
+</style>
+</head>
+<body>
+<div id="header">
+<div class="brand"><span>📦</span>Rutear HD+PV+PR</div>
+<div id="tabs">
+<button class="tab-btn active" data-tab="archivos">📁 Cargar Archivos</button>
+<button class="tab-btn" data-tab="preruteo">📋 Pre Ruteo</button>
+<button class="tab-btn" data-tab="postruteo">⚙️ Post Ruteo</button>
+<button class="tab-btn" data-tab="exports">🚀 Exportar</button>
+<button class="tab-btn" data-tab="correo">✉️ Generar Correo</button>
+</div>
+</div>
+<div id="main">
+<!-- ══ ARCHIVOS ══ -->
+<div id="tab-archivos" class="tab-section active panel">
+<div class="grid2">
+<div class="card" style="display:flex;flex-direction:column;gap:16px">
+<div class="lbl-blue">📁 Archivo Base SCI <span style="color:#f87171;font-weight:900">!</span></div>
+<label class="upload-zone" for="inp-f1">
+<div class="icon">📄</div>
+<div class="fname" id="f1-name">Base SCI</div>
+<input type="file" id="inp-f1" accept=".xlsx,.xls" style="display:none"/>
+</label>
+<div class="tag-ok" id="f1-tag" style="display:none"></div>
+</div>
+```
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="card">
+<div class="lbl-blue">Fecha de Picking</div>
+<input type="date" id="fecha-picking"/>
+<div class="date-row">
+<div>PICK: <span id="fecha-p" style="color:var(--orange)"></span></div>
+<div>ENTREGA: <span id="fecha-e" style="color:var(--green)"></span></div>
+</div>
+</div>
+<div class="card">
+<div class="lbl-blue">Vehículos Especiales (SimpliRoute)</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div>
+<label class="field-label">Proyectos</label>
+<input type="text" id="veh-proyectos" value="VPR01" placeholder="VPR01"/>
+</div>
+<div>
+<label class="field-label">Postventa</label>
+<input type="text" id="veh-postventa" value="VPV01" placeholder="VPV01"/>
+</div>
+</div>
+<div style="font-size:9px;opacity:.35;font-family:monospace;margin-top:10px" id="preola-hint"></div>
+</div>
+</div>
+</div>
+```
+</div>
+<!-- ══ PRERUTEO ══ -->
+<div id="tab-preruteo" class="tab-section panel-sm">
+<div class="card" style="width:100%;text-align:center">
+<div class="btn-grid">
+<button class="btn btn-secondary" id="btn-proyectos" disabled>Proyectos</button>
+<button class="btn btn-secondary" id="btn-postsales" disabled>Post Sales</button>
+<button class="btn btn-secondary" id="btn-mini"     disabled>Mini Tickets</button>
+<button class="btn btn-secondary" id="btn-regular"  disabled>Ticket Regular</button>
+</div>
+</div>
+</div>
+<!-- ══ POST RUTEO ══ -->
+<div id="tab-postruteo" class="tab-section panel-sm">
+<div class="card" style="width:100%;display:flex;flex-direction:column;gap:20px">
+<div class="lbl-blue">Plan de SimpliRoute</div>
+<label class="upload-zone" for="inp-simpli">
+<span class="icon">📁</span>
+<div style="flex:1;min-width:0">
+<div style="font-size:13px;font-weight:700;word-break:break-all" id="simpli-name">Cargar Plan Finalizado</div>
+<div style="font-size:10px;opacity:.4">Archivo exportado de SimpliRoute</div>
+</div>
+<input type="file" id="inp-simpli" accept=".xlsx,.xls,.csv" style="display:none"/>
+</label>
+<button class="btn btn-primary btn-full btn-pill" id="btn-polinomio" disabled>▶ Ejecutar Polinomio</button>
+<div class="metrics" id="metrics-box" style="display:none">
+<div class="metric"><div class="key">Vehículos</div><div class="val" id="m-total">0</div></div>
+<div class="metric"><div class="key">Prom ISO</div><div class="val" id="m-prom">0</div></div>
+<div class="metric"><div class="key">Total ISO</div><div class="val" id="m-sum">0</div></div>
+</div>
+</div>
+</div>
+<!-- ══ EXPORTS ══ -->
+<div id="tab-exports" class="tab-section panel-sm">
+<div class="card btn-stack" style="width:100%">
+<button class="btn btn-yellow btn-full" id="btn-exp-plan"    disabled style="height:50px">1. Plan RUTEO</button>
+<button class="btn btn-secondary btn-full" id="btn-exp-routeto" disabled style="height:50px">2. Route To (Picking) — sin veh. especiales</button>
+<button class="btn btn-secondary btn-full" id="btn-exp-preola"  disabled style="height:50px">3. Pre-Ola (Proyectos + Postventa)</button>
+</div>
+</div>
+<!-- ══ CORREO ══ -->
+<div id="tab-correo" class="tab-section panel">
+<div class="card" style="width:100%;padding:0;overflow:hidden">
+<div style="border-bottom:1px solid var(--border);padding:18px 24px;display:flex;align-items:center;justify-content:space-between">
+<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.5">Correo Polinomio</div>
+<button class="btn btn-primary" id="btn-copy-html" disabled style="padding:6px 16px;font-size:11px">Copiar HTML</button>
+</div>
+<div style="padding:24px">
+<div id="email-empty" style="text-align:center;padding:60px 0;opacity:.25;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px">Sin datos</div>
+<div id="email-preview" style="display:none"></div>
+</div>
+</div>
+</div>
+<div id="log-box" style="display:none"></div>
+</div>
+<script>
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+const S = {
+ dataF1: null,
+ fileSimpli: null,
+ sheetPlan: [],
+ sheetResumen: [],
+ sheetPolinomio: [],
+ metrics: null,
+ processing: false,
+}
+// ══════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════
+const CONFIG = {
+ trucks_order: Array.from({length:40},(_,i)=>i+1)
+   .filter(i=>i!==29&&i!==30)
+   .map(i=>`VEH${String(i).padStart(2,'0')}`),
+ extraurban_communes:["ALHUE","BUIN","CALERA DE TANGO","COLINA","CURACAVI","EL MONTE","ISLA DE MAIPO","LAMPA","LO BARNECHEA","MARIA PINTO","MELIPILLA","PADRE HURTADO","PAINE","PENAFLOR","PIRQUE","SAN JOSE DE MAIPO","SAN PEDRO","TALAGANTE","TILTIL"],
+ weights:{distance_km:0.44,duration_hr:0.10,iso_count:0.20,q_comunas:0.01,volume_m3:0.25},
+ zone_multiplier:{extraurbano:2.0,default:1.0}
+}
+const MINI_COMUNAS = new Set(["ÑUÑOA","NUNOA","LAS CONDES","VITACURA","PROVIDENCIA","SANTIAGO"])
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+function removeAccents(s){return s?String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().trim():""}
+function esComunaMini(c){return MINI_COMUNAS.has(removeAccents(c))||MINI_COMUNAS.has((c||'').toUpperCase().trim())}
+function formatFecha(d){return`${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`}
+function findCol(row,opts){const keys=Object.keys(row);return keys.find(k=>opts.some(o=>k.toLowerCase()===o.toLowerCase()))||keys.find(k=>opts.some(o=>k.toLowerCase().includes(o.toLowerCase())))}
+function timeToSeconds(t){if(!t)return null;const p=t.split(':');if(p.length>=2)return(parseInt(p[0])||0)*3600+(parseInt(p[1])||0)*60+(parseInt(p[2])||0);return null}
+function fmtSecs(s){if(s<0)s=0;const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=Math.floor(s%60);return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`}
+function parseNum(v){return typeof v==='number'?v:(parseFloat(String(v).replace(',','.'))||0)}
+function normalizeArr(a){const mi=Math.min(...a),mx=Math.max(...a);return a.map(v=>(mi===mx||isNaN(mi))?0:(v-mi)/(mx-mi))}
+function getSpecialVehicles(){
+ return new Set([
+   (document.getElementById('veh-proyectos').value||'VPR01').toUpperCase(),
+   (document.getElementById('veh-postventa').value||'VPV01').toUpperCase()
+ ]);
+}
+function parseFecha(){
+ const v=document.getElementById('fecha-picking').value;
+ if(!v)return new Date();
+ const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d);
+}
+function getFechaP(){return formatFecha(parseFecha())}
+function getFechaE(){const d=parseFecha();d.setDate(d.getDate()+1);return formatFecha(d)}
+function readFileXlsx(file){
+ return new Promise((res,rej)=>{
+   const r=new FileReader();
+   r.onload=e=>{
+     try{
+       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+       res(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
+     }catch(err){rej(err)}
+   };
+   r.onerror=rej;r.readAsArrayBuffer(file);
+ });
+}
+function exportXlsx(data,name,skipHeader=false){
+ const ws=XLSX.utils.json_to_sheet(data,{skipHeader});
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'Sheet1');
+ XLSX.writeFile(wb,name);
+}
+// ══════════════════════════════════════════════════════
+//  LOG
+// ══════════════════════════════════════════════════════
+function addLog(msg,type='info'){
+ const box=document.getElementById('log-box');
+ box.style.display='flex';
+ const line=document.createElement('div');
+ line.className=`log-line log-${type}`;
+ const now=new Date().toLocaleTimeString('es-CL',{hour12:false});
+ line.innerHTML=`<span class="log-time">${now}</span><span>${msg}</span>`;
+ box.appendChild(line);
+ box.scrollTop=box.scrollHeight;
+}
+// ══════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+   btn.classList.add('active');
+   document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+ });
+});
+// ══════════════════════════════════════════════════════
+//  FECHA
+// ══════════════════════════════════════════════════════
+const dp=document.getElementById('fecha-picking');
+const today=new Date();
+dp.value=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+function refreshFechas(){
+ document.getElementById('fecha-p').textContent=getFechaP();
+ document.getElementById('fecha-e').textContent=getFechaE();
+}
+dp.addEventListener('change',refreshFechas);
+refreshFechas();
+function refreshHint(){
+ const pv=document.getElementById('veh-proyectos').value||'VPR01';
+ const pp=document.getElementById('veh-postventa').value||'VPV01';
+ document.getElementById('preola-hint').textContent=`PREOLA: ${pv} → VEH98 · ${pp} → VEH99`;
+}
+document.getElementById('veh-proyectos').addEventListener('input',refreshHint);
+document.getElementById('veh-postventa').addEventListener('input',refreshHint);
+refreshHint();
+// ══════════════════════════════════════════════════════
+//  F1 UPLOAD
+// ══════════════════════════════════════════════════════
+document.getElementById('inp-f1').addEventListener('change',async e=>{
+ const file=e.target.files[0]; if(!file)return;
+ try{
+   const data=await readFileXlsx(file);
+   S.dataF1=data;
+   document.getElementById('f1-name').textContent=file.name;
+   const tag=document.getElementById('f1-tag');
+   tag.style.display='block'; tag.textContent=`${data.length} filas cargadas`;
+   addLog(`Base SCI: ${data.length} filas — ${file.name}`,'ok');
+   updatePreruteoButtons();
+   updateExportButtons();
+ }catch(err){addLog('Error al leer F1: '+err,'err')}
+ e.target.value='';
+});
+function updatePreruteoButtons(){
+ ['btn-proyectos','btn-postsales','btn-mini','btn-regular'].forEach(id=>{
+   document.getElementById(id).disabled=!S.dataF1;
+ });
+ document.getElementById('btn-exp-preola').disabled=!S.dataF1;
+}
+function updateExportButtons(){
+ const hasData=S.sheetPlan.length>0;
+ document.getElementById('btn-exp-plan').disabled=!hasData;
+ document.getElementById('btn-exp-routeto').disabled=!hasData;
+ document.getElementById('btn-copy-html').disabled=!hasData;
+}
+function updatePolinomioBtn(){
+ document.getElementById('btn-polinomio').disabled=!(S.fileSimpli&&S.dataF1&&!S.processing);
+}
+// ══════════════════════════════════════════════════════
+//  SIMPLI UPLOAD
+// ══════════════════════════════════════════════════════
+document.getElementById('inp-simpli').addEventListener('change',e=>{
+ const file=e.target.files[0]; if(!file)return;
+ S.fileSimpli=file;
+ document.getElementById('simpli-name').textContent=file.name;
+ updatePolinomioBtn();
+ e.target.value='';
+});
+// ══════════════════════════════════════════════════════
+//  PRE RUTEO
+// ══════════════════════════════════════════════════════
+function descargarTickets(tipoVisita,nombreBase){
+ if(!S.dataF1)return;
+ const f=S.dataF1.filter(r=>r['TIPO_VISITA']===tipoVisita);
+ if(!f.length)return addLog(`Sin datos para ${tipoVisita}`,'warn');
+ exportXlsx(f,`${nombreBase} ${getFechaE()}.xlsx`);
+ addLog(`${nombreBase}: ${f.length} filas`,'ok');
+}
+function descargarMini(){
+ if(!S.dataF1)return;
+ const f=S.dataF1.filter(r=>{
+   if(r['TIPO_VISITA']==='PROJECT'||r['TIPO_VISITA']==='POST_SALES')return false;
+   if(r['MINI_TICKET']!=='mini_ticket')return false;
+   return esComunaMini(r['D_COUNTY']||r['CONDUCTOR']||'');
+ });
+ if(!f.length)return addLog('Sin Mini Tickets','warn');
+ exportXlsx(f,`RUTEAR MINI TICKET ${getFechaE()}.xlsx`);
+ addLog(`Mini Ticket: ${f.length}`,'ok');
+}
+function descargarRegular(){
+ if(!S.dataF1)return;
+ const f=S.dataF1.filter(r=>{
+   if(r['TIPO_VISITA']==='PROJECT'||r['TIPO_VISITA']==='POST_SALES')return false;
+   if(r['MINI_TICKET']==='no_mini_ticket')return true;
+   if(r['MINI_TICKET']==='mini_ticket')return!esComunaMini(r['D_COUNTY']||r['CONDUCTOR']||'');
+   return false;
+ });
+ if(!f.length)return addLog('Sin Ticket Regular','warn');
+ exportXlsx(f,`RUTEAR TICKET ${getFechaE()}.xlsx`);
+ addLog(`Regular: ${f.length}`,'ok');
+}
+document.getElementById('btn-proyectos').addEventListener('click',()=>descargarTickets('PROJECT','RUTEAR PROYECTOS'));
+document.getElementById('btn-postsales').addEventListener('click',()=>descargarTickets('POST_SALES','RUTEAR POST SALES'));
+document.getElementById('btn-mini').addEventListener('click',descargarMini);
+document.getElementById('btn-regular').addEventListener('click',descargarRegular);
+// ══════════════════════════════════════════════════════
+//  POLINOMIO
+// ══════════════════════════════════════════════════════
+document.getElementById('btn-polinomio').addEventListener('click',processFlujo2);
+async function processFlujo2(){
+ if(!S.fileSimpli||!S.dataF1)return addLog('Carga el Archivo Base y el Plan SimpliRoute','err');
+ S.processing=true;
+ const btn=document.getElementById('btn-polinomio');
+ btn.textContent='Procesando...';btn.disabled=true;
+ addLog('Procesando Polinomio…','info');
+ try{
+   const dataSimpli=await readFileXlsx(S.fileSimpli);
+   if(!dataSimpli.length||!S.dataF1.length)throw new Error('Archivos vacíos');
+   const cI=findCol(S.dataF1[0],["ISO","ID de referencia","Title"])||Object.keys(S.dataF1[0])[0];
+   const cC=findCol(S.dataF1[0],["D_COUNTY","COUNTY","COMUNA"])||"D_COUNTY";
+   const ruteoDict={};
+   S.dataF1.forEach(r=>{if(r[cI])ruteoDict[String(r[cI]).trim().toUpperCase()]=r[cC]||""});
+   const sC={
+     conductor: findCol(dataSimpli[0],["Conductor","Driver"])||"Conductor",
+     titulo:    findCol(dataSimpli[0],["Título","Title","ISO"])||"Título",
+     vehiculo:  findCol(dataSimpli[0],["Vehículo","Vehicle","Ruta"])||"Vehículo",
+     distancia: findCol(dataSimpli[0],["Distancia","Distance"])||"Distancia",
+     cap2:      findCol(dataSimpli[0],["Capacidad 2","Capacity 2"])||"Capacidad 2",
+     tiempoEst: findCol(dataSimpli[0],["Tiempo estimado de llegada","ETA"])||"Tiempo estimado de llegada",
+     idRef:     findCol(dataSimpli[0],["ID de referencia","DOFI"])||"ID de referencia"
+   };
+   const extraUrbanSet=new Set(CONFIG.extraurban_communes.map(c=>removeAccents(c)));
+   const cleanSimpli=dataSimpli.map(row=>{
+     const t=String(row[sC.titulo]).trim().toUpperCase();
+     if(t!=="INICIO"&&t!=="FIN") row[sC.conductor]=ruteoDict[t]||row[sC.conductor];
+     const zona=extraUrbanSet.has(removeAccents(row[sC.conductor]))?"Extraurbano":"Urbano";
+     const tiempo=row[sC.tiempoEst]||"";
+     let fecha="",hora="";
+     if(tiempo.includes("T")){const p=tiempo.split("T");fecha=p[0];hora=p[1]}
+     else if(tiempo.includes(" ")){const p=tiempo.split(" ");fecha=p[0];hora=p[1]}
+     else{fecha=tiempo}
+     return{...row,_zona:zona,_fecha:fecha,_hora:hora};
+   });
+   const groups={};
+   cleanSimpli.forEach(row=>{
+     const v=String(row[sC.vehiculo]||"").trim();
+     if(!groups[v])groups[v]={rows:[]};
+     groups[v].rows.push(row);
+   });
+   const summaries=[];
+   for(const veh in groups){
+     const rows=groups[veh].rows;
+     const dist=rows.reduce((a,r)=>a+parseNum(r[sC.distancia]),0);
+     const cap=rows.reduce((a,r)=>a+parseNum(r[sC.cap2]),0);
+     let minSec=Infinity,maxSec=-Infinity,realIso=0;
+     rows.forEach(r=>{
+       const t=String(r[sC.titulo]).trim().toUpperCase();
+       if(t!=="INICIO"&&t!=="FIN")realIso++;
+       const s=timeToSeconds(r._hora);
+       if(s!==null){if(s<minSec)minSec=s;if(s>maxSec)maxSec=s}
+     });
+     const durSec=(minSec!==Infinity&&maxSec!==-Infinity)?maxSec-minSec:0;
+     const comunas=new Set(rows.filter(r=>{
+       const t=String(r[sC.titulo]).trim().toUpperCase();return t!=="INICIO"&&t!=="FIN"
+     }).map(r=>r[sC.conductor]).filter(Boolean));
+     const zonas={"Urbano":0,"Extraurbano":0};
+     rows.forEach(r=>zonas[r._zona]++);
+     const pred=zonas["Extraurbano"]>0?"Extraurbano":"Urbano";
+     summaries.push({original_vehicle:veh,Zona:pred,distance_km:dist,duration_hr:durSec/3600,duration_formatted:fmtSecs(durSec),iso_count:realIso,q_comunas:comunas.size,volume_m3:cap,isRegularTruck:/^VEH\d+$/i.test(veh)});
+   }
+   const regularTrucks=summaries.filter(s=>s.isRegularTruck);
+   const others=summaries.filter(s=>!s.isRegularTruck);
+   const aD=normalizeArr(regularTrucks.map(s=>s.distance_km));
+   const aDur=normalizeArr(regularTrucks.map(s=>s.duration_hr));
+   const aI=normalizeArr(regularTrucks.map(s=>s.iso_count));
+   const aC=normalizeArr(regularTrucks.map(s=>s.q_comunas));
+   const aV=normalizeArr(regularTrucks.map(s=>s.volume_m3));
+   regularTrucks.forEach((s,i)=>{
+     s.score_base=CONFIG.weights.distance_km*aD[i]+CONFIG.weights.duration_hr*aDur[i]+CONFIG.weights.iso_count*aI[i]+CONFIG.weights.q_comunas*aC[i]+CONFIG.weights.volume_m3*aV[i];
+     s.score=s.score_base*(s.Zona.toLowerCase()==="extraurbano"?CONFIG.zone_multiplier.extraurbano:CONFIG.zone_multiplier.default);
+   });
+   others.forEach(s=>{s.score_base=0;s.score=0});
+   regularTrucks.sort((a,b)=>b.score-a.score);
+   const vehicleMap={};
+   regularTrucks.forEach((r,idx)=>{
+     r.final_route_to=CONFIG.trucks_order[idx]||`VEH${String(idx+1).padStart(2,'0')}`;
+     vehicleMap[r.original_vehicle]=r.final_route_to;
+   });
+   others.forEach(s=>{s.final_route_to=s.original_vehicle;vehicleMap[s.original_vehicle]=s.final_route_to});
+   const ordered=[...regularTrucks,...others];
+   const originalKeys=Object.keys(dataSimpli[0]);
+   const planData=cleanSimpli.map(row=>{
+     const o={};
+     originalKeys.forEach(k=>{if(!k.startsWith("__EMPTY")&&!["_zona","_fecha","_hora"].includes(k))o[k]=row[k]});
+     o["DIA"]=row._fecha; o["HORA"]=row._hora;
+     const v=String(row[sC.vehiculo]||"").trim();
+     o["VEH INICIAL"]=v; o["VEH FINAL"]=vehicleMap[v]||v;
+     o["_DOFI"]=row[sC.idRef]; o["_TITULO"]=row[sC.titulo];
+     return o;
+   });
+   const polyData=ordered.map(o=>({"VEH INICIAL":o.original_vehicle,"VEH FINAL":o.final_route_to,"Tipo":o.isRegularTruck?"Camión Regular":"Otro","Zona":o.Zona,"Paradas ISO":o.iso_count,"Distancia Total (km)":+o.distance_km.toFixed(2),"Volumen (m3)":+o.volume_m3.toFixed(2),"Tiempo en Ruta":o.duration_formatted,"Cant. Comunas":o.q_comunas,"Score Base":+o.score_base.toFixed(4),"Score Final":+o.score.toFixed(4)}));
+   const pv=document.getElementById('veh-proyectos').value||'VPR01';
+   const pp=document.getElementById('veh-postventa').value||'VPV01';
+   const resData=ordered.map(o=>({"ANDEN":"","LADO":"","Vehículo":o.final_route_to,"Distancia":+o.distance_km.toFixed(2),"Tiempo en Ruta":o.duration_formatted,"ISO":o.iso_count,"Q COMUNAS":o.q_comunas,"M3":+o.volume_m3.toFixed(2),"Horario salida":"","Zona":o.Zona,"Tipo Vehículo":"","Tipo Ticket":o.final_route_to.toUpperCase().startsWith("MINI")?"MiniTicket":"Ticket Regular"}));
+   const metricsVehs=ordered.filter(o=>o.original_vehicle.toUpperCase()!==pv.toUpperCase()&&o.original_vehicle.toUpperCase()!==pp.toUpperCase());
+   const totalVeh=metricsVehs.length;
+   const sumISO=metricsVehs.reduce((s,o)=>s+o.iso_count,0);
+   const promISO=totalVeh>0?+(sumISO/totalVeh).toFixed(2):0;
+   S.sheetPlan=planData; S.sheetPolinomio=polyData; S.sheetResumen=resData;
+   S.metrics={total:totalVeh,prom:promISO,sum:sumISO};
+   document.getElementById('metrics-box').style.display='flex';
+   document.getElementById('m-total').textContent=totalVeh;
+   document.getElementById('m-prom').textContent=promISO;
+   document.getElementById('m-sum').textContent=sumISO;
+   updateExportButtons();
+   buildEmailPreview();
+   addLog(`¡Polinomio listo! ${totalVeh} vehículos, ${sumISO} ISOs`,'ok');
+ }catch(e){addLog('Error: '+e.message,'err')}finally{
+   S.processing=false;
+   btn.textContent='▶ Ejecutar Polinomio';
+   updatePolinomioBtn();
+ }
+}
+// ══════════════════════════════════════════════════════
+//  EXPORTS
+// ══════════════════════════════════════════════════════
+document.getElementById('btn-exp-plan').addEventListener('click',downloadPlan);
+document.getElementById('btn-exp-routeto').addEventListener('click',downloadRouteTo);
+document.getElementById('btn-exp-preola').addEventListener('click',downloadPreola);
+function downloadPlan(){
+ if(!S.sheetPlan.length)return;
+ const wb=XLSX.utils.book_new();
+ const print=S.sheetPlan.map(r=>{const c={...r};delete c._DOFI;delete c._TITULO;return c});
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(print),"Plan");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(S.sheetPolinomio),"Polinomio");
+ const ws3=XLSX.utils.json_to_sheet(S.sheetResumen);
+ if(S.metrics) XLSX.utils.sheet_add_aoa(ws3,[["Vehículos","Promedio de ISO","Suma de ISO"],[S.metrics.total,S.metrics.prom,S.metrics.sum]],{origin:"N1"});
+ XLSX.utils.book_append_sheet(wb,ws3,"Resumen");
+ XLSX.writeFile(wb,`1. Simpliroute_Plan_${getFechaE()} RUTEO.xlsx`);
+ addLog('Plan exportado','ok');
+}
+// ── FIX 1: Route To excluye vehículos especiales (VPR01 / VPV01) ──────────
+function downloadRouteTo(){
+ if(!S.sheetPlan.length)return;
+ const EXCLUIDOS=getSpecialVehicles(); // ← vehículos especiales fuera
+ const list=S.sheetPlan.filter(r=>{
+   const t=String(r._TITULO).trim().toUpperCase();
+   const vf=String(r["VEH FINAL"]||"").toUpperCase();
+   return t!=="INICIO" && t!=="FIN" && r._DOFI && !EXCLUIDOS.has(vf);
+ }).map(r=>({A:r._DOFI,B:r["VEH FINAL"]}));
+ if(!list.length)return addLog('Route To: sin filas para exportar','warn');
+ for(let i=0;i<list.length;i+=1000){
+   const chunk=list.slice(i,i+1000);
+   const suffix=i===0?'':` ${Math.floor(i/1000)+1}`;
+   exportXlsx(chunk,`2. ROUTE TO picking ${getFechaP()} entregas ${getFechaE()}${suffix}.xlsx`,true);
+ }
+ addLog(`Route To exportado (${Math.ceil(list.length/1000)} archivo/s, ${list.length} filas, sin veh. especiales)`,'ok');
+}
+function downloadPreola(){
+ if(!S.dataF1)return addLog('Carga el archivo base','warn');
+ const pv=document.getElementById('veh-proyectos').value||'VPR01';
+ const pp=document.getElementById('veh-postventa').value||'VPV01';
+ const f=S.dataF1.filter(r=>r['TIPO_VISITA']==='PROJECT'||r['TIPO_VISITA']==='POST_SALES');
+ if(!f.length)return addLog('Sin proyectos/post sales','warn');
+ const d=f.map(r=>({A:r['ID_REFERENCIA'],B:r['TIPO_VISITA']==='PROJECT'?'VEH98':'VEH99'}));
+ exportXlsx(d,`3. ROUTE TO PROYECT+ POST SALES picking ${getFechaP()} entregas ${getFechaE()}.xlsx`,true);
+ addLog(`Preola exportada (${d.length} filas → VEH98/VEH99)`,'ok');
+}
+// ══════════════════════════════════════════════════════
+//  EMAIL
+// ══════════════════════════════════════════════════════
+function buildEmailPreview(){
+ if(!S.sheetResumen.length||!S.metrics)return;
+ const EXCLUIDOS=getSpecialVehicles();
+ const filas=S.sheetResumen.filter(r=>!EXCLUIDOS.has(String(r["Vehículo"]).toUpperCase()));
+ const cols=["ANDEN","LADO","Vehículo","Distancia","Tiempo en Ruta","ISO","Q COMUNAS","M3","Horario salida","Zona","Tipo Vehículo","Tipo Ticket"];
+ let resumenTable='<p style="color:#888;font-size:11px">Sin datos de resumen.</p>';
+ if(filas.length>0){
+   const ths=cols.map(c=>`<th>${c}</th>`).join('');
+   const trs=filas.map((r,i)=>{
+     const bg=i%2===0?'#fff':'#f0f6ff';
+     const tds=cols.map(c=>`<td>${r[c]??''}</td>`).join('');
+     return`<tr style="background:${bg}">${tds}</tr>`;
+   }).join('');
+   resumenTable=`<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+ }
+ const html=`
+<p>Team,</p>
+<p>Esperando que se encuentren bien, les envío archivo con detalle de las rutas.</p>
+<p><span style="background:#ffda1a;color:#000;font-weight:700;padding:3px 8px;border-radius:3px;">Equipo la PRE-OLA ya se encuentra cargada a sistema</span></p>
+<table style="max-width:320px;margin-bottom:14px">
+<thead><tr><th>Vehículos</th><th>Promedio de ISO</th><th>Suma de ISO</th></tr></thead>
+<tbody><tr><td>${S.metrics.total}</td><td>${S.metrics.prom}</td><td>${S.metrics.sum}</td></tr></tbody>
+</table>
+   ${resumenTable}`;
+ document.getElementById('email-empty').style.display='none';
+ const prev=document.getElementById('email-preview');
+ prev.style.display='block';
+ prev.innerHTML=html;
+}
+// ── FIX 2: Copiar HTML al portapapeles (método robusto con fallback) ───────
+document.getElementById('btn-copy-html').addEventListener('click',async ()=>{
+ if(!S.sheetResumen.length||!S.metrics)return;
+ const EXCLUIDOS=getSpecialVehicles();
+ const filas=S.sheetResumen.filter(r=>!EXCLUIDOS.has(String(r["Vehículo"]).toUpperCase()));
+ const cols=["ANDEN","LADO","Vehículo","Distancia","Tiempo en Ruta","ISO","Q COMUNAS","M3","Horario salida","Zona","Tipo Vehículo","Tipo Ticket"];
+ const thStyle='background:#0058A3;color:#fff;font-weight:700;padding:7px 10px;border:1px solid #004080;text-align:center;white-space:nowrap;';
+ const tdStyle='padding:6px 10px;border:1px solid #d0d0d0;text-align:center;color:#111;';
+ const ths=cols.map(c=>`<th style="${thStyle}">${c}</th>`).join('');
+ const trs=filas.map((r,i)=>{
+   const bg=i%2===0?'#ffffff':'#f0f6ff';
+   const tds=cols.map(c=>`<td style="${tdStyle}">${r[c]??''}</td>`).join('');
+   return`<tr style="background:${bg}">${tds}</tr>`;
+ }).join('');
+ const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.7;max-width:760px;">
+<p>Team,</p>
+<p>Esperando que se encuentren bien, les envío archivo con detalle de las rutas.</p>
+<p><span style="background:#ffda1a;color:#000;font-weight:700;padding:3px 8px;border-radius:3px;">Equipo la PRE-OLA ya se encuentra cargada a sistema</span></p>
+<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin-bottom:14px;max-width:360px;">
+<thead><tr>
+<th style="${thStyle}">Vehículos</th>
+<th style="${thStyle}">Promedio de ISO</th>
+<th style="${thStyle}">Suma de ISO</th>
+</tr></thead>
+<tbody><tr>
+<td style="${tdStyle}">${S.metrics.total}</td>
+<td style="${tdStyle}">${S.metrics.prom}</td>
+<td style="${tdStyle}">${S.metrics.sum}</td>
+</tr></tbody>
+</table>
+<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">
+<thead><tr>${ths}</tr></thead>
+<tbody>${trs}</tbody>
+</table>
+</div>`;
+ // Método 1: ClipboardItem con HTML rico (Chrome/Edge modernos)
+ if(navigator.clipboard && window.ClipboardItem){
+   try{
+     const blob=new Blob([fullHtml],{type:'text/html'});
+     await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]);
+     addLog('✉️ Correo copiado al portapapeles (HTML rico)','ok');
+     return;
+   }catch(err){
+     addLog('ClipboardItem falló, intentando fallback…','warn');
+   }
+ }
+ // Método 2: execCommand sobre un elemento contenteditable oculto
+ try{
+   const div=document.createElement('div');
+   div.contentEditable='true';
+   div.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';
+   div.innerHTML=fullHtml;
+   document.body.appendChild(div);
+   const sel=window.getSelection();
+   const range=document.createRange();
+   range.selectNodeContents(div);
+   sel.removeAllRanges();
+   sel.addRange(range);
+   const ok=document.execCommand('copy');
+   sel.removeAllRanges();
+   document.body.removeChild(div);
+   if(ok){addLog('✉️ Correo copiado (execCommand HTML)','ok');}
+   else throw new Error('execCommand devolvió false');
+ }catch(err2){
+   // Método 3: texto plano como último recurso
+   try{
+     await navigator.clipboard.writeText(fullHtml);
+     addLog('✉️ Correo copiado como texto (pega el HTML en el editor)','warn');
+   }catch(err3){
+     addLog('No se pudo copiar: '+err3.message,'err');
+   }
+ }
+});
+</script>
+</body>
+</html>

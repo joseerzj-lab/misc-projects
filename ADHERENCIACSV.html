@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte Geosort — Filtro IKEA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f1f5f9;
+    --bgCard: #ffffff;
+    --bgCardAlt: rgba(0,0,0,0.025);
+    --borderSoft: rgba(58,114,172,0.18);
+    --text: #1a2e42;
+    --textSub: #3d6080;
+    --textFaint: #5c7c98;
+    --blue: #2563eb;
+    --red: #b91c1c;
+    --green: #15803d;
+    --orange: #ea580c;
+    --purple: #7c3aed;
+    --accentBg: rgba(37,99,235,0.08);
+    --borderFocus: #2563eb;
+    --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    --font-base: "Segoe UI",system-ui,-apple-system,sans-serif;
+    --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px; --radius-xl: 8px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
+    --shadow-xl: 0 20px 25px rgba(0,0,0,0.12),0 8px 10px rgba(0,0,0,0.06);
+    --transition-fast: 0.12s ease;
+    --transition-normal: 0.18s ease;
+    /* legacy aliases used by JS-generated HTML */
+    --surface: var(--bgCard);
+    --border: var(--borderSoft);
+    --muted: var(--textFaint);
+    --success: var(--green);
+    --error: var(--red);
+    --ikea-blue: #003087;
+    --ikea-yellow: #ffda00;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-base);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+  }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 48px;
+    position: relative;
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .ikea-badge {
+    background: #003087;
+    color: #ffda00;
+    font-family: var(--font-base);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+  }
+  h1 {
+    font-family: var(--font-base);
+    font-weight: 800;
+    font-size: clamp(26px, 5vw, 38px);
+    letter-spacing: -1px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  h1 span { color: var(--blue); }
+  .subtitle {
+    color: var(--textFaint);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    margin-top: 10px;
+  }
+  .rule {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, var(--borderSoft), transparent);
+    margin-top: 20px;
+  }
+
+  /* ── Card ── */
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: var(--bgCard);
+    border: 1px solid var(--borderSoft);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: var(--font-base);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--textSub);
+    margin-bottom: 20px;
+  }
+
+  /* ── Drop Zone ── */
+  #drop-zone {
+    border: 2px dashed var(--borderSoft);
+    border-radius: var(--radius-lg);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition-normal), background var(--transition-normal);
+    position: relative;
+  }
+  #drop-zone.drag-over {
+    border-color: var(--blue);
+    background: var(--accentBg);
+  }
+  #drop-zone.has-file {
+    border-color: var(--green);
+    border-style: solid;
+  }
+  #file-input { display: none; }
+  .drop-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    display: block;
+    transition: transform var(--transition-normal);
+  }
+  #drop-zone:hover .drop-icon { transform: translateY(-3px); }
+  .drop-label {
+    font-size: 13px;
+    color: var(--textFaint);
+    line-height: 1.6;
+  }
+  .drop-label strong { color: var(--text); }
+  #file-name {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--green);
+    min-height: 18px;
+  }
+
+  /* ── Date Picker ── */
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  label.field-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--textFaint);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  input[type="date"] {
+    background: var(--bgCard);
+    border: 1px solid var(--borderSoft);
+    border-radius: var(--radius-lg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color var(--transition-fast);
+  }
+  input[type="date"]:focus { border-color: var(--borderFocus); }
+  .filename-preview {
+    font-size: 12px;
+    color: var(--textFaint);
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--bgCardAlt);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--blue);
+  }
+  .filename-preview span { color: var(--blue); }
+
+  /* ── Stats ── */
+  #stats-row {
+    display: none;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  #stats-row.visible { display: flex; }
+  .stat-pill {
+    flex: 1;
+    min-width: 140px;
+    background: var(--bgCardAlt);
+    border: 1px solid var(--borderSoft);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+  }
+  .stat-pill .stat-val {
+    font-family: var(--font-base);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-pill.total .stat-val { color: var(--textFaint); }
+  .stat-pill.found .stat-val { color: var(--green); }
+  .stat-pill .stat-lbl {
+    font-size: 10px;
+    color: var(--textFaint);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── Export Button ── */
+  #btn-export {
+    width: 100%;
+    max-width: 720px;
+    padding: 16px 18px;
+    background: var(--blue);
+    color: #fff;
+    font-family: var(--font-base);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+  }
+  #btn-export:hover:not(:disabled) {
+    background: #1d4ed8;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+  #btn-export:active:not(:disabled) { transform: scale(0.99); box-shadow: none; }
+  #btn-export:disabled {
+    background: var(--bgCardAlt);
+    color: var(--textFaint);
+    border: 1px solid var(--borderSoft);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* ── Message ── */
+  #msg {
+    width: 100%;
+    max-width: 720px;
+    text-align: center;
+    font-size: 12px;
+    min-height: 20px;
+    margin-top: 12px;
+    transition: color var(--transition-fast);
+  }
+  #msg.ok { color: var(--green); }
+  #msg.err { color: var(--red); }
+
+  /* ── Preview Table ── */
+  #preview-wrap {
+    display: none;
+    width: 100%;
+    max-width: 720px;
+  }
+  #preview-wrap.visible { display: block; }
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .preview-header span {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--textFaint);
+    text-transform: uppercase;
+  }
+  .preview-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--borderSoft);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  th {
+    background: var(--bgCardAlt);
+    color: var(--textSub);
+    padding: 10px 12px;
+    text-align: left;
+    font-family: var(--font-base);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid var(--borderSoft);
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--borderSoft);
+    color: var(--text);
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bgCardAlt); }
+  td.highlight { color: var(--blue); font-weight: 600; }
+
+  footer {
+    margin-top: 48px;
+    font-size: 10px;
+    color: var(--textFaint);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-row">
+    <span class="ikea-badge">IKEA</span>
+  </div>
+  <h1>Filtro <span>Geosort</span></h1>
+  <p class="subtitle">CSV → XLSX · FILTRO COLUMNA COMMERCE · IKEA</p>
+  <div class="rule"></div>
+</header>
+
+<!-- Step 1: Upload -->
+<div class="card">
+  <div class="card-title">01 · Archivo CSV</div>
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".csv">
+    <span class="drop-icon">📂</span>
+    <div class="drop-label">
+      <strong>Arrastra tu CSV aquí</strong><br>
+      o haz click para seleccionar
+    </div>
+    <div id="file-name"></div>
+  </div>
+</div>
+
+<!-- Step 2: Date -->
+<div class="card">
+  <div class="card-title">02 · Fecha del reporte</div>
+  <div class="field-row">
+    <label class="field-label" for="report-date">Fecha</label>
+    <input type="date" id="report-date">
+  </div>
+  <div class="filename-preview">
+    Archivo: <span id="filename-display">Reporte_Geosort-DD-MM-AAAA.xlsx</span>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="card" id="stats-card" style="display:none">
+  <div class="card-title">03 · Resultado del filtro</div>
+  <div id="stats-row">
+    <div class="stat-pill total">
+      <div class="stat-val" id="stat-total">0</div>
+      <div class="stat-lbl">Filas totales</div>
+    </div>
+    <div class="stat-pill found">
+      <div class="stat-val" id="stat-found">0</div>
+      <div class="stat-lbl">Filas IKEA</div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Button -->
+<button id="btn-export" disabled>⬇ Exportar XLSX</button>
+<div id="msg"></div>
+
+<!-- Preview -->
+<div id="preview-wrap">
+  <div class="preview-header">
+    <span>Vista previa (primeras 20 filas)</span>
+  </div>
+  <div class="preview-scroll">
+    <table id="preview-table"></table>
+  </div>
+</div>
+
+<footer>GEOSORT · FILTRO IKEA · CSV→XLSX</footer>
+
+<script>
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileNameEl = document.getElementById('file-name');
+  const reportDate = document.getElementById('report-date');
+  const filenameDisplay = document.getElementById('filename-display');
+  const btnExport = document.getElementById('btn-export');
+  const msgEl = document.getElementById('msg');
+  const statsCard = document.getElementById('stats-card');
+  const statsRow = document.getElementById('stats-row');
+  const statTotal = document.getElementById('stat-total');
+  const statFound = document.getElementById('stat-found');
+  const previewWrap = document.getElementById('preview-wrap');
+  const previewTable = document.getElementById('preview-table');
+
+  // Set today as default date
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  reportDate.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+  let filteredData = null;
+
+  function getFilename() {
+    const d = reportDate.value;
+    if (!d) return 'Reporte_Geosort.xlsx';
+    const [y, m, day] = d.split('-');
+    return `Reporte_Geosort-${day}-${m}-${y}.xlsx`;
+  }
+
+  function updateFilenamePreview() {
+    filenameDisplay.textContent = getFilename();
+  }
+  reportDate.addEventListener('change', updateFilenamePreview);
+  updateFilenamePreview();
+
+  // Drag & drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+
+  function processFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showMsg('Solo se aceptan archivos .csv', 'err');
+      return;
+    }
+    fileNameEl.textContent = '✓ ' + file.name;
+    dropZone.classList.add('has-file');
+
+    const reader = new FileReader();
+    reader.onload = e => parseCSV(e.target.result);
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function parseCSV(text) {
+    try {
+      const wb = XLSX.read(text, { type: 'string', raw: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (rows.length === 0) {
+        showMsg('El CSV está vacío o no tiene filas de datos.', 'err');
+        return;
+      }
+
+      // Find Commerce column (case-insensitive)
+      const headers = Object.keys(rows[0]);
+      const commerceKey = headers.find(h => h.trim().toLowerCase() === 'commerce');
+
+      if (!commerceKey) {
+        showMsg(`No se encontró la columna "Commerce". Columnas disponibles: ${headers.join(', ')}`, 'err');
+        return;
+      }
+
+      // Filter rows where Commerce contains "ikea" (case-insensitive)
+      const ikea = rows.filter(r => String(r[commerceKey]).toLowerCase().includes('ikea'));
+
+      filteredData = { headers, rows: ikea, commerceKey };
+
+      // Stats
+      statTotal.textContent = rows.length.toLocaleString('es-CL');
+      statFound.textContent = ikea.length.toLocaleString('es-CL');
+      statsCard.style.display = 'block';
+      statsRow.classList.add('visible');
+
+      if (ikea.length === 0) {
+        showMsg('No se encontraron filas con "IKEA" en la columna Commerce.', 'err');
+        btnExport.disabled = true;
+      } else {
+        showMsg(`✓ ${ikea.length} filas encontradas con IKEA.`, 'ok');
+        btnExport.disabled = false;
+        renderPreview(headers, ikea, commerceKey);
+      }
+    } catch(err) {
+      showMsg('Error al leer el CSV: ' + err.message, 'err');
+    }
+  }
+
+  function renderPreview(headers, rows, commerceKey) {
+    const preview = rows.slice(0, 20);
+    let html = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+    preview.forEach(row => {
+      html += '<tr>' + headers.map(h => {
+        const val = row[h] ?? '';
+        const cls = h === commerceKey ? ' class="highlight"' : '';
+        return `<td${cls} title="${String(val).replace(/"/g,'"')}">${String(val)}</td>`;
+      }).join('') + '</tr>';
+    });
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+    previewWrap.classList.add('visible');
+  }
+
+  btnExport.addEventListener('click', () => {
+    if (!filteredData) return;
+    const { headers, rows } = filteredData;
+
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+
+    // Style header row
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: '003087' } },
+          fill: { fgColor: { rgb: 'FFDA00' } },
+          alignment: { horizontal: 'center' }
+        };
+      }
+    }
+
+    // Column widths
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'IKEA');
+
+    XLSX.writeFile(wb, getFilename(), { bookType: 'xlsx', cellStyles: true });
+    showMsg(`✓ Archivo descargado: ${getFilename()}`, 'ok');
+  });
+
+  function showMsg(text, type) {
+    msgEl.textContent = text;
+    msgEl.className = type;
+  }
+</script>
+</body>
+</html>
