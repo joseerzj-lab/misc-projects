@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asignador PREOLA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+ *{box-sizing:border-box;margin:0;padding:0}
+ :root{
+   --bg:#f1f5f9;--bgCard:#ffffff;--bgCardAlt:rgba(0,0,0,0.025);--bg-hover:rgba(0,0,0,0.04);
+   --border:rgba(58,114,172,0.18);--border-soft:rgba(58,114,172,0.12);
+   --borderSoft:rgba(58,114,172,0.18);
+   --text:#1a2e42;--text-muted:#3d6080;--text-faint:#5c7c98;
+   --textSub:#3d6080;--textFaint:#5c7c98;
+   --blue:#2563eb;--green:#15803d;--red:#b91c1c;--orange:#ea580c;--yellow:#ca8a04;
+   --accentBg:rgba(37,99,235,0.08);--borderFocus:#2563eb;
+   --font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+   --font-base:"Segoe UI",system-ui,-apple-system,sans-serif;
+   --radius-sm:3px;--radius-md:4px;--radius-lg:6px;--radius-xl:8px;
+   --shadow-sm:0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
+   --shadow-md:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
+   --transition-fast:0.12s ease;--transition-normal:0.18s ease;
+ }
+ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-base);font-size:12px}
+ ::-webkit-scrollbar{width:5px;height:5px}
+ ::-webkit-scrollbar-track{background:transparent}
+ ::-webkit-scrollbar-thumb{background:rgba(58,114,172,0.25);border-radius:3px}
+ ::-webkit-scrollbar-thumb:hover{background:rgba(58,114,172,0.45)}
+ /* HEADER */
+ .header{background:var(--bgCard);border-bottom:1px solid var(--borderSoft);box-shadow:var(--shadow-sm);padding:0 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+ .header-brand{display:flex;align-items:center;gap:8px;padding:12px 0;font-weight:700;font-size:14px;color:var(--text);white-space:nowrap}
+ .tabs{display:flex;gap:2px;padding:6px 0}
+ .tab{padding:7px 14px;border-radius:var(--radius-md) var(--radius-md) 0 0;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:11px;font-weight:500;background:transparent;color:var(--textFaint);transition:all var(--transition-fast);font-family:var(--font-base);margin-bottom:-1px}
+ .tab:hover{background:rgba(0,0,0,0.03);color:var(--textSub)}
+ .tab.active{background:var(--accentBg);border-bottom-color:var(--blue);color:var(--blue);font-weight:600}
+ .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px;background:rgba(37,99,235,0.15);color:var(--blue)}
+ .badge.red{background:rgba(185,28,28,0.15);color:var(--red)}
+ /* LAYOUT */
+ .main{padding:20px;display:grid;grid-template-columns:260px 1fr;gap:20px;min-height:calc(100vh - 52px)}
+ @media(max-width:900px){.main{grid-template-columns:1fr}}
+ /* CARDS */
+ .card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
+ /* UPLOAD */
+ .upload-zone{padding:24px;text-align:center;cursor:pointer;border:1px dashed var(--borderSoft);border-radius:var(--radius-lg);background:var(--bgCardAlt);transition:all var(--transition-normal)}
+ .upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--accentBg)}
+ .upload-icon{font-size:32px;margin-bottom:10px}
+ /* BUTTONS */
+ .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-md);border:1px solid var(--borderSoft);cursor:pointer;font-family:var(--font-base);font-weight:500;transition:all var(--transition-fast);padding:6px 12px;font-size:11px;background:rgba(0,0,0,0.04);color:var(--text)}
+ .btn:hover{background:rgba(0,0,0,0.08)}
+ .btn:disabled{opacity:.35;cursor:not-allowed}
+ .btn:hover:not(:disabled){transform:translateY(-1px)}
+ .btn:active:not(:disabled){transform:translateY(1px)}
+ .btn-run{width:100%;padding:10px;font-size:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);cursor:pointer;font-weight:600;font-family:var(--font-base);transition:background var(--transition-fast)}
+ .btn-run:hover{background:#1d4ed8}
+ .btn-green{border-color:rgba(21,128,61,0.4);color:var(--green);background:rgba(21,128,61,0.08)}
+ .btn-green:hover{background:rgba(21,128,61,0.15)}
+ .btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+ .btn-blue:hover{background:#1d4ed8}
+ /* STAT CARDS */
+ .stat-card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-md);padding:10px 14px;box-shadow:var(--shadow-sm)}
+ .stat-val{font-size:20px;font-weight:800;font-family:var(--font-mono);color:var(--blue)}
+ .stat-lbl{font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+ /* FACILITY LIST */
+ .fac-row{width:100%;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:transparent;border:none;color:inherit;font-family:inherit;border-bottom:1px solid var(--borderSoft);transition:background var(--transition-fast);text-align:left}
+ .fac-row:hover{background:rgba(0,0,0,0.03)}
+ .pill{font-size:9px;font-family:var(--font-mono);background:var(--accentBg);color:var(--blue);border:1px solid rgba(37,99,235,0.25);padding:1px 5px;border-radius:var(--radius-sm)}
+ .pill-orange{background:rgba(234,88,12,0.1);color:var(--orange);border-color:rgba(234,88,12,0.25);font-size:10px}
+ .fac-edit{padding:16px;background:var(--bgCardAlt);border-bottom:1px solid var(--borderSoft)}
+ /* INPUTS */
+ .param-input{width:100%;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-md);padding:6px 10px;color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none;transition:border var(--transition-fast)}
+ .param-input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+ label.lbl{display:block;font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+ .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+ .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+ /* COUNT CTRL */
+ .count-ctrl{display:flex;align-items:center;gap:4px}
+ .count-btn{width:28px;height:32px;border-radius:var(--radius-md);border:1px solid var(--borderSoft);cursor:pointer;font-size:16px;font-weight:bold;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;background:var(--bgCard);color:var(--text);transition:all var(--transition-fast)}
+ .count-btn:hover{background:rgba(0,0,0,0.06)}
+ .count-inp{width:44px;text-align:center;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-md);padding:4px;font-size:14px;font-family:var(--font-mono);font-weight:bold;color:var(--text);outline:none}
+ /* LINEAL NAMES */
+ .lineal-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+ .lineal-item{display:flex;flex-direction:column;align-items:center;gap:2px}
+ .lineal-inp{width:80px;text-align:center;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-sm);padding:4px 6px;font-size:12px;font-family:var(--font-mono);color:var(--text);outline:none}
+ /* TABLE */
+ table{width:100%;border-collapse:collapse;font-size:12px}
+ th{padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--textSub);font-weight:600;white-space:nowrap;background:var(--bgCardAlt);border-bottom:1px solid var(--borderSoft);position:sticky;top:0}
+ td{padding:8px 12px;border-bottom:1px solid var(--borderSoft);white-space:nowrap}
+ tr:hover td{background:rgba(0,0,0,0.02)}
+ tr.overflow-row td{background:rgba(185,28,28,0.06)}
+ .minibar-wrap{display:flex;align-items:center;gap:6px}
+ .minibar-bg{flex:1;background:var(--bgCardAlt);border-radius:999px;height:6px;overflow:hidden;min-width:50px}
+ .minibar-fill{height:100%;border-radius:999px;transition:width .3s}
+ .tag{font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid;white-space:nowrap}
+ .tag-ok{background:rgba(21,128,61,0.1);border-color:rgba(21,128,61,0.3);color:var(--green)}
+ .tag-err{background:rgba(185,28,28,0.1);border-color:rgba(185,28,28,0.3);color:var(--red)}
+ /* BULK */
+ .bulk-area{width:100%;height:200px;padding:12px;background:var(--bgCardAlt);border:1px solid var(--borderSoft);border-radius:var(--radius-md);color:var(--text);font-family:var(--font-mono);font-size:12px;resize:vertical;outline:none}
+ .scroll-area{max-height:520px;overflow-y:auto}
+ .gap4{display:flex;flex-direction:column;gap:4px}
+ .gap8{display:flex;flex-direction:column;gap:8px}
+ .gap12{display:flex;flex-direction:column;gap:12px}
+ .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+ .gap-2{gap:8px}.gap-3{gap:12px}.ml-auto{margin-left:auto}
+ .mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+ .hidden{display:none}
+ .text-right{text-align:right}
+ .section-hdr{padding:10px 16px;border-bottom:1px solid var(--borderSoft);display:flex;justify-content:space-between;align-items:center}
+ .section-hdr span{font-size:11px;color:var(--textFaint);letter-spacing:.08em;text-transform:uppercase}
+ #fileInfo{margin-bottom:12px;text-align:right}
+</style>
+</head>
+<body>
+<!-- HEADER -->
+<div class="header">
+<div class="header-brand">PREOLA REGIONES</div>
+<div class="tabs">
+<button class="tab active" onclick="switchTab('params')" id="tab-params">⚙️ Parámetros <span class="badge" id="badge-params">0</span></button>
+<button class="tab" onclick="switchTab('results')" id="tab-results">📊 Resultados <span class="badge" id="badge-results">0</span></button>
+<button class="tab" onclick="switchTab('bulk')" id="tab-bulk">📋 Carga Parámetros</button>
+</div>
+</div>
+<div class="main">
+<!-- LEFT COLUMN -->
+<div class="gap12" style="align-content:start">
+```
+<!-- UPLOAD -->
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+ ondragover="event.preventDefault();this.classList.add('drag')"
+ ondragleave="this.classList.remove('drag')"
+ ondrop="handleDrop(event)">
+<input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden" onchange="handleFile(this.files[0])"/>
+<div class="upload-icon" id="uploadIcon">📂</div>
+<div id="uploadLabel" style="font-weight:800;font-size:14px">Subir PREOLA</div>
+<div id="uploadSub" style="color:var(--text-muted);font-size:11px;margin-top:4px">Arrastra o haz clic · .xlsx</div>
+</div>
+<button class="btn-run hidden" id="btnRun" onclick="handleRun()">▶ EJECUTAR ASIGNACIÓN</button>
+<div id="downloadBtns" class="gap4 hidden">
+<button class="btn btn-green" onclick="downloadPreola()">⬇ PREOLA_ASIGNADO.xlsx</button>
+<button class="btn" onclick="downloadAsignacion()">⬇ preola.xlsx (sin headers)</button>
+</div>
+<div id="statsArea" class="gap4 hidden">
+<div class="stat-card" style="border:1px solid rgba(227,179,65,.2)">
+<div class="stat-val" style="color:var(--yellow)" id="statTotal">0</div>
+<div class="stat-lbl">Órdenes asignadas</div>
+</div>
+<div class="stat-card" style="border:1px solid rgba(88,166,255,.2)">
+<div class="stat-val" style="color:var(--blue)" id="statLineales">0</div>
+<div class="stat-lbl">Lineales activos</div>
+</div>
+<div class="stat-card" id="statOverflowCard" style="border:1px solid rgba(63,185,80,.2)">
+<div class="stat-val" style="color:var(--green)" id="statOverflow">0</div>
+<div class="stat-lbl">Lineales con overflow</div>
+</div>
+</div>
+```
+</div>
+<!-- RIGHT COLUMN -->
+<div>
+<div id="fileInfo" class="hidden">
+<div style="font-size:11px;color:var(--text-muted)" id="fileName"></div>
+<div style="font-size:11px;color:var(--yellow);font-weight:700" id="rowCount"></div>
+</div>
+```
+<!-- TAB PARAMS -->
+<div id="pane-params">
+<div class="card">
+<div class="section-hdr">
+<span id="facCount">0 facilities configurados</span>
+<span>Click en un facility para editar</span>
+</div>
+<div class="scroll-area" id="facilityList"></div>
+</div>
+</div>
+<!-- TAB RESULTS -->
+<div id="pane-results" class="hidden">
+<div class="card">
+<div class="section-hdr"><span>Resumen por Lineal</span></div>
+<div class="scroll-area" style="overflow-x:auto">
+<table id="resultsTable">
+<thead>
+<tr>
+<th>Facility</th><th>Lineal</th><th>ISOs</th><th>Máx ISO</th>
+<th>Vol m³</th><th>Máx Vol</th><th>Ocup. ISO</th><th>Ocup. Vol</th><th>Estado</th>
+</tr>
+</thead>
+<tbody id="resultsBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- TAB BULK -->
+<div id="pane-bulk" class="hidden">
+<div class="card" style="padding:24px">
+<div style="font-size:16px;font-weight:700;margin-bottom:8px">Carga Parámetros</div>
+<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+     Pega una tabla desde Excel con 3 columnas: <b>FACILITY</b> | <b>GLOSA (prefijo)</b> | <b>LINEALES Cantidad</b>
+</div>
+<textarea class="bulk-area" id="bulkText" placeholder="9634&#9;VALPO-&#9;5&#10;594&#9;PNO&#9;2"></textarea>
+<div class="flex mt12" style="justify-content:flex-end;gap:8px">
+<button class="btn" onclick="document.getElementById('bulkText').value=''">Limpiar</button>
+<button class="btn btn-blue" onclick="handleBulkApply()">Aplicar Cambios</button>
+</div>
+</div>
+</div>
+```
+</div>
+</div>
+<script>
+// ─── DEFAULT PARAMS ───────────────────────────────────────
+const DEFAULT_PARAMS = {
+ "150":  { maxPos:60, maxVol:6,  lineales:["1501","1502"] },
+ "594":  { maxPos:60, maxVol:8,  lineales:["5941","5942"] },
+ "636":  { maxPos:60, maxVol:8,  lineales:["6361","6362"] },
+ "7017": { maxPos:60, maxVol:6,  lineales:["70171","70172"] },
+ "7030": { maxPos:60, maxVol:6,  lineales:["70301","70302"] },
+ "9625": { maxPos:60, maxVol:6,  lineales:["96251","96252"] },
+ "9626": { maxPos:60, maxVol:6,  lineales:["96261","96262"] },
+ "9628": { maxPos:60, maxVol:6,  lineales:["96281","96282"] },
+ "9629": { maxPos:60, maxVol:6,  lineales:["96291","96292"] },
+ "9630": { maxPos:60, maxVol:6,  lineales:["96301","96302"] },
+ "9631": { maxPos:60, maxVol:6,  lineales:["96311","96312"] },
+ "9632": { maxPos:60, maxVol:6,  lineales:["96321","96322"] },
+ "9633": { maxPos:60, maxVol:6,  lineales:["96331","96332"] },
+ "9634": { maxPos:40, maxVol:6,  lineales:["VALPO-1","VALPO-2","VALPO-3","VALPO-4","VALPO-5"] },
+ "9764": { maxPos:60, maxVol:6,  lineales:["97641","97642"] },
+ "9765": { maxPos:60, maxVol:6,  lineales:["97651","97652"] },
+ "9767": { maxPos:60, maxVol:6,  lineales:["97671","97672"] },
+ "9839": { maxPos:60, maxVol:6,  lineales:["98391","98392"] },
+ "9898": { maxPos:60, maxVol:6,  lineales:["CLEXP"] },
+ "9919": { maxPos:60, maxVol:6,  lineales:["99191","99192"] },
+ "9982": { maxPos:60, maxVol:6,  lineales:["99821","99822"] },
+ "9987": { maxPos:60, maxVol:6,  lineales:["99871","99872"] },
+ "9988": { maxPos:60, maxVol:6,  lineales:["99881","99882"] },
+ "9989": { maxPos:60, maxVol:6,  lineales:["99891","99892"] },
+};
+// ─── STATE ────────────────────────────────────────────────
+let rows = [], colHeaders = [], results = null;
+let detectedFacilities = [];
+let expandedFacs = {};
+let params = loadParams();
+function loadParams() {
+ try { const c = localStorage.getItem('preola_params_v5'); return c ? JSON.parse(c) : clone(DEFAULT_PARAMS); }
+ catch { return clone(DEFAULT_PARAMS); }
+}
+function saveParams() { localStorage.setItem('preola_params_v5', JSON.stringify(params)); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function defaultForFac(fac) {
+ return DEFAULT_PARAMS[fac] ? clone(DEFAULT_PARAMS[fac]) : { maxPos:60, maxVol:6, lineales:[`${fac}1`,`${fac}2`] };
+}
+function effectiveP(fac) { return params[fac] || defaultForFac(fac); }
+// ─── TABS ─────────────────────────────────────────────────
+function switchTab(t) {
+ ['params','results','bulk'].forEach(id => {
+   document.getElementById(`pane-${id}`).classList.toggle('hidden', id !== t);
+   document.getElementById(`tab-${id}`).classList.toggle('active', id === t);
+ });
+}
+// ─── FILE HANDLING ────────────────────────────────────────
+function handleDrop(e) {
+ e.preventDefault();
+ document.getElementById('uploadZone').classList.remove('drag');
+ const f = e.dataTransfer.files[0];
+ if (f) handleFile(f);
+}
+function handleFile(f) {
+ const reader = new FileReader();
+ reader.onload = ev => {
+   const data = new Uint8Array(ev.target.result);
+   const wb = XLSX.read(data, { type:'array' });
+   const ws = wb.Sheets[wb.SheetNames[0]];
+   const json = XLSX.utils.sheet_to_json(ws, { defval:'' });
+   if (!json.length) return alert('El archivo está vacío o no tiene datos.');
+   rows = json;
+   colHeaders = Object.keys(json[0]);
+   results = null;
+   // detect facilities
+   const facs = [...new Set(rows.map(r => String(r.FACILITY ?? r.facility ?? '').trim()).filter(Boolean))];
+   detectedFacilities = facs.sort((a,b) => Number(a)-Number(b) || a.localeCompare(b));
+   // ensure params exist for all
+   detectedFacilities.forEach(fac => { if (!params[fac]) params[fac] = defaultForFac(fac); });
+   // update UI
+   document.getElementById('uploadIcon').textContent = '✅';
+   document.getElementById('uploadLabel').style.color = 'var(--green)';
+   document.getElementById('uploadLabel').textContent = f.name;
+   document.getElementById('uploadSub').textContent = `${detectedFacilities.length} facilities detectados`;
+   document.getElementById('btnRun').classList.remove('hidden');
+   document.getElementById('fileInfo').classList.remove('hidden');
+   document.getElementById('fileName').textContent = f.name;
+   document.getElementById('rowCount').textContent = `${rows.length.toLocaleString()} órdenes`;
+   document.getElementById('badge-params').textContent = detectedFacilities.length;
+   renderFacilityList();
+   switchTab('params');
+ };
+ reader.readAsArrayBuffer(f);
+}
+// ─── ALGORITHM ───────────────────────────────────────────
+function runAssignment(rows, params) {
+ const byFacility = {};
+ rows.forEach(row => {
+   const fac = String(row.FACILITY ?? row.facility ?? '').trim();
+   if (!fac) return;
+   if (!byFacility[fac]) byFacility[fac] = [];
+   byFacility[fac].push(row);
+ });
+ const assignmentMap = {}, summaryData = [];
+ Object.entries(byFacility).forEach(([fac, orders]) => {
+   const p = params[fac] || DEFAULT_PARAMS[fac] || {};
+   const lineales = (p.lineales && p.lineales.length > 0) ? p.lineales : [`${fac}1`];
+   const maxPos = Number(p.maxPos) || 60;
+   const maxVol = Number(p.maxVol) || 6;
+   const N = lineales.length;
+   const sorted = [...orders].sort((a, b) => {
+     const rtA = String(a.ROUTE_TO ?? a.route_to ?? '');
+     const rtB = String(b.ROUTE_TO ?? b.route_to ?? '');
+     if (rtA < rtB) return -1; if (rtA > rtB) return 1;
+     const volA = parseFloat(a.VOLUMEN_M3 ?? a.volumen_m3 ?? 0) || 0;
+     const volB = parseFloat(b.VOLUMEN_M3 ?? b.volumen_m3 ?? 0) || 0;
+     return fac === '9634' ? volB - volA : volA - volB;
+   });
+   const linealStats = {};
+   lineales.forEach(l => { linealStats[l] = { count:0, vol:0, overflow:false }; });
+   let currentIdx = 0;
+   const overflowOrders = [];
+   for (const order of sorted) {
+     const vol = parseFloat(order.VOLUMEN_M3 ?? order.volumen_m3 ?? 0) || 0;
+     const orderId = String(order.ID_ORDEN ?? order.id_orden ?? '');
+     let assigned = false;
+     if (fac === '9634') {
+       while (currentIdx < N) {
+         const lName = lineales[currentIdx];
+         const st = linealStats[lName];
+         if ((st.count+1) <= maxPos && (st.vol+vol) <= maxVol+0.0001) {
+           assignmentMap[orderId] = lName; st.count++; st.vol += vol; assigned = true; break;
+         } else { currentIdx++; }
+       }
+     } else {
+       let bestIdx = -1, minCount = Infinity, minVolCurrent = Infinity;
+       for (let i = 0; i < N; i++) {
+         const lName = lineales[i], st = linealStats[lName];
+         if ((st.count+1) <= maxPos && (st.vol+vol) <= maxVol+0.0001) {
+           if (st.count < minCount || (st.count === minCount && st.vol < minVolCurrent)) {
+             minCount = st.count; minVolCurrent = st.vol; bestIdx = i;
+           }
+         }
+       }
+       if (bestIdx !== -1) {
+         const lName = lineales[bestIdx], st = linealStats[lName];
+         assignmentMap[orderId] = lName; st.count++; st.vol += vol; assigned = true;
+       }
+     }
+     if (!assigned) overflowOrders.push({ order, vol, orderId });
+   }
+   if (overflowOrders.length > 0) {
+     overflowOrders.forEach(({ vol, orderId }) => {
+       let minVol = Infinity, minIdx = 0;
+       for (let i = 0; i < N; i++) {
+         const st = linealStats[lineales[i]];
+         if (st.vol < minVol) { minVol = st.vol; minIdx = i; }
+       }
+       const lName = lineales[minIdx], st = linealStats[lName];
+       assignmentMap[orderId] = lName; st.count++; st.vol += vol; st.overflow = true;
+     });
+   }
+   lineales.forEach(l => {
+     const s = linealStats[l];
+     summaryData.push({ facility:fac, lineal:l, isos:s.count, vol:s.vol, maxPos, maxVol,
+       overPos: s.count > maxPos, overVol: s.vol > maxVol+0.0001,
+       overflow: s.overflow || s.count > maxPos || s.vol > maxVol+0.0001 });
+   });
+ });
+ return { assignmentMap, summaryData };
+}
+// ─── RUN ─────────────────────────────────────────────────
+function handleRun() {
+ results = runAssignment(rows, params);
+ renderResults();
+ // update badge
+ const active = results.summaryData.filter(r => r.isos > 0).length;
+ const hasOvf = results.summaryData.some(r => r.overflow);
+ document.getElementById('badge-results').textContent = active;
+ if (hasOvf) { document.getElementById('badge-results').classList.add('red'); }
+ // stats
+ const total = Object.keys(results.assignmentMap).length;
+ const ovfCount = results.summaryData.filter(r => r.overflow || r.overPos || r.overVol).length;
+ document.getElementById('statTotal').textContent = total.toLocaleString();
+ document.getElementById('statLineales').textContent = active;
+ document.getElementById('statOverflow').textContent = ovfCount;
+ const ovCard = document.getElementById('statOverflowCard');
+ ovCard.style.borderColor = ovfCount > 0 ? 'rgba(248,81,73,.2)' : 'rgba(63,185,80,.2)';
+ ovCard.querySelector('.stat-val').style.color = ovfCount > 0 ? 'var(--red)' : 'var(--green)';
+ document.getElementById('downloadBtns').classList.remove('hidden');
+ document.getElementById('statsArea').classList.remove('hidden');
+ switchTab('results');
+}
+// ─── RENDER RESULTS ───────────────────────────────────────
+function renderResults() {
+ const tbody = document.getElementById('resultsBody');
+ tbody.innerHTML = '';
+ results.summaryData.filter(r => r.isos > 0).forEach(row => {
+   const pctPos = Math.min((row.isos/row.maxPos)*100, 100);
+   const pctVol = Math.min((row.vol/row.maxVol)*100, 100);
+   const hasIssue = row.overPos || row.overVol;
+   const barColor = (over, pct) => over ? 'var(--red)' : pct > 80 ? 'var(--yellow)' : 'var(--green)';
+   const tr = document.createElement('tr');
+   if (hasIssue) tr.className = 'overflow-row';
+   tr.innerHTML = `
+<td style="color:var(--yellow);font-weight:700">${row.facility}</td>
+<td style="font-weight:600">${row.lineal}</td>
+<td style="font-weight:700;color:${row.overPos?'var(--red)':'var(--text)'}">${row.isos}</td>
+<td style="color:var(--text-faint)">${row.maxPos}</td>
+<td style="font-weight:700;color:${row.overVol?'var(--red)':'var(--text)'}">${row.vol.toFixed(3)}</td>
+<td style="color:var(--text-faint)">${row.maxVol}</td>
+<td><div class="minibar-wrap"><div class="minibar-bg"><div class="minibar-fill" style="width:${pctPos}%;background:${barColor(row.overPos,pctPos)}"></div></div><span style="font-size:10px;width:32px;text-align:right;color:${row.overPos?'var(--red)':'var(--text-muted)'}">${pctPos.toFixed(0)}%</span></div></td>
+<td><div class="minibar-wrap"><div class="minibar-bg"><div class="minibar-fill" style="width:${pctVol}%;background:${barColor(row.overVol,pctVol)}"></div></div><span style="font-size:10px;width:32px;text-align:right;color:${row.overVol?'var(--red)':'var(--text-muted)'}">${pctVol.toFixed(0)}%</span></div></td>
+<td>${hasIssue ? '<span class="tag tag-err">⚠ Overflow</span>' : '<span class="tag tag-ok">✓ OK</span>'}</td>`;
+   tbody.appendChild(tr);
+ });
+}
+// ─── FACILITY LIST RENDER ─────────────────────────────────
+function renderFacilityList() {
+ const facList = detectedFacilities.length > 0
+   ? detectedFacilities
+   : Object.keys(DEFAULT_PARAMS).sort((a,b) => Number(a)-Number(b) || a.localeCompare(b));
+ document.getElementById('facCount').textContent = `${facList.length} facilities configurados`;
+ const container = document.getElementById('facilityList');
+ container.innerHTML = '';
+ facList.forEach(fac => renderFacRow(fac, container));
+}
+function renderFacRow(fac, container) {
+ const p = effectiveP(fac);
+ const isDetected = detectedFacilities.includes(fac);
+ const isOpen = expandedFacs[fac];
+ const wrapper = document.createElement('div');
+wrapper.id = `fac-wrapper-${fac}`;
+ // Header button
+ const btn = document.createElement('button');
+ btn.className = 'fac-row';
+ btn.innerHTML = `
+<div class="flex items-center gap-2" style="flex-wrap:wrap;gap:8px">
+<span style="font-weight:700;font-size:14px;color:${isDetected?'var(--orange)':'var(--text-muted)'}">${fac}</span>
+     ${isDetected ? `<span class="pill pill-orange">EN ARCHIVO</span>` : ''}
+<div class="flex" style="gap:4px;flex-wrap:wrap">
+       ${p.lineales.map((_,i) => `<span class="pill">${fac} ${i+1}</span>`).join('')}
+</div>
+<span style="font-size:11px;color:var(--text-faint)">Max ${p.maxPos} ISO · Max ${p.maxVol} m³</span>
+</div>
+<span style="color:var(--text-faint);font-size:12px">${isOpen?'▲':'▼'}</span>`;
+ btn.onclick = () => {
+   expandedFacs[fac] = !expandedFacs[fac];
+   renderFacilityList();
+ };
+ wrapper.appendChild(btn);
+ if (isOpen) {
+   const edit = document.createElement('div');
+   edit.className = 'fac-edit';
+   const linealCount = p.lineales.length;
+   const prefix = (() => { const m = (p.lineales[0]||'').match(/^(.*?)(\d+)$/); return m?m[1]:fac; })();
+   edit.innerHTML = `
+<div class="grid3">
+<div>
+<label class="lbl">Max ISOs por lineal</label>
+<input class="param-input" type="number" value="${p.maxPos}" data-fac="${fac}" data-field="maxPos" onchange="updateParam(this)"/>
+</div>
+<div>
+<label class="lbl">Max Volumen m³ por lineal</label>
+<input class="param-input" type="number" step="0.1" value="${p.maxVol}" data-fac="${fac}" data-field="maxVol" onchange="updateParam(this)"/>
+</div>
+<div>
+<label class="lbl">Cantidad de lineales</label>
+<div class="count-ctrl">
+<button class="count-btn" style="background:${linealCount<=1?'var(--bg-card-alt)':'rgba(248,81,73,.15)'};color:${linealCount<=1?'var(--text-faint)':'var(--red)'}" onclick="changeCount('${fac}',${linealCount-1})" ${linealCount<=1?'disabled':''}>−</button>
+<input class="count-inp" type="number" min="1" max="20" value="${linealCount}" onchange="changeCount('${fac}',parseInt(this.value))"/>
+<button class="count-btn" style="background:${linealCount>=20?'var(--bg-card-alt)':'rgba(88,166,255,.15)'};color:${linealCount>=20?'var(--text-faint)':'var(--blue)'}" onclick="changeCount('${fac}',${linealCount+1})" ${linealCount>=20?'disabled':''}>+</button>
+</div>
+</div>
+</div>
+<div class="mt12">
+<div class="flex items-center gap-2 mt8" style="margin-bottom:10px">
+<div>
+<label class="lbl">Prefijo de lineales</label>
+<div class="flex items-center gap-2">
+<input id="prefix-${fac}" class="param-input" type="text" value="${prefix}" style="width:80px;text-align:center;color:var(--orange);font-weight:700" placeholder="${fac}"/>
+<span style="font-size:10px;color:var(--text-faint)">+ N</span>
+<button class="btn" style="font-size:10px;background:rgba(255,166,87,.12);border-color:rgba(255,166,87,.3);color:var(--orange);padding:4px 10px" onclick="applyPrefix('${fac}')">Aplicar</button>
+</div>
+</div>
+</div>
+<div class="flex justify-between items-center mt8 mb4">
+<span style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.1em">Nombres de Lineales</span>
+<button class="btn" style="font-size:11px;padding:2px 8px" onclick="resetFac('${fac}')">↺ Reset</button>
+</div>
+<div class="lineal-wrap">
+         ${p.lineales.map((l,i) => `
+<div class="lineal-item">
+<span class="pill">${fac} ${i+1}</span>
+<input class="lineal-inp" value="${l}" data-fac="${fac}" data-idx="${i}" onchange="updateLinealName(this)"/>
+</div>`).join('')}
+</div>
+</div>`;
+   wrapper.appendChild(edit);
+ }
+ container.appendChild(wrapper);
+}
+// ─── PARAM EDIT ──────────────────────────────────────────
+function updateParam(el) {
+ const fac = el.dataset.fac, field = el.dataset.field;
+ if (!params[fac]) params[fac] = defaultForFac(fac);
+ params[fac][field] = Number(el.value);
+ saveParams();
+}
+function updateLinealName(el) {
+ const fac = el.dataset.fac, idx = parseInt(el.dataset.idx);
+ if (!params[fac]) params[fac] = defaultForFac(fac);
+ params[fac].lineales[idx] = el.value;
+ saveParams();
+}
+function changeCount(fac, count) {
+ if (count < 1 || count > 20) return;
+ if (!params[fac]) params[fac] = defaultForFac(fac);
+ const cur = params[fac].lineales;
+ const prefix = (() => { const m = (cur[cur.length-1]||'').match(/^(.*?)(\d+)$/); return m?m[1]:fac; })();
+ const newL = [];
+ for (let i = 0; i < count; i++) newL.push(cur[i] !== undefined ? cur[i] : `${prefix}${i+1}`);
+ params[fac].lineales = newL;
+ saveParams();
+ renderFacilityList();
+}
+function applyPrefix(fac) {
+ const prefix = document.getElementById(`prefix-${fac}`).value.trim();
+ if (!prefix) return;
+ if (!params[fac]) params[fac] = defaultForFac(fac);
+ params[fac].lineales = params[fac].lineales.map((_,i) => `${prefix}${i+1}`);
+ saveParams();
+ renderFacilityList();
+}
+function resetFac(fac) {
+ params[fac] = defaultForFac(fac);
+ saveParams();
+ renderFacilityList();
+}
+// ─── BULK APPLY ──────────────────────────────────────────
+function handleBulkApply() {
+ const lines = document.getElementById('bulkText').value.trim().split('\n');
+ let count = 0;
+ lines.forEach(line => {
+   const cols = line.split('\t').map(c => c.trim().replace(/^"|"$/g,''));
+   if (cols.length < 3) return;
+   const fac = cols[0], prefix = cols[1], n = parseInt(cols[2],10);
+   if (fac.toUpperCase() === 'FACILITY') return;
+   if (isNaN(n) || n < 1) return;
+   const cur = params[fac] || defaultForFac(fac);
+   const newL = []; for (let i=0;i<n;i++) newL.push(`${prefix}${i+1}`);
+   params[fac] = { ...cur, lineales: newL };
+   count++;
+ });
+ saveParams();
+ alert(`Se aplicaron configuraciones a ${count} facilities.`);
+ document.getElementById('bulkText').value = '';
+ renderFacilityList();
+ switchTab('params');
+}
+// ─── DOWNLOADS ───────────────────────────────────────────
+function downloadPreola() {
+ if (!results) return;
+ const updated = rows.map(row => {
+   const id = String(row.ID_ORDEN ?? row.id_orden ?? '');
+   const asignado = results.assignmentMap[id];
+   return { ...row, ROUTE_TO: asignado !== undefined ? asignado : (row.ROUTE_TO ?? '') };
+ });
+ const ws = XLSX.utils.json_to_sheet(updated, { header: colHeaders });
+ const wb = XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb, ws, 'Página1_1');
+ XLSX.writeFile(wb, 'PREOLA_ASIGNADO.xlsx');
+}
+function downloadAsignacion() {
+ if (!results) return;
+ const aoa = Object.entries(results.assignmentMap).map(([id, lineal]) => [id, lineal]);
+ const ws = XLSX.utils.aoa_to_sheet(aoa);
+ const wb = XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+ XLSX.writeFile(wb, 'preola.xlsx');
+}
+// ─── INIT ────────────────────────────────────────────────
+renderFacilityList();
+</script>
+</body>
+</html>
