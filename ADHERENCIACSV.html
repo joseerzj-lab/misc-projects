@@ -3,226 +3,262 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reporte Geosort — Filtro IKEA</title>
+<title>Reporte Geosort — Filtro Ecommerce</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #f1f5f9;
-    --bgCard: #ffffff;
-    --bgCardAlt: rgba(0,0,0,0.025);
-    --borderSoft: rgba(58,114,172,0.18);
-    --text: #1a2e42;
-    --textSub: #3d6080;
-    --textFaint: #5c7c98;
-    --blue: #2563eb;
-    --red: #b91c1c;
-    --green: #15803d;
-    --orange: #ea580c;
-    --purple: #7c3aed;
-    --accentBg: rgba(37,99,235,0.08);
-    --borderFocus: #2563eb;
-    --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-    --font-base: "Segoe UI",system-ui,-apple-system,sans-serif;
-    --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px; --radius-xl: 8px;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
-    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
-    --shadow-xl: 0 20px 25px rgba(0,0,0,0.12),0 8px 10px rgba(0,0,0,0.06);
+    --bg: #FAFAF9;
+    --bgCard: #FFFFFF;
+    --bgCardAlt: rgba(0,0,0,0.026);
+    --bgHover: rgba(0,0,0,0.042);
+    --text: #18181B;
+    --textSub: #52525B;
+    --textFaint: #A1A1AA;
+    --border: rgba(0,0,0,0.09);
+    --borderSoft: rgba(0,0,0,0.06);
+    --borderFocus: #2563EB;
+    --blue: #2563EB;
+    --blueHover: #1D4ED8;
+    --accentBg: rgba(37,99,235,0.06);
+    --red: #DC2626;
+    --green: #16A34A;
+    --orange: #EA580C;
+    --yellow: #CA8A04;
+    --purple: #7C3AED;
+    --pasteBlue: #EFF6FF;
+    --pasteRed: #FEF2F2;
+    --pasteGreen: #F0FDF4;
+    --pasteOrange: #FFF7ED;
+    --pasteGray: #F4F4F5;
+    --font-base: 'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+    --font-mono: 'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+    --r-xs: 2px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 10px;
+    --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 10px;
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.07);
+    --t-fast: 0.12s ease;
+    --t-normal: 0.20s ease;
+    --t-slow: 0.28s cubic-bezier(0.16,1,0.3,1);
     --transition-fast: 0.12s ease;
-    --transition-normal: 0.18s ease;
-    /* legacy aliases used by JS-generated HTML */
+    --transition-normal: 0.20s ease;
+    /* legacy aliases */
     --surface: var(--bgCard);
-    --border: var(--borderSoft);
     --muted: var(--textFaint);
     --success: var(--green);
     --error: var(--red);
-    --ikea-blue: #003087;
-    --ikea-yellow: #ffda00;
   }
 
   body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-base);
+    font-size: 12px;
+    line-height: 1.55;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 48px 24px;
+    padding: 40px 24px;
+    -webkit-font-smoothing: antialiased;
   }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.26); }
 
   /* ── Header ── */
   header {
     width: 100%;
-    max-width: 720px;
-    margin-bottom: 48px;
+    max-width: 680px;
+    margin-bottom: 32px;
     position: relative;
   }
   .logo-row {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
-  .ikea-badge {
-    background: #003087;
-    color: #ffda00;
-    font-family: var(--font-base);
-    font-weight: 800;
-    font-size: 13px;
-    letter-spacing: 2px;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
+  .ecomm-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--r-xs);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    background: var(--pasteGray);
+    color: var(--textSub);
+    border: 1px solid var(--border);
   }
   h1 {
-    font-family: var(--font-base);
-    font-weight: 800;
-    font-size: clamp(26px, 5vw, 38px);
-    letter-spacing: -1px;
-    line-height: 1.1;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
     color: var(--text);
   }
-  h1 span { color: var(--blue); }
+  h1 span { color: var(--textSub); }
   .subtitle {
     color: var(--textFaint);
-    font-size: 12px;
-    letter-spacing: 0.5px;
-    margin-top: 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
+    margin-top: 8px;
   }
   .rule {
     width: 100%;
     height: 1px;
-    background: linear-gradient(to right, var(--borderSoft), transparent);
-    margin-top: 20px;
+    background: var(--border);
+    margin-top: 16px;
   }
 
   /* ── Card ── */
   .card {
     width: 100%;
-    max-width: 720px;
+    max-width: 680px;
     background: var(--bgCard);
-    border: 1px solid var(--borderSoft);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-md);
-    padding: 32px;
-    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 12px;
   }
   .card-title {
-    font-family: var(--font-base);
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 2px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: var(--textSub);
-    margin-bottom: 20px;
+    color: var(--textFaint);
+    margin-bottom: 14px;
   }
 
   /* ── Drop Zone ── */
   #drop-zone {
-    border: 2px dashed var(--borderSoft);
-    border-radius: var(--radius-lg);
-    padding: 40px 20px;
+    border: 1px dashed var(--border);
+    border-radius: var(--r-lg);
+    padding: 26px 16px;
     text-align: center;
     cursor: pointer;
+    background: var(--bgCardAlt);
     transition: border-color var(--transition-normal), background var(--transition-normal);
     position: relative;
   }
   #drop-zone.drag-over {
-    border-color: var(--blue);
+    border-color: rgba(37,99,235,0.35);
     background: var(--accentBg);
   }
   #drop-zone.has-file {
-    border-color: var(--green);
+    border-color: rgba(22,163,74,0.30);
     border-style: solid;
+    background: var(--pasteGreen);
   }
   #file-input { display: none; }
   .drop-icon {
-    font-size: 36px;
-    margin-bottom: 12px;
+    font-size: 26px;
+    margin-bottom: 8px;
     display: block;
-    transition: transform var(--transition-normal);
+    color: var(--textFaint);
   }
-  #drop-zone:hover .drop-icon { transform: translateY(-3px); }
   .drop-label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--textFaint);
     line-height: 1.6;
   }
-  .drop-label strong { color: var(--text); }
+  .drop-label strong { color: var(--textSub); font-weight: 600; }
   #file-name {
-    margin-top: 10px;
-    font-size: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
     color: var(--green);
-    min-height: 18px;
+    font-family: var(--font-mono);
+    min-height: 16px;
+    word-break: break-all;
+    max-width: 260px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   /* ── Date Picker ── */
   .field-row {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
   }
   label.field-label {
-    font-size: 11px;
-    letter-spacing: 1px;
-    color: var(--textFaint);
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    flex-shrink: 0;
+    color: var(--textFaint);
+    margin-bottom: 5px;
   }
   input[type="date"] {
     background: var(--bgCard);
-    border: 1px solid var(--borderSoft);
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
     color: var(--text);
     font-family: var(--font-mono);
-    font-size: 14px;
-    padding: 10px 14px;
-    outline: none;
-    transition: border-color var(--transition-fast);
-  }
-  input[type="date"]:focus { border-color: var(--borderFocus); }
-  .filename-preview {
     font-size: 12px;
-    color: var(--textFaint);
-    margin-top: 12px;
-    padding: 8px 12px;
-    background: var(--bgCardAlt);
-    border-radius: var(--radius-md);
-    border-left: 3px solid var(--blue);
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   }
-  .filename-preview span { color: var(--blue); }
+  input[type="date"]:focus {
+    border-color: var(--borderFocus);
+    box-shadow: 0 0 0 2.5px rgba(37,99,235,0.10);
+  }
+  .filename-preview {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--textFaint);
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: var(--bgCardAlt);
+    border-radius: var(--r-xs);
+    border-left: 2px solid var(--text);
+  }
+  .filename-preview span { color: var(--text); font-weight: 600; }
 
   /* ── Stats ── */
   #stats-row {
     display: none;
-    gap: 16px;
+    gap: 10px;
     flex-wrap: wrap;
   }
   #stats-row.visible { display: flex; }
   .stat-pill {
     flex: 1;
-    min-width: 140px;
-    background: var(--bgCardAlt);
-    border: 1px solid var(--borderSoft);
-    border-radius: var(--radius-lg);
-    padding: 14px 16px;
+    min-width: 130px;
+    background: var(--bgCard);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
   }
   .stat-pill .stat-val {
-    font-family: var(--font-base);
-    font-size: 28px;
+    font-family: var(--font-mono);
+    font-size: 22px;
     font-weight: 800;
-    line-height: 1;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
     color: var(--text);
   }
-  .stat-pill.total .stat-val { color: var(--textFaint); }
   .stat-pill.found .stat-val { color: var(--green); }
   .stat-pill .stat-lbl {
     font-size: 10px;
+    font-family: var(--font-mono);
     color: var(--textFaint);
-    letter-spacing: 1.5px;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     margin-top: 4px;
   }
@@ -230,97 +266,93 @@
   /* ── Export Button ── */
   #btn-export {
     width: 100%;
-    max-width: 720px;
-    padding: 16px 18px;
-    background: var(--blue);
+    max-width: 680px;
+    padding: 9px 16px;
+    background: #18181B;
     color: #fff;
     font-family: var(--font-base);
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    border: none;
-    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 12px;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: var(--r-md);
     cursor: pointer;
-    transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
-    box-shadow: var(--shadow-sm);
+    transition: background var(--t-fast), transform 0.10s ease;
   }
   #btn-export:hover:not(:disabled) {
-    background: #1d4ed8;
-    box-shadow: var(--shadow-md);
+    background: #27272A;
     transform: translateY(-1px);
   }
-  #btn-export:active:not(:disabled) { transform: scale(0.99); box-shadow: none; }
+  #btn-export:active:not(:disabled) { transform: translateY(0) scale(0.98); }
   #btn-export:disabled {
     background: var(--bgCardAlt);
     color: var(--textFaint);
-    border: 1px solid var(--borderSoft);
+    border: 1px solid var(--border);
     cursor: not-allowed;
-    box-shadow: none;
   }
 
   /* ── Message ── */
   #msg {
     width: 100%;
-    max-width: 720px;
+    max-width: 680px;
     text-align: center;
-    font-size: 12px;
-    min-height: 20px;
-    margin-top: 12px;
+    font-size: 11px;
+    min-height: 18px;
+    margin-top: 10px;
     transition: color var(--transition-fast);
   }
-  #msg.ok { color: var(--green); }
-  #msg.err { color: var(--red); }
+  #msg.ok { color: var(--green); font-weight: 600; }
+  #msg.err { color: var(--red); font-weight: 600; }
 
   /* ── Preview Table ── */
   #preview-wrap {
     display: none;
     width: 100%;
-    max-width: 720px;
+    max-width: 680px;
   }
   #preview-wrap.visible { display: block; }
   .preview-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .preview-header span {
     font-size: 10px;
-    letter-spacing: 1.5px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
     color: var(--textFaint);
     text-transform: uppercase;
   }
   .preview-scroll {
     overflow-x: auto;
-    border: 1px solid var(--borderSoft);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
     max-height: 260px;
     overflow-y: auto;
   }
   table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 11px;
+    font-family: var(--font-mono);
   }
   th {
-    background: var(--bgCardAlt);
-    color: var(--textSub);
-    padding: 10px 12px;
+    background: #F4F4F5;
+    color: var(--textFaint);
+    padding: 5px 7px;
     text-align: left;
-    font-family: var(--font-base);
     font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     position: sticky;
     top: 0;
     border-bottom: 1px solid var(--borderSoft);
     white-space: nowrap;
   }
   td {
-    padding: 8px 12px;
+    padding: 5px 7px;
     border-bottom: 1px solid var(--borderSoft);
     color: var(--text);
     white-space: nowrap;
@@ -329,14 +361,15 @@
     text-overflow: ellipsis;
   }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--bgCardAlt); }
-  td.highlight { color: var(--blue); font-weight: 600; }
+  tr:hover td { background: rgba(0,0,0,0.016); }
+  td.highlight { color: var(--green); font-weight: 700; }
 
   footer {
-    margin-top: 48px;
+    margin-top: 32px;
     font-size: 10px;
     color: var(--textFaint);
-    letter-spacing: 1px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
   }
 </style>
 </head>
@@ -344,10 +377,10 @@
 
 <header>
   <div class="logo-row">
-    <span class="ikea-badge">IKEA</span>
+    <span class="ecomm-badge">ECOMM</span>
   </div>
   <h1>Filtro <span>Geosort</span></h1>
-  <p class="subtitle">CSV → XLSX · FILTRO COLUMNA COMMERCE · IKEA</p>
+  <p class="subtitle">CSV → XLSX · FILTRO COLUMNA COMMERCE · ECOMMERCE (letra I)</p>
   <div class="rule"></div>
 </header>
 
@@ -387,7 +420,7 @@
     </div>
     <div class="stat-pill found">
       <div class="stat-val" id="stat-found">0</div>
-      <div class="stat-lbl">Filas IKEA</div>
+      <div class="stat-lbl">Filas filtradas</div>
     </div>
   </div>
 </div>
@@ -406,7 +439,7 @@
   </div>
 </div>
 
-<footer>GEOSORT · FILTRO IKEA · CSV→XLSX</footer>
+<footer>GEOSORT · FILTRO ECOMMERCE · CSV→XLSX</footer>
 
 <script>
   const dropZone = document.getElementById('drop-zone');
@@ -490,24 +523,24 @@
         return;
       }
 
-      // Filter rows where Commerce contains "ikea" (case-insensitive)
-      const ikea = rows.filter(r => String(r[commerceKey]).toLowerCase().includes('ikea'));
+      // Filter rows where Commerce starts with "I" (case-insensitive)
+      const ecomm = rows.filter(r => String(r[commerceKey]).trim().toLowerCase().startsWith('i'));
 
-      filteredData = { headers, rows: ikea, commerceKey };
+      filteredData = { headers, rows: ecomm, commerceKey };
 
       // Stats
       statTotal.textContent = rows.length.toLocaleString('es-CL');
-      statFound.textContent = ikea.length.toLocaleString('es-CL');
+      statFound.textContent = ecomm.length.toLocaleString('es-CL');
       statsCard.style.display = 'block';
       statsRow.classList.add('visible');
 
-      if (ikea.length === 0) {
-        showMsg('No se encontraron filas con "IKEA" en la columna Commerce.', 'err');
+      if (ecomm.length === 0) {
+        showMsg('No se encontraron filas de ecommerce (letra I) en la columna Commerce.', 'err');
         btnExport.disabled = true;
       } else {
-        showMsg(`✓ ${ikea.length} filas encontradas con IKEA.`, 'ok');
+        showMsg(`✓ ${ecomm.length} filas encontradas (ecommerce I).`, 'ok');
         btnExport.disabled = false;
-        renderPreview(headers, ikea, commerceKey);
+        renderPreview(headers, ecomm, commerceKey);
       }
     } catch(err) {
       showMsg('Error al leer el CSV: ' + err.message, 'err');
@@ -541,8 +574,8 @@
       const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
       if (cell) {
         cell.s = {
-          font: { bold: true, color: { rgb: '003087' } },
-          fill: { fgColor: { rgb: 'FFDA00' } },
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '2563EB' } },
           alignment: { horizontal: 'center' }
         };
       }
@@ -552,7 +585,7 @@
     ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'IKEA');
+    XLSX.utils.book_append_sheet(wb, ws, 'ECOMMERCE');
 
     XLSX.writeFile(wb, getFilename(), { bookType: 'xlsx', cellStyles: true });
     showMsg(`✓ Archivo descargado: ${getFilename()}`, 'ok');

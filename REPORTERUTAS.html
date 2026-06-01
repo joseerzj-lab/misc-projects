@@ -339,12 +339,12 @@ function ReporteRutas(){
   const consultarISOs=()=>{
     if(!isoInput.trim()||!rawRows.length)return;
     const isos=isoInput.split(/[\n\r,;\t ]+/).map(s=>s.trim()).filter(Boolean);
-    const ikeaRows=rawRows.filter(r=>(getKey(r,'Commerce')||'').toUpperCase().trim()==='IKEA');
+    const ecommRows=rawRows.filter(r=>(getKey(r,'Commerce')||'').trim().toUpperCase().startsWith('I'));
     const isoToVeh={};if(planData){const convMap={};if(convData)convData.rows.forEach(r=>{const ini=(getKey(r,'VEH INICIAL')||getKey(r,'Veh Inicial')||'').trim();const fin=(getKey(r,'VEH FINAL')||getKey(r,'Veh Final')||'').trim();if(ini&&fin)convMap[ini]=fin});planData.rows.forEach(r=>{const tit=(getKey(r,'Título')||getKey(r,'Titulo')||'').trim().toLowerCase();let veh=(getKey(r,'Vehículo')||getKey(r,'Vehiculo')||'').trim();if(tit&&veh)isoToVeh[tit]=convMap[veh]||veh})}
     const res=[];
     isos.forEach(iso=>{
       const isoLower=iso.toLowerCase();
-      const matches=ikeaRows.filter(r=>(getKey(r,'ParentOrder')||'').trim().toLowerCase()===isoLower);
+      const matches=ecommRows.filter(r=>(getKey(r,'ParentOrder')||'').trim().toLowerCase()===isoLower);
       if(matches.length>0){
         const uniqueStates=new Set(matches.map(m=>(getKey(m,'Estado')||'').toLowerCase()));
         const hasMultipleStates=uniqueStates.size>1;
@@ -390,7 +390,7 @@ function ReporteRutas(){
       const region=(getKey(row,'Region')||'Sin Región').trim();const estado=(getKey(row,'Estado')||'Sin Estado').trim();
       const parentOrder=(getKey(row,'ParentOrder')||'').trim();
       const gestion=(getKey(row,'Gestión')||getKey(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
-      if(commerce.toLowerCase()!=='ikea'||!patente)return;
+      if(!commerce.toLowerCase().startsWith('i')||!patente)return;
       const empresa=(getKey(row,'Empresa')||getKey(row,'Transportista')||'Sin Empresa').trim();
       estadosSet.add(estado);
       if(!rawRowsByPO[parentOrder])rawRowsByPO[parentOrder]=[];
@@ -524,7 +524,7 @@ function ReporteRutas(){
 
   const exportSummaryCSV=()=>{if(!data)return;let csv=`Región\tÓrdenes\tVehículos\n`;const regionsToProcess=summaryRegion==='ALL'?allRegions:[summaryRegion];regionsToProcess.forEach(r=>{const rd=data.regions[r];if(!rd)return;csv+=`${r}\t${rd.orders.size}\t${Object.keys(rd.patentes).length}\n`});const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`Reporte_Rutas_Resumen.csv`;link.click();flash('✓ Excel exportado')};
 
-  const handleManualSearch=()=>{if(!searchQuery.trim()||rawRows.length===0){setSearchResults([]);flash('⚠️ Ingresa un término para buscar');return}setIsSearching(true);setTimeout(()=>{const q=searchQuery.toLowerCase().trim();const results=[];const primaryFields=['ParentOrder','TITULO','ISO','TITULO_ISO','TÍTULO','Referencia','Order','ISO/TITULO','Patente','Region'];for(let i=0;i<rawRows.length;i++){const row=rawRows[i];const commerce=(getKey(row,'Commerce')||'').toString().toLowerCase();if(commerce!=='ikea')continue;let match=false;for(const field of primaryFields){const val=(getKey(row,field)||'').toString().toLowerCase();if(val.includes(q)){match=true;break}}if(!match){const values=Object.values(row);for(let j=0;j<values.length;j++){if(String(values[j]).toLowerCase().includes(q)){match=true;break}}}if(match)results.push(row)}setSearchResults(results);setIsSearching(false);if(results.length>0)setIsSearchModalOpen(true);else flash('❌ No se encontraron resultados')},200)};
+  const handleManualSearch=()=>{if(!searchQuery.trim()||rawRows.length===0){setSearchResults([]);flash('⚠️ Ingresa un término para buscar');return}setIsSearching(true);setTimeout(()=>{const q=searchQuery.toLowerCase().trim();const results=[];const primaryFields=['ParentOrder','TITULO','ISO','TITULO_ISO','TÍTULO','Referencia','Order','ISO/TITULO','Patente','Region'];for(let i=0;i<rawRows.length;i++){const row=rawRows[i];const commerce=(getKey(row,'Commerce')||'').toString().toLowerCase();if(!commerce.startsWith('i'))continue;let match=false;for(const field of primaryFields){const val=(getKey(row,field)||'').toString().toLowerCase();if(val.includes(q)){match=true;break}}if(!match){const values=Object.values(row);for(let j=0;j<values.length;j++){if(String(values[j]).toLowerCase().includes(q)){match=true;break}}}if(match)results.push(row)}setSearchResults(results);setIsSearching(false);if(results.length>0)setIsSearchModalOpen(true);else flash('❌ No se encontraron resultados')},200)};
 
   const displayedModalData=searchResults;
   const copySearchData=()=>{if(displayedModalData.length===0)return;const keys=Object.keys(displayedModalData[0]);let text=keys.join('\t')+'\n';displayedModalData.forEach(row=>{text+=keys.map(k=>String(row[k]||'').replace(/\t/g,' ')).join('\t')+'\n'});navigator.clipboard?.writeText(text).then(()=>flash('✓ Tabla copiada'))};
