@@ -1,211 +1,224 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ruteo PM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <style>
 :root{
- --bg:#f1f5f9;--bgCard:#ffffff;--bgCardAlt:rgba(0,0,0,0.025);
- --borderSoft:rgba(58,114,172,0.18);--text:#1a2e42;--textSub:#3d6080;
- --textFaint:#5c7c98;--blue:#2563eb;--red:#b91c1c;
- --green:#15803d;--orange:#ea580c;--purple:#7c3aed;
- --accentBg:rgba(37,99,235,0.08);--borderFocus:#2563eb;
- --font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
- --font-base:"Segoe UI",system-ui,-apple-system,sans-serif;
- --radius-sm:3px;--radius-md:4px;--radius-lg:6px;--radius-xl:8px;
- --shadow-sm:0 1px 2px rgba(0,0,0,0.03),0 1px 3px rgba(0,0,0,0.05);
- --shadow-md:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.05);
- --shadow-lg:0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
- --shadow-xl:0 20px 25px rgba(0,0,0,0.12),0 8px 10px rgba(0,0,0,0.06);
- --transition-fast:0.12s ease;--transition-normal:0.18s ease;
+ --bg:#FAFAF9;--bgCard:#FFFFFF;--bgCardAlt:rgba(0,0,0,0.026);--bgHover:rgba(0,0,0,0.042);
+ --text:#18181B;--textSub:#52525B;--textFaint:#A1A1AA;
+ --border:rgba(0,0,0,0.09);--borderSoft:rgba(0,0,0,0.06);--borderFocus:#2563EB;
+ --blue:#2563EB;--blueHover:#1D4ED8;--accentBg:rgba(37,99,235,0.06);
+ --red:#DC2626;--green:#16A34A;--orange:#EA580C;--purple:#7C3AED;
+ --pasteBlue:#EFF6FF;--pasteRed:#FEF2F2;--pasteGreen:#F0FDF4;
+ --pasteOrange:#FFF7ED;--pastePurple:#F5F3FF;--pasteGray:#F4F4F5;
+ --font-base:'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+ --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+ --r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;
+ --radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:10px;
+ --shadow-xs:0 1px 2px rgba(0,0,0,0.04);--shadow-sm:0 1px 4px rgba(0,0,0,0.05);
+ --shadow-md:0 2px 8px rgba(0,0,0,0.06);--shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+ --shadow-xl:0 16px 40px rgba(0,0,0,0.08);
+ --t-fast:0.12s ease;--t-normal:0.20s ease;--t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+ --transition-fast:0.12s ease;--transition-normal:0.20s ease;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px;}
+body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px;-webkit-font-smoothing:antialiased;}
 .custom-scrollbar::-webkit-scrollbar{width:5px;height:5px;}
 .custom-scrollbar::-webkit-scrollbar-track{background:transparent;}
-.custom-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:3px;}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.25);}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);font-weight:500;font-size:11px;cursor:pointer;transition:background var(--transition-fast),border-color var(--transition-fast),transform var(--transition-fast),box-shadow var(--transition-fast);border:1px solid transparent;outline:none;white-space:nowrap;}
-.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow-sm);}
-.btn:active:not(:disabled){transform:translateY(0) scale(0.98);box-shadow:none;}
-.btn:disabled{opacity:0.35;cursor:not-allowed;}
-.btn-primary{background:var(--blue);color:#fff;border-color:rgba(0,0,0,0.15);}
-.btn-primary:hover:not(:disabled){background:#1d4ed8;}
-.btn-secondary{background:rgba(0,0,0,0.04);color:var(--text);border-color:var(--borderSoft);}
-.btn-secondary:hover:not(:disabled){background:rgba(0,0,0,0.08);}
-.btn-danger{background:rgba(220,38,38,0.1);color:#dc2626;border-color:rgba(220,38,38,0.25);}
-.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.18);}
-.btn-green{background:rgba(22,163,74,0.1);color:#16a34a;border-color:rgba(22,163,74,0.25);}
-.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.18);}
-.btn-purple{background:rgba(124,58,237,0.1);color:var(--purple);border-color:rgba(124,58,237,0.25);}
-.btn-purple:hover:not(:disabled){background:rgba(124,58,237,0.18);}
-.header{background:#ffffff;border-bottom:1px solid var(--borderSoft);box-shadow:var(--shadow-sm);padding:0;display:flex;flex-direction:column;z-index:100;}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid var(--borderSoft);}
-.logo-text{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--textSub);text-transform:uppercase;}
+.custom-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px;}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border-radius:var(--r-md);font-weight:500;font-size:11px;line-height:1;cursor:pointer;transition:background var(--t-fast),border-color var(--t-fast),transform 0.10s;border:1px solid transparent;outline:none;white-space:nowrap;user-select:none;font-family:var(--font-base);}
+.btn:hover:not(:disabled){transform:translateY(-1px);}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98);}
+.btn:disabled{opacity:0.32;cursor:not-allowed;}
+.btn:focus-visible{outline:2px solid var(--borderFocus);outline-offset:2px;}
+.btn-primary{background:#18181B;color:#fff;border-color:rgba(0,0,0,0.06);}
+.btn-primary:hover:not(:disabled){background:#27272A;}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border);}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover);}
+.btn-danger{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.18);}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.12);}
+.btn-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.18);}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.12);}
+.btn-purple{background:var(--pastePurple);color:var(--purple);border-color:rgba(124,58,237,0.18);}
+.btn-purple:hover:not(:disabled){background:rgba(124,58,237,0.12);}
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);padding:0;display:flex;flex-direction:column;z-index:100;flex-shrink:0;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:36px;border-bottom:1px solid var(--borderSoft);}
+.logo-text{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--textFaint);text-transform:uppercase;}
 .tabs-container{display:flex;padding:0 6px;}
 .tabs-wrapper{display:flex;align-items:flex-end;gap:0;}
-.tab-btn{display:flex;align-items:center;gap:4px;padding:6px 13px;border-radius:0;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--textFaint);font-size:11px;font-weight:500;cursor:pointer;transition:all 0.12s;margin-bottom:-1px;}
-.tab-btn:hover{color:var(--textSub);background:rgba(0,0,0,0.03);}
-.tab-btn.active{color:var(--blue);font-weight:600;border-bottom-color:var(--blue);background:var(--accentBg);border-radius:var(--radius-md) var(--radius-md) 0 0;}
-.tab-badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:2px;background:rgba(37,99,235,0.15);color:var(--blue);}
-.tab-badge-red{background:rgba(220,38,38,0.15);color:#dc2626;}
+.tab-btn{display:flex;align-items:center;gap:4px;padding:7px 13px;border-radius:var(--r-sm) var(--r-sm) 0 0;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--textFaint);font-size:11px;font-weight:500;cursor:pointer;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);margin-bottom:-1px;font-family:var(--font-base);}
+.tab-btn:hover{color:var(--textSub);background:var(--bgHover);}
+.tab-btn.active{color:var(--text);font-weight:600;border-bottom-color:var(--text);background:transparent;}
+.tab-badge{font-size:9px;font-weight:700;padding:1px 4px;border-radius:var(--r-xs);background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border);font-family:var(--font-mono);}
+.tab-badge-red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.15);}
 .main-content{flex:1;overflow:hidden;position:relative;}
 .tab-pane{display:none;width:100%;height:100%;overflow-y:auto;}
 .tab-pane.active{display:flex;flex-direction:column;}
-.card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:18px;}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bgCard);color:var(--text);border:1px solid var(--borderSoft);padding:7px 18px;border-radius:3px;font-weight:600;font-size:11px;box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:transform 0.22s ease;z-index:2000;}
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#18181B;color:#F4F4F5;border:1px solid rgba(255,255,255,0.08);padding:8px 16px;border-radius:var(--r-md);font-weight:600;font-size:11px;letter-spacing:.01em;box-shadow:var(--shadow-lg);transition:transform var(--t-slow);z-index:2000;white-space:nowrap;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity 0.18s;}
+.toast.toast-ok{background:#14532D;}
+.toast.toast-error{background:#7F1D1D;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.22);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity var(--t-normal);}
 .modal-overlay.active{opacity:1;pointer-events:auto;}
-.modal-content{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--radius-lg);width:100%;max-width:520px;padding:22px;position:relative;transform:scale(0.97);transition:transform var(--transition-normal);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);}
-.modal-close{position:absolute;top:11px;right:11px;background:none;border:none;color:var(--textFaint);cursor:pointer;font-size:15px;line-height:1;padding:3px;}
-.modal-close:hover{color:var(--text);}
-.input{width:100%;padding:6px 10px;background:#ffffff;border:1px solid var(--borderSoft);border-radius:3px;color:var(--text);font-size:11px;outline:none;transition:border-color 0.12s;box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);}
-.input:focus{border-color:var(--borderFocus);box-shadow:inset 0 1px 2px rgba(0,0,0,0.02), 0 0 0 2px rgba(37,99,235,0.1);}
-.textarea{resize:vertical;min-height:80px;}
-.file-drop{border:1px dashed var(--borderSoft);border-radius:5px;padding:16px;text-align:center;cursor:pointer;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:7px;}
-.file-drop:hover{background:rgba(37,99,235,0.03);border-color:rgba(37,99,235,0.4);}
+.modal-content{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-xl);width:100%;max-width:520px;padding:22px;position:relative;transform:scale(0.97) translateY(6px);transition:transform var(--t-slow);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);}
+.modal-overlay.active .modal-content{transform:scale(1) translateY(0);}
+.modal-close{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--textFaint);cursor:pointer;font-size:16px;line-height:1;padding:4px;border-radius:var(--r-xs);transition:color var(--t-fast),background var(--t-fast);}
+.modal-close:hover{color:var(--text);background:var(--bgHover);}
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:11px;line-height:1.4;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);font-family:var(--font-base);}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10);}
+.input::placeholder{color:var(--textFaint);}
+.textarea{resize:vertical;min-height:80px;line-height:1.5;}
+.file-drop{border:1px dashed var(--border);border-radius:var(--r-lg);padding:16px;text-align:center;cursor:pointer;background:var(--bgCardAlt);transition:background var(--t-normal),border-color var(--t-normal);display:flex;flex-direction:column;align-items:center;gap:7px;}
+.file-drop:hover{background:var(--accentBg);border-color:rgba(37,99,235,0.35);}
 #tab-dashboard{padding:0;}
-.dash-toolbar{display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;}
+.dash-toolbar{display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;flex-shrink:0;}
 .dash-search-wrap{position:relative;flex:1;max-width:240px;}
-.dash-search-wrap svg{position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.35;}
+.dash-search-wrap svg{position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint);}
 .dash-search-wrap input{padding-left:26px;padding-top:4px;padding-bottom:4px;}
-.dash-stats-bar{display:flex;align-items:center;padding:4px 10px;border-bottom:1px solid var(--borderSoft);gap:5px;flex-wrap:wrap;background:var(--bgCardAlt);}
-.stat-chip{display:flex;align-items:center;gap:3px;padding:1px 7px;border-radius:2px;border:1px solid var(--borderSoft);background:#ffffff;}
-.stat-chip-val{color:var(--blue);font-weight:700;font-family:var(--font-mono);font-size:11px;}
-.stat-chip-lbl{font-size:9px;text-transform:uppercase;color:var(--textFaint);letter-spacing:.04em;}
-.col-panel{display:none;flex-wrap:wrap;gap:5px;padding:6px 10px;border-bottom:1px solid var(--borderSoft);background:var(--bgCard);}
+.dash-stats-bar{display:flex;align-items:center;padding:3px 10px;border-bottom:1px solid var(--borderSoft);gap:5px;flex-wrap:wrap;background:var(--bgCardAlt);flex-shrink:0;}
+.stat-chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCard);}
+.stat-chip-val{color:var(--text);font-weight:700;font-family:var(--font-mono);font-size:11px;}
+.stat-chip-val.blue{color:var(--blue);}
+.stat-chip-val.green{color:var(--green);}
+.stat-chip-val.red{color:var(--red);}
+.stat-chip-val.orange{color:var(--orange);}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;color:var(--textFaint);letter-spacing:.06em;}
+.col-panel{display:none;flex-wrap:wrap;gap:5px;padding:6px 10px;border-bottom:1px solid var(--borderSoft);background:var(--bgCard);flex-shrink:0;}
 .col-panel.visible{display:flex;}
-.col-toggle-label{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;padding:3px 9px;border-radius:3px;cursor:pointer;transition:all 0.12s;border:1px solid var(--borderSoft);color:var(--textFaint);user-select:none;}
-.col-toggle-label.active{background:var(--accentBg);border-color:rgba(37,99,235,0.3);color:var(--blue);}
+.col-toggle-label{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;padding:3px 9px;border-radius:var(--r-xs);cursor:pointer;transition:all var(--t-fast);border:1px solid var(--border);color:var(--textFaint);user-select:none;}
+.col-toggle-label.active{background:var(--pasteBlue);border-color:rgba(37,99,235,0.22);color:var(--blue);}
 .col-toggle-label input{pointer-events:none;}
-.replace-bar{display:none;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:8px;background:rgba(37,99,235,0.04);}
+.replace-bar{display:none;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:8px;background:var(--pasteBlue);flex-shrink:0;}
 .replace-bar.visible{display:flex;}
 .spreadsheet-wrap{flex:1;overflow:auto;position:relative;}
 .dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px;font-family:var(--font-mono);}
 .dash-table th,.dash-table td{border-right:1px solid var(--borderSoft);border-bottom:1px solid var(--borderSoft);padding:0;position:relative;}
-.dash-table thead tr.col-letters-row th{background:#e2e8f0;color:var(--textSub);font-size:9px;font-weight:600;text-align:center;padding:2px 4px;position:sticky;top:0;z-index:22;font-family:var(--font-mono);letter-spacing:.04em;text-transform:uppercase;}
-.dash-table thead tr.col-letters-row th.col-letter-active{background:rgba(37,99,235,0.15);color:var(--blue);font-weight:700;}
-.dash-table thead tr.col-names-row{position:sticky;top:20px;z-index:21;}
-.dash-table thead tr.col-names-row th{background:#f1f5f9;padding:4px 6px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;white-space:nowrap;color:var(--textSub);}
-.dash-table thead tr.col-names-row th.col-name-active{background:#e0e7ff;color:var(--blue);}
+.dash-table thead tr.col-letters-row th{background:#F4F4F5;color:var(--textFaint);font-size:9px;font-weight:600;text-align:center;padding:2px 4px;position:sticky;top:0;z-index:22;font-family:var(--font-mono);letter-spacing:.06em;text-transform:uppercase;}
+.dash-table thead tr.col-letters-row th.col-letter-active{background:var(--pasteBlue);color:var(--blue);font-weight:700;}
+.dash-table thead tr.col-names-row{position:sticky;top:18px;z-index:21;}
+.dash-table thead tr.col-names-row th{background:#FAFAFA;padding:5px 7px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--textSub);font-family:var(--font-base);}
+.dash-table thead tr.col-names-row th.col-name-active{background:var(--pasteBlue);color:var(--blue);}
 .th-inner{display:flex;align-items:center;justify-content:space-between;gap:3px;}
-.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:var(--text);padding:3px 6px;outline:none;font-family:inherit;font-size:inherit;}
-.dash-table td input:focus{background:#ffffff;box-shadow:inset 0 0 0 1.5px var(--borderFocus);}
-.dash-table tbody tr:hover{background:rgba(0,0,0,0.02);}
-.dash-table tr.row-active td{background:rgba(37,99,235,0.04);}
-.dash-table tr.row-active td.row-num{background:rgba(37,99,235,0.15)!important;color:var(--blue);font-weight:700;}
-.row-num{background:#f8fafc;text-align:center;color:var(--textFaint);padding:3px 4px;width:32px;position:sticky;left:0;z-index:5;font-size:9px;cursor:pointer;user-select:none;}
-.row-num:hover{background:rgba(37,99,235,0.1);color:var(--blue);}
-.row-num-corner-top{background:#e2e8f0!important;color:var(--textFaint);z-index:25!important;position:sticky;left:0;top:0;width:32px;}
-.row-num-corner-bot{background:#f1f5f9!important;color:var(--textFaint);z-index:25!important;position:sticky;left:0;top:20px;width:32px;}
-.cell-name-box{display:inline-flex;align-items:center;justify-content:center;min-width:72px;height:22px;padding:0 8px;border-radius:3px;border:1px solid var(--borderSoft);background:var(--bgCard);color:var(--blue);font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.04em;}
+.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:var(--text);padding:3px 7px;outline:none;font-family:inherit;font-size:inherit;}
+.dash-table td input:focus{background:var(--bgCard);box-shadow:inset 0 0 0 1.5px var(--borderFocus);}
+.dash-table tbody tr:hover{background:rgba(0,0,0,0.016);}
+.dash-table tr.row-active td{background:rgba(37,99,235,0.03);}
+.dash-table tr.row-active td.row-num{background:var(--pasteBlue)!important;color:var(--blue);font-weight:700;}
+.row-num{background:#FAFAFA;text-align:center;color:var(--textFaint);padding:3px 4px;width:30px;position:sticky;left:0;z-index:5;font-size:9px;cursor:pointer;user-select:none;transition:background var(--t-fast),color var(--t-fast);}
+.row-num:hover{background:var(--pasteBlue);color:var(--blue);}
+.row-num-corner-top{background:#F4F4F5!important;z-index:25!important;position:sticky;left:0;top:0;width:30px;}
+.row-num-corner-bot{background:#FAFAFA!important;z-index:25!important;position:sticky;left:0;top:18px;width:30px;}
+.cell-name-box{display:inline-flex;align-items:center;justify-content:center;min-width:70px;height:22px;padding:0 8px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCard);color:var(--textSub);font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.04em;}
 .formula-bar{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt);flex-shrink:0;}
 .formula-bar-fx{font-family:var(--font-mono);font-size:10px;color:var(--textFaint);font-style:italic;padding:0 4px;}
-.formula-bar-input{flex:1;background:transparent;border:1px solid transparent;color:var(--text);padding:3px 7px;border-radius:3px;font-family:var(--font-mono);font-size:11px;outline:none;min-width:0;}
-.formula-bar-input:focus{background:#ffffff;border-color:var(--borderFocus);box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);}
+.formula-bar-input{flex:1;background:transparent;border:1px solid transparent;color:var(--text);padding:3px 7px;border-radius:var(--r-xs);font-family:var(--font-mono);font-size:11px;outline:none;min-width:0;transition:background var(--t-fast),border-color var(--t-fast);}
+.formula-bar-input:focus{background:var(--bgCard);border-color:var(--borderFocus);}
 .formula-bar-input:read-only{color:var(--textSub);cursor:default;}
-.dup-row{background:rgba(220,38,38,0.05)!important;}
+.dup-row{background:rgba(220,38,38,0.03)!important;}
 .dup-cell{border-left:2px solid var(--red)!important;}
-.row-actions{opacity:0;transition:opacity 0.12s;display:flex;align-items:center;gap:1px;padding:2px;width:78px;}
+.row-actions{opacity:0;transition:opacity var(--t-fast);display:flex;align-items:center;gap:1px;padding:2px;width:78px;}
 .dash-table tr:hover .row-actions{opacity:1;}
-.act-btn{background:none;border:none;cursor:pointer;padding:2px 5px;border-radius:3px;font-size:10px;transition:all 0.1s;color:var(--textSub);}
-.act-btn:hover{background:rgba(0,0,0,0.06);}
-.filter-btn{background:none;border:none;cursor:pointer;padding:1px 3px;color:var(--textFaint);font-size:9px;line-height:1;}
-.filter-btn:hover,.filter-btn.active{color:var(--blue);}
-.filter-dropdown{position:absolute;top:calc(100% + 2px);right:0;min-width:190px;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:300;overflow:hidden;}
-.filter-dd-header{padding:6px;border-bottom:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:3px;}
-.filter-dd-sort-btn{background:none;border:none;color:var(--textSub);font-size:10px;text-align:left;padding:3px 6px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:4px;}
-.filter-dd-sort-btn:hover,.filter-dd-sort-btn.active{background:var(--accentBg);color:var(--blue);}
+.act-btn{background:none;border:none;cursor:pointer;padding:2px 5px;border-radius:var(--r-xs);font-size:10px;transition:background var(--t-fast);color:var(--textSub);}
+.act-btn:hover{background:var(--bgHover);}
+.filter-btn{background:none;border:none;cursor:pointer;padding:1px 3px;color:var(--textFaint);font-size:9px;line-height:1;transition:color var(--t-fast);}
+.filter-btn:hover,.filter-btn.active{color:var(--text);}
+.filter-dropdown{position:absolute;top:calc(100% + 2px);right:0;min-width:190px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:300;overflow:hidden;animation:fadeInDown 0.13s ease;}
+.filter-dd-header{padding:7px;border-bottom:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:4px;}
+.filter-dd-sort-btn{background:none;border:none;color:var(--textSub);font-size:10px;text-align:left;padding:3px 6px;cursor:pointer;border-radius:var(--r-xs);display:flex;align-items:center;gap:4px;transition:background var(--t-fast);}
+.filter-dd-sort-btn:hover,.filter-dd-sort-btn.active{background:var(--bgHover);color:var(--text);}
 .filter-dd-search{padding:5px;border-bottom:1px solid var(--borderSoft);}
 .filter-dd-list{max-height:170px;overflow-y:auto;padding:3px;}
-.filter-dd-item{display:flex;align-items:center;gap:5px;font-size:10px;padding:4px 6px;border-radius:3px;cursor:pointer;}
-.filter-dd-item:hover{background:rgba(0,0,0,0.04);}
-.filter-dd-footer{padding:5px 7px;border-top:1px solid var(--borderSoft);background:rgba(0,0,0,0.02);display:flex;justify-content:space-between;align-items:center;gap:5px;}
-.filter-dd-apply{background:var(--blue);color:#fff;border:none;border-radius:3px;padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer;}
-.filter-dd-apply:hover{background:#1d4ed8;}
-.k8-option{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:4px;border:1px solid var(--borderSoft);cursor:pointer;transition:all 0.12s;margin-bottom:6px;}
-.k8-option:hover,.k8-option.selected{border-color:var(--blue);background:var(--accentBg);}
+.filter-dd-item{display:flex;align-items:center;gap:5px;font-size:10px;padding:4px 6px;border-radius:var(--r-xs);cursor:pointer;transition:background var(--t-fast);}
+.filter-dd-item:hover{background:var(--bgHover);}
+.filter-dd-footer{padding:5px 7px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt);display:flex;justify-content:space-between;align-items:center;gap:5px;}
+.filter-dd-apply{background:#18181B;color:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:var(--r-xs);padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer;font-family:var(--font-base);transition:background var(--t-fast);}
+.filter-dd-apply:hover{background:#27272A;}
+.k8-option{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:var(--r-md);border:1px solid var(--border);cursor:pointer;transition:all var(--t-fast);margin-bottom:6px;}
+.k8-option:hover,.k8-option.selected{border-color:rgba(37,99,235,0.3);background:var(--accentBg);}
 .k8-option.selected span{color:var(--blue);}
-.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px;text-align:center;}
-.empty-icon{width:44px;height:44px;border-radius:4px;background:var(--accentBg);border:1px solid rgba(37,99,235,0.2);display:flex;align-items:center;justify-content:center;opacity:0.6;color:var(--blue);}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;padding:40px;text-align:center;}
+.empty-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--bgCardAlt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--textFaint);}
 .tab-inner{max-width:900px;margin:0 auto;width:100%;padding:20px;}
 #tab-params .tab-inner{max-width:1100px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 .grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
-.module-card{cursor:pointer;transition:all 0.15s;border:1px solid var(--borderSoft);border-radius:5px;padding:18px;background:var(--bgCard);display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02);}
-.module-card:hover{border-color:rgba(37,99,235,0.4);background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);}
-.module-icon{width:34px;height:34px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:.04em;}
-.tpl-card{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:0;overflow:hidden;transition:all 0.12s;box-shadow:0 2px 5px rgba(0,0,0,0.02);}
-.tpl-card:hover{border-color:rgba(37,99,235,0.4);box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+.module-card{cursor:pointer;transition:border-color var(--t-fast),box-shadow var(--t-fast),transform 0.16s ease;border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;background:var(--bgCard);display:flex;flex-direction:column;gap:10px;}
+.module-card:hover{border-color:rgba(0,0,0,0.18);box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.module-icon{width:34px;height:34px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--bgCardAlt);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--textSub);}
+.tpl-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:0;overflow:hidden;transition:border-color var(--t-fast),box-shadow var(--t-fast);}
+.tpl-card:hover{border-color:rgba(0,0,0,0.16);box-shadow:var(--shadow-md);}
 .tpl-inner{padding:15px 17px;border-top:3px solid;}
 .tpl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
-.param-section{background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.02);}
-.param-section-header{padding:11px 15px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:flex-start;gap:10px;background:#f8fafc;}
-.param-icon{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;letter-spacing:.04em;}
+.param-section{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:10px;}
+.param-section-header{padding:10px 14px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:flex-start;gap:10px;background:var(--bgCardAlt);}
+.param-icon{width:28px;height:28px;border-radius:var(--r-md);background:var(--bgCardAlt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;letter-spacing:.04em;color:var(--textSub);}
 .param-body{padding:13px 15px;display:flex;flex-direction:column;gap:10px;}
 .tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
-.tag-item{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;}
-.tag-remove{background:none;border:none;cursor:pointer;opacity:0.5;font-size:9px;padding:0 2px;line-height:1;color:currentColor;}
+.tag-item{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r-xs);font-size:10px;font-weight:600;}
+.tag-remove{background:none;border:none;cursor:pointer;opacity:0.5;font-size:9px;padding:0 2px;line-height:1;color:currentColor;transition:opacity var(--t-fast);}
 .tag-remove:hover{opacity:1;}
 .tag-add-row{display:flex;gap:5px;}
 .tag-add-row input{flex:1;padding:5px 8px;font-size:10px;font-family:var(--font-mono);}
-.field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--textFaint);margin-bottom:3px;}
+.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--textFaint);margin-bottom:4px;}
 .dash-bottom{padding:4px 10px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
 .hidden{display:none!important;}
 select.input{cursor:pointer;}
-.dash-table td.selected{background:rgba(37,99,235,0.12)!important;}
+.dash-table td.selected{background:rgba(37,99,235,0.10)!important;}
 .dash-table td.selected input{background:transparent!important;box-shadow:inset 0 0 0 1px var(--borderFocus);}
-.dup-row td{background:rgba(220,38,38,0.04);}
-.dup-row td.selected{background:rgba(220,38,38,0.15)!important;}
+.dup-row td{background:rgba(220,38,38,0.03);}
+.dup-row td.selected{background:rgba(220,38,38,0.12)!important;}
 #tab-transform{padding:0;}
-.transform-toolbar{display:flex;align-items:center;padding:6px 12px;border-bottom:1px solid var(--borderSoft);gap:8px;background:var(--bg);flex-wrap:wrap;}
-.transform-config{display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt);flex-wrap:wrap;align-items:flex-end;}
+.transform-toolbar{display:flex;align-items:center;padding:5px 12px;border-bottom:1px solid var(--borderSoft);gap:8px;background:var(--bg);flex-wrap:wrap;flex-shrink:0;}
+.transform-config{display:flex;gap:12px;padding:8px 12px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt);flex-wrap:wrap;align-items:flex-end;flex-shrink:0;}
 .transform-config-block{display:flex;flex-direction:column;gap:4px;}
 .transform-spreadsheet{flex:1;overflow:auto;}
 .transform-table{border-collapse:collapse;width:100%;font-size:11px;font-family:var(--font-mono);}
-.transform-table th{background:#f1f5f9;padding:4px 7px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;white-space:nowrap;border:1px solid var(--borderSoft);position:sticky;top:0;z-index:10;color:var(--textSub);}
-.transform-table th.col-highlight{background:rgba(37,99,235,0.1);color:var(--blue);}
+.transform-table th{background:#F4F4F5;padding:5px 7px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.06em;white-space:nowrap;border:1px solid var(--borderSoft);position:sticky;top:0;z-index:10;color:var(--textFaint);text-transform:uppercase;}
+.transform-table th.col-highlight{background:var(--pasteBlue);color:var(--blue);}
 .transform-table td{border:1px solid var(--borderSoft);padding:0;}
 .transform-table td input{width:100%;border:none;background:transparent;color:var(--text);padding:3px 6px;outline:none;font-family:inherit;font-size:inherit;}
-.transform-table td input:focus{background:#ffffff;box-shadow:inset 0 0 0 1px var(--borderFocus);}
-.transform-table td.col-highlight-cell{background:rgba(37,99,235,0.05);}
+.transform-table td input:focus{background:var(--bgCard);box-shadow:inset 0 0 0 1.5px var(--borderFocus);}
+.transform-table td.col-highlight-cell{background:rgba(37,99,235,0.04);}
 .transform-table td.col-highlight-cell input{color:var(--blue);}
-.transform-date-display{font-size:14px;font-weight:700;font-family:var(--font-mono);color:var(--blue);letter-spacing:.5px;}
+.transform-date-display{font-size:14px;font-weight:700;font-family:var(--font-mono);color:var(--text);letter-spacing:.5px;}
 .transform-bottom{padding:5px 12px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
-.guide{border:1px solid var(--borderSoft);border-radius:5px;background:#f8fafc;margin-bottom:16px;overflow:hidden;}
-.guide-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-bottom:1px solid transparent;transition:background 0.12s;user-select:none;}
-.guide-head:hover{background:rgba(0,0,0,0.03);}
-.guide.open .guide-head{border-bottom-color:var(--borderSoft);}
-.guide-title{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--textSub);text-transform:uppercase;letter-spacing:.08em;}
-.guide-title::before{content:"i";display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(37,99,235,0.15);color:var(--blue);font-size:9px;font-weight:700;font-family:var(--font-mono);font-style:italic;}
-.guide-toggle{font-family:var(--font-mono);color:var(--textFaint);font-size:13px;font-weight:600;line-height:1;}
-.guide.open .guide-toggle::before{content:"−";}
+.guide{border-bottom:1px solid var(--border);margin-bottom:0;}
+.guide:first-child{border-top:1px solid var(--border);}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;transition:color var(--t-fast);}
+.guide-head:hover .guide-title{color:var(--text);}
+.guide-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--textSub);transition:color var(--t-fast);}
+.guide-toggle{font-family:var(--font-mono);color:var(--textFaint);font-size:14px;font-weight:400;line-height:1;}
+.guide.open .guide-toggle::before{content:"âˆ’";}
 .guide:not(.open) .guide-toggle::before{content:"+";}
-.guide-body{display:none;padding:12px 16px 14px;}
-.guide.open .guide-body{display:block;}
+.guide-body{display:none;padding:0 14px 12px;}
+.guide.open .guide-body{display:block;animation:fadeIn 0.16s ease;}
 .guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;}
-.guide-step{display:flex;gap:10px;align-items:flex-start;font-size:11px;line-height:1.55;color:var(--textSub);}
-.guide-step-num{flex-shrink:0;width:18px;height:18px;border-radius:3px;background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.25);color:var(--blue);font-size:10px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;line-height:1;margin-top:1px;}
+.guide-step{display:flex;gap:10px;align-items:flex-start;font-size:11px;line-height:1.6;color:var(--textSub);}
+.guide-step-num{flex-shrink:0;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--textFaint);margin-top:2px;min-width:18px;}
 .guide-step strong{color:var(--text);font-weight:600;}
-.guide-step code{font-family:var(--font-mono);font-size:10px;padding:1px 5px;border-radius:2px;background:rgba(37,99,235,0.08);color:var(--blue);border:1px solid rgba(37,99,235,0.2);}
-.guide-kbd{display:inline-block;font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:2px;background:var(--bgCard);border:1px solid var(--borderSoft);color:var(--text);line-height:1.4;}
+.guide-step code{font-family:var(--font-mono);font-size:10px;padding:1px 5px;border-radius:var(--r-xs);background:var(--bgCardAlt);color:var(--textSub);border:1px solid var(--border);}
+.guide-kbd{display:inline-block;font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:var(--r-xs);background:var(--bgCard);border:1px solid var(--border);color:var(--text);line-height:1.4;}
 .params-layout{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:flex-start;}
-.params-sidebar{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:5px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,0.02);}
-.params-nav-btn{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:3px;border:none;background:transparent;color:var(--textSub);font-size:11px;font-weight:500;cursor:pointer;text-align:left;transition:all 0.12s;font-family:inherit;}
-.params-nav-btn:hover{background:rgba(0,0,0,0.03);color:var(--text);}
-.params-nav-btn.active{background:rgba(37,99,235,0.1);color:var(--blue);font-weight:600;}
-.params-nav-btn-tag{margin-left:auto;font-size:9px;font-family:var(--font-mono);color:var(--textFaint);background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:2px;}
+.params-sidebar{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:6px;}
+.params-nav-btn{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-sm);border:none;background:transparent;color:var(--textSub);font-size:11px;font-weight:500;cursor:pointer;text-align:left;transition:background var(--t-fast),color var(--t-fast);font-family:var(--font-base);}
+.params-nav-btn:hover{background:var(--bgHover);color:var(--text);}
+.params-nav-btn.active{background:var(--bgCardAlt);color:var(--text);font-weight:600;border-left:2px solid var(--text);}
+.params-nav-btn-tag{margin-left:auto;font-size:9px;font-family:var(--font-mono);color:var(--textFaint);background:var(--bgCardAlt);padding:1px 5px;border-radius:var(--r-xs);border:1px solid var(--border);}
 .params-search-wrap{position:relative;margin-bottom:6px;}
-.params-search-wrap input{width:100%;padding:6px 9px 6px 26px;border-radius:3px;border:1px solid var(--borderSoft);background:var(--bg);color:var(--text);font-size:11px;font-family:inherit;}
-.params-search-wrap input:focus{outline:none;border-color:var(--borderFocus);background:#ffffff;}
+.params-search-wrap input{width:100%;padding:6px 9px 6px 26px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-family:var(--font-base);outline:none;transition:border-color var(--t-fast);}
+.params-search-wrap input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10);}
 .params-search-wrap svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--textFaint);pointer-events:none;}
 .params-content{display:flex;flex-direction:column;gap:10px;min-width:0;}
 .params-content .param-section{margin-bottom:0;}
-.params-group-title{font-size:10px;font-weight:700;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;padding:14px 12px 6px;border-top:1px solid var(--borderSoft);margin-top:6px;}
+.params-group-title{font-size:10px;font-weight:600;color:var(--textFaint);text-transform:uppercase;letter-spacing:.09em;padding:14px 12px 6px;border-top:1px solid var(--borderSoft);margin-top:6px;}
 .params-group-title:first-child{border-top:none;margin-top:0;padding-top:6px;}
 .param-section.hidden-search{display:none;}
 .param-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--borderSoft);}
@@ -214,17 +227,19 @@ select.input{cursor:pointer;}
 .param-toggle-desc{font-size:10px;color:var(--textFaint);margin-top:2px;line-height:1.4;}
 .param-switch{position:relative;display:inline-block;width:32px;height:18px;flex-shrink:0;}
 .param-switch input{opacity:0;width:0;height:0;}
-.param-switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg);border:1px solid var(--borderSoft);border-radius:10px;transition:0.18s;}
-.param-switch-slider::before{content:"";position:absolute;height:12px;width:12px;left:2px;top:2px;background:#ffffff;border:1px solid var(--borderSoft);border-radius:50%;transition:0.18s;box-shadow:0 1px 2px rgba(0,0,0,0.1);}
-.param-switch input:checked + .param-switch-slider{background:rgba(37,99,235,0.2);border-color:var(--blue);}
-.param-switch input:checked + .param-switch-slider::before{transform:translateX(13px);background:var(--blue);border-color:var(--blue);}
+.param-switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;transition:var(--t-normal);}
+.param-switch-slider::before{content:"";position:absolute;height:12px;width:12px;left:2px;top:2px;background:#ffffff;border:1px solid var(--border);border-radius:50%;transition:var(--t-normal);box-shadow:0 1px 2px rgba(0,0,0,0.1);}
+.param-switch input:checked + .param-switch-slider{background:rgba(0,0,0,0.12);border-color:var(--text);}
+.param-switch input:checked + .param-switch-slider::before{transform:translateX(13px);background:var(--text);border-color:var(--text);}
 .param-color-row{display:flex;align-items:center;gap:8px;}
-.param-color-row input[type=color]{width:32px;height:24px;border:1px solid var(--borderSoft);border-radius:3px;background:#ffffff;cursor:pointer;padding:0;}
+.param-color-row input[type=color]{width:32px;height:24px;border:1px solid var(--border);border-radius:var(--r-sm);background:#ffffff;cursor:pointer;padding:0;}
 .param-color-row input[type=text]{flex:1;font-family:var(--font-mono);font-size:10px;}
 .param-vars-cheatsheet{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
-.param-var-chip{font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:2px;background:rgba(37,99,235,0.1);color:var(--blue);border:1px solid rgba(37,99,235,0.25);cursor:pointer;transition:background 0.12s;}
-.param-var-chip:hover{background:rgba(37,99,235,0.2);}
+.param-var-chip{font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:var(--r-xs);background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border);cursor:pointer;transition:background var(--t-fast);}
+.param-var-chip:hover{background:var(--bgHover);}
 .params-empty-search{padding:32px;text-align:center;color:var(--textFaint);font-size:11px;font-style:italic;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -252,7 +267,7 @@ select.input{cursor:pointer;}
       </button>
       <button class="tab-btn" data-tab="export">Exportar</button>
       <button class="tab-btn" data-tab="templates">Plantillas</button>
-      <button class="tab-btn" data-tab="params">Parámetros</button>
+      <button class="tab-btn" data-tab="params">ParÃ¡metros</button>
       <button class="tab-btn" data-tab="transform">Transformar</button>
     </div>
   </div>
@@ -265,19 +280,19 @@ select.input{cursor:pointer;}
   <div class="tab-inner">
     <div style="margin-bottom:18px;">
       <h2 style="font-size:14px;font-weight:700;color:var(--text);">Carga de Datos</h2>
-      <p style="color:var(--textSub);font-size:11px;margin-top:3px;">Selecciona el módulo de carga.</p>
+      <p style="color:var(--textSub);font-size:11px;margin-top:3px;">Selecciona el mÃ³dulo de carga.</p>
     </div>
     <div class="guide" data-guide="load">
       <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-        <div class="guide-title">Cómo usar esta sección</div>
+        <div class="guide-title">CÃ³mo usar esta secciÃ³n</div>
         <span class="guide-toggle"></span>
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Carga Unificada:</strong> Pega tablas de Repites, Retiros, K8 o Envío y Retiro copiadas directo de Excel. El sistema detecta el tipo automáticamente.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>Cruce de Datos:</strong> Sube los Excel de Plan + Conversión para resolver DESTINOS. El cruce de ORÍGENES requiere ISO + RTE_TO.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Sesión JSON:</strong> Guarda o restaura todo tu progreso desde un archivo local. Útil al cambiar de equipo.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Proyectos:</strong> Carga el .xlsx semanal de proyectos. Se filtra por los vehículos definidos en <code>Parámetros</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Carga Unificada:</strong> Pega tablas de Repites, Retiros, K8 o EnvÃ­o y Retiro copiadas directo de Excel. El sistema detecta el tipo automÃ¡ticamente.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>Cruce de Datos:</strong> Sube los Excel de Plan + ConversiÃ³n para resolver DESTINOS. El cruce de ORÃGENES requiere ISO + RTE_TO.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>SesiÃ³n JSON:</strong> Guarda o restaura todo tu progreso desde un archivo local. Ãštil al cambiar de equipo.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Proyectos:</strong> Carga el .xlsx semanal de proyectos. Se filtra por los vehÃ­culos definidos en <code>ParÃ¡metros</code>.</div></div>
           <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Duplicados:</strong> Sube el Plan SR para detectar ISOs repetidas contra el Dashboard. Marca las filas en rojo.</div></div>
           <div class="guide-step"><span class="guide-step-num">6</span><div>Cuando termines, ve a <strong>Dashboard</strong> para gestionar la tabla o a <strong>Plantillas</strong> para generar el correo final.</div></div>
         </div>
@@ -286,18 +301,18 @@ select.input{cursor:pointer;}
     <div class="grid-auto">
       <div class="module-card" onclick="openModal('modal-unified')">
         <div class="module-icon" style="background:var(--accentBg);color:var(--blue);">CU</div>
-        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Carga Unificada</h3><p style="font-size:10px;color:var(--textFaint);">Pega Repites, Retiros, K8 o Envío y Retiro desde Excel.</p></div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Carga Unificada</h3><p style="font-size:10px;color:var(--textFaint);">Pega Repites, Retiros, K8 o EnvÃ­o y Retiro desde Excel.</p></div>
       </div>
       <div class="module-card" onclick="openModal('modal-crossing')">
         <div class="module-icon" style="background:rgba(58,90,140,0.1);color:var(--textSub);">CD</div>
-        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Cruce de Datos</h3><p style="font-size:10px;color:var(--textFaint);">Cruce de Destinos (Plan + Conv) y Orígenes.</p></div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Cruce de Datos</h3><p style="font-size:10px;color:var(--textFaint);">Cruce de Destinos (Plan + Conv) y OrÃ­genes.</p></div>
       </div>
       <div class="module-card" onclick="openModal('modal-session')">
         <div class="module-icon" style="background:rgba(42,101,72,0.1);color:#3d8860;">SJ</div>
-        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Sesión JSON</h3><p style="font-size:10px;color:var(--textFaint);">Guardar o cargar tu progreso.</p></div>
+        <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">SesiÃ³n JSON</h3><p style="font-size:10px;color:var(--textFaint);">Guardar o cargar tu progreso.</p></div>
       </div>
       <div class="module-card" onclick="openModal('modal-projects')">
-        <div class="module-icon" style="background:rgba(58,114,172,0.08);color:var(--textSub);">PR</div>
+        <div class="module-icon">PR</div>
         <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Proyectos</h3><p style="font-size:10px;color:var(--textFaint);">Cargar documento proyectos.</p></div>
       </div>
       <div class="module-card" onclick="openModal('modal-duplicates-upload')">
@@ -305,7 +320,7 @@ select.input{cursor:pointer;}
         <div><h3 style="font-size:12px;font-weight:600;margin-bottom:3px;">Duplicados</h3><p style="font-size:10px;color:var(--textFaint);">Detectar ISOs duplicadas vs Dashboard.</p></div>
       </div>
     </div>
-    <div id="load-session-info" class="hidden" style="margin-top:20px;padding:12px 16px;border-radius:10px;background:rgba(58,114,172,0.08);border:1px solid rgba(58,114,172,0.22);font-size:12px;color:var(--textSub);text-align:center;">
+    <div id="load-session-info" class="hidden" style="margin-top:20px;padding:12px 16px;border-radius:var(--r-lg);background:var(--bgCardAlt);border:1px solid var(--border);font-size:12px;color:var(--textSub);text-align:center;">
       Tienes <strong id="load-count">0</strong> datos cargados. Ve al <strong style="color:var(--blue);">Dashboard</strong> para gestionarlos.
     </div>
   </div>
@@ -315,20 +330,20 @@ select.input{cursor:pointer;}
 <div id="tab-dashboard" class="tab-pane" style="padding:0;">
   <div class="guide" data-guide="dashboard" style="margin:10px 12px 0;">
     <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-      <div class="guide-title">Atajos y navegación tipo Excel</div>
+      <div class="guide-title">Atajos y navegaciÃ³n tipo Excel</div>
       <span class="guide-toggle"></span>
     </div>
     <div class="guide-body">
       <div class="guide-steps">
-        <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Navegación:</strong> <span class="guide-kbd">Tab</span> / <span class="guide-kbd">Shift+Tab</span>, <span class="guide-kbd">Enter</span> / <span class="guide-kbd">↓</span>, <span class="guide-kbd">↑</span>, <span class="guide-kbd">Home</span>/<span class="guide-kbd">End</span> extremos de fila, <span class="guide-kbd">Ctrl+Home</span>/<span class="guide-kbd">Ctrl+End</span> inicio/fin de tabla.</div></div>
-        <div class="guide-step"><span class="guide-step-num">2</span><div><strong>PageUp</strong>/<strong>PageDown</strong> saltan 10 filas. <strong>F2</strong> entra al modo edición de la celda activa.</div></div>
-        <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Selección múltiple:</strong> Click + arrastrar para rango. Click en el <strong>número de fila</strong> selecciona la fila entera. <span class="guide-kbd">Esc</span> limpia.</div></div>
+        <div class="guide-step"><span class="guide-step-num">1</span><div><strong>NavegaciÃ³n:</strong> <span class="guide-kbd">Tab</span> / <span class="guide-kbd">Shift+Tab</span>, <span class="guide-kbd">Enter</span> / <span class="guide-kbd">â†“</span>, <span class="guide-kbd">â†‘</span>, <span class="guide-kbd">Home</span>/<span class="guide-kbd">End</span> extremos de fila, <span class="guide-kbd">Ctrl+Home</span>/<span class="guide-kbd">Ctrl+End</span> inicio/fin de tabla.</div></div>
+        <div class="guide-step"><span class="guide-step-num">2</span><div><strong>PageUp</strong>/<strong>PageDown</strong> saltan 10 filas. <strong>F2</strong> entra al modo ediciÃ³n de la celda activa.</div></div>
+        <div class="guide-step"><span class="guide-step-num">3</span><div><strong>SelecciÃ³n mÃºltiple:</strong> Click + arrastrar para rango. Click en el <strong>nÃºmero de fila</strong> selecciona la fila entera. <span class="guide-kbd">Esc</span> limpia.</div></div>
         <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Copiar / pegar:</strong> <span class="guide-kbd">Ctrl+C</span> y <span class="guide-kbd">Ctrl+V</span>. <span class="guide-kbd">Supr</span>/<span class="guide-kbd">Backspace</span> borran. <span class="guide-kbd">Ctrl+Z</span> deshace.</div></div>
-        <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Barra de fórmulas</strong> (arriba) muestra la referencia tipo Excel (ej. <code>C7</code>) y permite editar el valor de la celda activa.</div></div>
-        <div class="guide-step"><span class="guide-step-num">6</span><div><strong>Cabeceras:</strong> Letras (A, B, C…) y números de fila activos se iluminan en azul. La fila activa se resalta.</div></div>
-        <div class="guide-step"><span class="guide-step-num">7</span><div><strong>Filtros:</strong> Click en <code>▾</code> de la cabecera para filtrar por valor u ordenar A→Z. <strong>Reemplazar / Columnas</strong> abren paneles.</div></div>
-        <div class="guide-step"><span class="guide-step-num">8</span><div><strong>Copiar ISOs:</strong> <code>ISOs</code> todas; <code>ISOs Leslie</code> sólo gestiones de proyectos; <code>ISOs HD</code> el resto.</div></div>
-        <div class="guide-step"><span class="guide-step-num">9</span><div><strong>Filas duplicadas</strong> aparecen en rojo. El contador inferior derecho avisa cuántas hay.</div></div>
+        <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Barra de fÃ³rmulas</strong> (arriba) muestra la referencia tipo Excel (ej. <code>C7</code>) y permite editar el valor de la celda activa.</div></div>
+        <div class="guide-step"><span class="guide-step-num">6</span><div><strong>Cabeceras:</strong> Letras (A, B, Câ€¦) y nÃºmeros de fila activos se iluminan en azul. La fila activa se resalta.</div></div>
+        <div class="guide-step"><span class="guide-step-num">7</span><div><strong>Filtros:</strong> Click en <code>â–¾</code> de la cabecera para filtrar por valor u ordenar Aâ†’Z. <strong>Reemplazar / Columnas</strong> abren paneles.</div></div>
+        <div class="guide-step"><span class="guide-step-num">8</span><div><strong>Copiar ISOs:</strong> <code>ISOs</code> todas; <code>ISOs Leslie</code> sÃ³lo gestiones de proyectos; <code>ISOs HD</code> el resto.</div></div>
+        <div class="guide-step"><span class="guide-step-num">9</span><div><strong>Filas duplicadas</strong> aparecen en rojo. El contador inferior derecho avisa cuÃ¡ntas hay.</div></div>
       </div>
     </div>
   </div>
@@ -357,14 +372,14 @@ select.input{cursor:pointer;}
     <div id="dash-col-checks" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
   <div id="formula-bar" class="formula-bar">
-    <span id="cell-name-box" class="cell-name-box">—</span>
+    <span id="cell-name-box" class="cell-name-box">â€”</span>
     <span class="formula-bar-fx">fx</span>
-    <input type="text" id="formula-bar-input" class="formula-bar-input" placeholder="Selecciona una celda…" readonly>
+    <input type="text" id="formula-bar-input" class="formula-bar-input" placeholder="Selecciona una celdaâ€¦" readonly>
   </div>
   <div id="replace-bar" class="replace-bar">
     <span style="font-size:10px;font-weight:600;color:var(--textSub);">Buscar y Reemplazar:</span>
     <input type="text" id="replace-search" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Buscar...">
-    <span style="color:var(--textFaint);">→</span>
+    <span style="color:var(--textFaint);">â†’</span>
     <input type="text" id="replace-with" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Reemplazar por...">
     <button id="btn-do-replace" class="btn btn-primary" style="padding:4px 12px;">Reemplazar Todo</button>
     <span style="font-size:9px;opacity:0.5;font-style:italic;">Afecta solo columnas visibles</span>
@@ -374,7 +389,7 @@ select.input{cursor:pointer;}
       <div class="empty-icon">+</div>
       <div>
         <h3 style="font-size:16px;font-weight:700;margin-bottom:6px;">No hay datos</h3>
-        <p style="font-size:12px;color:var(--textFaint);margin-bottom:18px;">Empieza creando una tabla vacía o carga un archivo.</p>
+        <p style="font-size:12px;color:var(--textFaint);margin-bottom:18px;">Empieza creando una tabla vacÃ­a o carga un archivo.</p>
       </div>
       <button id="btn-create-new" class="btn btn-primary" style="padding:10px 28px;font-size:13px;">+ Crear Tabla Nueva</button>
     </div>
@@ -398,21 +413,21 @@ select.input{cursor:pointer;}
 <div id="tab-duplicates" class="tab-pane">
   <div class="tab-inner" style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h2 style="font-size:13px;font-weight:700;">Revisión de Duplicados</h2>
+      <h2 style="font-size:13px;font-weight:700;">RevisiÃ³n de Duplicados</h2>
       <button id="btn-export-dups" class="btn btn-secondary">Exportar CSV</button>
     </div>
     <div class="guide" data-guide="duplicates">
       <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-        <div class="guide-title">Cómo interpretar esta tabla</div>
+        <div class="guide-title">CÃ³mo interpretar esta tabla</div>
         <span class="guide-toggle"></span>
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div>Carga el archivo <strong>Plan</strong> desde <code>Cargar → Duplicados</code>. El sistema lee ISO + Vehículo de cada fila.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div>Se <strong>filtra</strong> el archivo por los vehículos definidos en <code>Parámetros → Duplicados</code> (ej. <code>VPV01</code>).</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div>Se muestran <strong>todas esas filas</strong>, no sólo las duplicadas. Cada una se compara contra el Dashboard.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div>Las filas marcadas <strong style="color:#c04848;">Duplicada</strong> son ISOs que también existen en el Dashboard. Las marcadas <strong>Solo en archivo</strong> no.</div></div>
-          <div class="guide-step"><span class="guide-step-num">5</span><div>Usa <strong>Exportar CSV</strong> para llevarte el detalle (ISO, vehículo, destino, gestión, estado).</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Carga el archivo <strong>Plan</strong> desde <code>Cargar â†’ Duplicados</code>. El sistema lee ISO + VehÃ­culo de cada fila.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se <strong>filtra</strong> el archivo por los vehÃ­culos definidos en <code>ParÃ¡metros â†’ Duplicados</code> (ej. <code>VPV01</code>).</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div>Se muestran <strong>todas esas filas</strong>, no sÃ³lo las duplicadas. Cada una se compara contra el Dashboard.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div>Las filas marcadas <strong style="color:#c04848;">Duplicada</strong> son ISOs que tambiÃ©n existen en el Dashboard. Las marcadas <strong>Solo en archivo</strong> no.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div>Usa <strong>Exportar CSV</strong> para llevarte el detalle (ISO, vehÃ­culo, destino, gestiÃ³n, estado).</div></div>
         </div>
       </div>
     </div>
@@ -422,9 +437,9 @@ select.input{cursor:pointer;}
         <thead><tr>
           <th style="padding:8px;">ISO</th>
           <th style="padding:8px;text-align:center;">Estado</th>
-          <th style="padding:8px;">Vehículo</th>
+          <th style="padding:8px;">VehÃ­culo</th>
           <th style="padding:8px;">Destino</th>
-          <th style="padding:8px;">Gestión en Dashboard</th>
+          <th style="padding:8px;">GestiÃ³n en Dashboard</th>
         </tr></thead>
         <tbody id="dup-tbody">
           <tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">Sube el archivo Plan en "Cargar Datos" para ver duplicados.</td></tr>
@@ -443,15 +458,15 @@ select.input{cursor:pointer;}
     </div>
     <div class="guide" data-guide="projects">
       <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-        <div class="guide-title">Cómo se construye esta vista</div>
+        <div class="guide-title">CÃ³mo se construye esta vista</div>
         <span class="guide-toggle"></span>
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el archivo de proyectos en <code>Cargar → Proyectos</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div>Se filtra por los vehículos de <code>Parámetros → Proyectos</code>. Edita la lista para incluir más.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div>El nombre que aparece junto al título viene del campo <code>Nombre del Transporte</code> en parámetros.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div>Estas filas se incluyen automáticamente en las plantillas <strong>RUTEO PM</strong> y <strong>LESLIE</strong>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el archivo de proyectos en <code>Cargar â†’ Proyectos</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se filtra por los vehÃ­culos de <code>ParÃ¡metros â†’ Proyectos</code>. Edita la lista para incluir mÃ¡s.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div>El nombre que aparece junto al tÃ­tulo viene del campo <code>Nombre del Transporte</code> en parÃ¡metros.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div>Estas filas se incluyen automÃ¡ticamente en las plantillas <strong>RUTEO PM</strong> y <strong>LESLIE</strong>.</div></div>
         </div>
       </div>
     </div>
@@ -459,8 +474,8 @@ select.input{cursor:pointer;}
       <table class="dash-table" style="width:100%;">
         <thead id="proj-thead"><tr>
           <th style="padding:8px;">ISO</th>
-          <th style="padding:8px;">Vehículo</th>
-          <th style="padding:8px;">Dirección</th>
+          <th style="padding:8px;">VehÃ­culo</th>
+          <th style="padding:8px;">DirecciÃ³n</th>
         </tr></thead>
         <tbody id="proj-tbody">
           <tr><td colspan="3" style="padding:28px;text-align:center;color:var(--textFaint);">Sube archivo de Proyectos en "Cargar Datos".</td></tr>
@@ -475,16 +490,16 @@ select.input{cursor:pointer;}
   <div class="tab-inner">
     <div class="guide" data-guide="export">
       <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-        <div class="guide-title">Opciones de exportación</div>
+        <div class="guide-title">Opciones de exportaciÃ³n</div>
         <span class="guide-toggle"></span>
       </div>
       <div class="guide-body">
         <div class="guide-steps">
           <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Excel (.xlsx):</strong> Descarga la tabla principal con todas las columnas visibles para abrir en Excel/Sheets.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>JSON:</strong> Respaldo completo (filas + proyectos + duplicados). Sirve para restaurar luego desde <code>Cargar → Sesión JSON</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Copiar Tabla HTML:</strong> Copia con formato Outlook al portapapeles — pega directo en el correo manteniendo estilos.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>ISOs Actuales:</strong> Bloque listo para pegar — solo los códigos ISO uno por línea.</div></div>
-          <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Resumen por Gestión:</strong> Cuenta de filas agrupadas por tipo (Repite, K8, Postventa, etc.).</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>JSON:</strong> Respaldo completo (filas + proyectos + duplicados). Sirve para restaurar luego desde <code>Cargar â†’ SesiÃ³n JSON</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Copiar Tabla HTML:</strong> Copia con formato Outlook al portapapeles â€” pega directo en el correo manteniendo estilos.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>ISOs Actuales:</strong> Bloque listo para pegar â€” solo los cÃ³digos ISO uno por lÃ­nea.</div></div>
+          <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Resumen por GestiÃ³n:</strong> Cuenta de filas agrupadas por tipo (Repite, K8, Postventa, etc.).</div></div>
         </div>
       </div>
     </div>
@@ -492,7 +507,7 @@ select.input{cursor:pointer;}
       <div style="display:flex;flex-direction:column;gap:16px;">
         <div class="card" style="text-align:center;">
           <h3 style="font-size:13px;font-weight:600;margin-bottom:5px;">Exportar Archivo</h3>
-          <p style="font-size:11px;color:var(--textFaint);margin-bottom:16px;">Descarga la sesión actual para Excel o como JSON de respaldo.</p>
+          <p style="font-size:11px;color:var(--textFaint);margin-bottom:16px;">Descarga la sesiÃ³n actual para Excel o como JSON de respaldo.</p>
           <div style="display:flex;gap:8px;justify-content:center;">
             <button id="btn-export-xlsx" class="btn btn-primary">Excel (.xlsx)</button>
             <button id="btn-export-json-alt" class="btn btn-secondary">JSON</button>
@@ -510,8 +525,8 @@ select.input{cursor:pointer;}
             <h3 style="font-size:12px;font-weight:600;">ISOs Actuales</h3>
             <button id="btn-copy-isos" class="btn btn-secondary" style="padding:3px 9px;font-size:10px;">Copiar ISOs</button>
           </div>
-          <textarea id="export-isos-text" class="input textarea custom-scrollbar" readonly style="height:90px;font-size:10px;font-family:var(--font-mono);resize:none;" placeholder="Aquí aparecerán las ISOs..."></textarea>
-          <h3 style="font-size:12px;font-weight:600;margin-top:16px;margin-bottom:7px;">Resumen por Gestión</h3>
+          <textarea id="export-isos-text" class="input textarea custom-scrollbar" readonly style="height:90px;font-size:10px;font-family:var(--font-mono);resize:none;" placeholder="AquÃ­ aparecerÃ¡n las ISOs..."></textarea>
+          <h3 style="font-size:12px;font-weight:600;margin-top:16px;margin-bottom:7px;">Resumen por GestiÃ³n</h3>
           <div id="export-stats" style="font-size:11px;font-family:var(--font-mono);max-height:120px;overflow-y:auto;" class="custom-scrollbar">
             <span style="opacity:0.4;font-style:italic;">Sin datos</span>
           </div>
@@ -526,17 +541,17 @@ select.input{cursor:pointer;}
   <div class="tab-inner">
     <div class="guide" data-guide="templates">
       <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-        <div class="guide-title">Cómo usar las plantillas de correo</div>
+        <div class="guide-title">CÃ³mo usar las plantillas de correo</div>
         <span class="guide-toggle"></span>
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>RUTEO PM:</strong> Resumen completo (Repites + Postventa + K8 + Corrección + Proyectos) listo para Outlook.</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div><strong>RUTEO PM:</strong> Resumen completo (Repites + Postventa + K8 + CorrecciÃ³n + Proyectos) listo para Outlook.</div></div>
           <div class="guide-step"><span class="guide-step-num">2</span><div><strong>REPITES:</strong> Filas marcadas como <code>CORREO REPITES = SI</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>POST VENTA:</strong> Filas con DESTINO igual a los valores configurados en <code>Parámetros → Postventa</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>LESLIE:</strong> Toma del archivo de Proyectos. El nombre y los textos vienen de <code>Parámetros</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>POST VENTA:</strong> Filas con DESTINO igual a los valores configurados en <code>ParÃ¡metros â†’ Postventa</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>LESLIE:</strong> Toma del archivo de Proyectos. El nombre y los textos vienen de <code>ParÃ¡metros</code>.</div></div>
           <div class="guide-step"><span class="guide-step-num">5</span><div>Variables disponibles en los intros: <code>{fecha}</code>, <code>{empresa}</code>, <code>{numVeh}</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">6</span><div>Click en <strong>Copiar HTML</strong> y pega directo en Outlook — el formato (fuente, colores, tablas) se mantiene.</div></div>
+          <div class="guide-step"><span class="guide-step-num">6</span><div>Click en <strong>Copiar HTML</strong> y pega directo en Outlook â€” el formato (fuente, colores, tablas) se mantiene.</div></div>
         </div>
       </div>
     </div>
@@ -547,7 +562,7 @@ select.input{cursor:pointer;}
             <h3 style="font-size:12px;font-weight:700;">RUTEO PM</h3>
             <button class="btn btn-secondary btn-copy-tpl" data-tpl="ruteo_pm" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
           </div>
-          <p style="font-size:10px;color:var(--textFaint);">Resumen completo: Repites, PV, Corrección de Ruta, K8 y Proyectos</p>
+          <p style="font-size:10px;color:var(--textFaint);">Resumen completo: Repites, PV, CorrecciÃ³n de Ruta, K8 y Proyectos</p>
         </div>
       </div>
       <div class="tpl-card">
@@ -565,7 +580,7 @@ select.input{cursor:pointer;}
             <h3 style="font-size:12px;font-weight:700;">POST VENTA</h3>
             <button class="btn btn-secondary btn-copy-tpl" data-tpl="pv" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
           </div>
-          <p style="font-size:10px;color:var(--textFaint);">Gestión Postventa por DESTINO</p>
+          <p style="font-size:10px;color:var(--textFaint);">GestiÃ³n Postventa por DESTINO</p>
         </div>
       </div>
       <div class="tpl-card">
@@ -574,7 +589,7 @@ select.input{cursor:pointer;}
             <h3 id="tpl-leslie-title" style="font-size:12px;font-weight:700;">LESLIE</h3>
             <button class="btn btn-secondary btn-copy-tpl" data-tpl="leslie" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
           </div>
-          <p style="font-size:10px;color:var(--textFaint);">Proyectos B2C — tabla ISO / VEHÍCULO / DIRECCIÓN</p>
+          <p style="font-size:10px;color:var(--textFaint);">Proyectos B2C â€” tabla ISO / VEHÃCULO / DIRECCIÃ“N</p>
         </div>
       </div>
     </div>
@@ -586,8 +601,8 @@ select.input{cursor:pointer;}
   <div class="tab-inner">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:14px;font-weight:700;">Parámetros</h2>
-        <p style="font-size:11px;color:var(--textSub);margin-top:3px;">Configura vehículos, textos y criterios. Los cambios se guardan automáticamente.</p>
+        <h2 style="font-size:14px;font-weight:700;">ParÃ¡metros</h2>
+        <p style="font-size:11px;color:var(--textSub);margin-top:3px;">Configura vehÃ­culos, textos y criterios. Los cambios se guardan automÃ¡ticamente.</p>
       </div>
       <div style="display:flex;gap:5px;">
         <button id="btn-export-params" class="btn btn-secondary" style="padding:4px 10px;">Exportar</button>
@@ -613,15 +628,15 @@ select.input{cursor:pointer;}
 
   <div class="guide" data-guide="transform" style="margin:10px 12px 0;">
     <div class="guide-head" onclick="this.parentElement.classList.toggle('open')">
-      <div class="guide-title">Cómo funciona la transformación</div>
+      <div class="guide-title">CÃ³mo funciona la transformaciÃ³n</div>
       <span class="guide-toggle"></span>
     </div>
     <div class="guide-body">
       <div class="guide-steps">
         <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el <strong>.xlsx de ruteo</strong> original. Las columnas se preservan y solo se editan algunas.</div></div>
-        <div class="guide-step"><span class="guide-step-num">2</span><div>Selecciona la <strong>Fecha Programada</strong>. Se convierte al formato ruteo (<code>DD-MMM-YY</code>) automáticamente.</div></div>
+        <div class="guide-step"><span class="guide-step-num">2</span><div>Selecciona la <strong>Fecha Programada</strong>. Se convierte al formato ruteo (<code>DD-MMM-YY</code>) automÃ¡ticamente.</div></div>
         <div class="guide-step"><span class="guide-step-num">3</span><div><strong>ID_REFERENCIA</strong> se cruza contra el Dashboard usando la columna ISO. Si encuentra match, se considera <em>cruzada</em>.</div></div>
-        <div class="guide-step"><span class="guide-step-num">4</span><div>Edita la columna <strong>COMENTARIO BO</strong> — su contenido se concatena a NOTAS al descargar.</div></div>
+        <div class="guide-step"><span class="guide-step-num">4</span><div>Edita la columna <strong>COMENTARIO BO</strong> â€” su contenido se concatena a NOTAS al descargar.</div></div>
         <div class="guide-step"><span class="guide-step-num">5</span><div>Click en <strong>Transformar y Descargar</strong> para obtener el .xlsx final con FECHA + NOTAS aplicadas.</div></div>
         <div class="guide-step"><span class="guide-step-num">6</span><div>Las celdas <code>azul</code> se modifican, las <code>verdes</code> marcan cruces con el Dashboard.</div></div>
       </div>
@@ -645,7 +660,7 @@ select.input{cursor:pointer;}
       <div style="display:flex;align-items:center;gap:10px;">
         <input type="date" id="transform-date" class="input" style="width:160px;padding:6px 10px;font-size:12px;">
         <div style="display:flex;flex-direction:column;gap:2px;">
-          <div class="transform-date-display" id="transform-date-display">—</div>
+          <div class="transform-date-display" id="transform-date-display">â€”</div>
           <div style="font-size:9px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.06em;">Formato ruteo</div>
         </div>
       </div>
@@ -663,9 +678,9 @@ select.input{cursor:pointer;}
     <div class="transform-config-block" style="flex:0 0 auto;">
       <div class="field-label">Columnas modificadas</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;">
-        <span style="padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.12);color:var(--blue);border:1px solid rgba(58,114,172,0.28);font-weight:700;">FECHA_PROGRAMADA</span>
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.06);color:var(--blue);border:1px solid rgba(0,0,0,0.09);font-weight:700;">FECHA_PROGRAMADA</span>
         <span style="padding:2px 8px;border-radius:4px;background:rgba(42,101,72,0.14);color:var(--green);border:1px solid rgba(42,101,72,0.32);font-weight:700;">ID_REFERENCIA</span>
-        <span style="padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.08);color:var(--textSub);border:1px solid rgba(58,114,172,0.2);font-weight:700;">NOTAS ← COMENTARIO BO</span>
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.04);color:var(--textSub);border:1px solid rgba(0,0,0,0.08);font-weight:700;">NOTAS â† COMENTARIO BO</span>
       </div>
     </div>
   </div>
@@ -693,25 +708,25 @@ select.input{cursor:pointer;}
     <div style="font-size:10px;color:var(--textSub);">
       Filas: <span id="transform-total" style="color:var(--text);font-family:var(--font-mono);font-weight:700;">0</span>
       &nbsp;|&nbsp;
-      Con GESTIÓN: <span id="transform-matched" style="color:#3d8860;font-family:var(--font-mono);font-weight:700;">0</span>
+      Con GESTIÃ“N: <span id="transform-matched" style="color:#3d8860;font-family:var(--font-mono);font-weight:700;">0</span>
       &nbsp;|&nbsp;
       Sin cruce: <span id="transform-unmatched" style="color:#c04848;font-family:var(--font-mono);font-weight:700;">0</span>
     </div>
-    <div style="font-size:10px;color:var(--textFaint);">Edita COMENTARIO BO → se añadirá a NOTAS al descargar</div>
+    <div style="font-size:10px;color:var(--textFaint);">Edita COMENTARIO BO â†’ se aÃ±adirÃ¡ a NOTAS al descargar</div>
   </div>
 </div>
 
 <!-- MODALS -->
 <div id="modal-unified" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-unified')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-unified')">âœ•</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Carga Unificada</h3>
-    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Pega cualquier tabla de Repites, Retiros, K8 o Envío y Retiro desde Excel.</p>
-    <textarea id="paste-unified" class="input textarea custom-scrollbar" style="height:140px;font-family:var(--font-mono);font-size:11px;margin-bottom:14px;" placeholder="Pega aquí los datos..."></textarea>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Pega cualquier tabla de Repites, Retiros, K8 o EnvÃ­o y Retiro desde Excel.</p>
+    <textarea id="paste-unified" class="input textarea custom-scrollbar" style="height:140px;font-family:var(--font-mono);font-size:11px;margin-bottom:14px;" placeholder="Pega aquÃ­ los datos..."></textarea>
     <button id="btn-process-unified" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Procesar y Cargar</button>
-    <div id="eyr-isos-box" class="hidden" style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(58,114,172,0.07);border:1px solid rgba(58,114,172,0.22);">
+    <div id="eyr-isos-box" class="hidden" style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.09);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-size:10px;font-weight:600;color:var(--textSub);">ISOs Envío y Retiro para Cruce</span>
+        <span style="font-size:10px;font-weight:600;color:var(--textSub);">ISOs EnvÃ­o y Retiro para Cruce</span>
         <button id="btn-copy-eyr-isos" class="btn btn-secondary" style="padding:2px 8px;font-size:10px;">Copiar</button>
       </div>
       <textarea id="eyr-isos-text" class="input" readonly style="font-size:10px;font-family:var(--font-mono);height:56px;resize:none;"></textarea>
@@ -721,7 +736,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-selection" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">¿Qué tipo de gestión es?</h3>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Â¿QuÃ© tipo de gestiÃ³n es?</h3>
     <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron <span id="sel-iso-count" style="font-weight:700;color:var(--blue);">0</span> ISOs sin formato tabla. Selecciona el tipo:</p>
     <div id="manual-gestion-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;"></div>
     <button onclick="closeModal('modal-selection')" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Cancelar</button>
@@ -730,8 +745,8 @@ select.input{cursor:pointer;}
 
 <div id="modal-k8" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Gestión K8 Detectada</h3>
-    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron ISOs con posible gestión K8. ¿Qué tipo aplicar?</p>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">GestiÃ³n K8 Detectada</h3>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron ISOs con posible gestiÃ³n K8. Â¿QuÃ© tipo aplicar?</p>
     <div id="k8-options-list" style="margin-bottom:16px;"></div>
     <button id="btn-apply-k8" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Aplicar</button>
   </div>
@@ -739,7 +754,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-crossing" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-crossing')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-crossing')">âœ•</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Cruce de Datos</h3>
     <h4 style="font-size:13px;margin-bottom:8px;">Cruce de Destinos</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
@@ -749,19 +764,19 @@ select.input{cursor:pointer;}
         <input type="file" id="file-plan-cross" accept=".xlsx,.csv" class="hidden">
       </label>
       <label class="file-drop" style="padding:12px;">
-        <span style="font-size:12px;font-weight:700;">Conversión</span>
+        <span style="font-size:12px;font-weight:700;">ConversiÃ³n</span>
         <span id="name-conv-cross" style="font-size:10px;color:var(--textFaint);">Requerido</span>
         <input type="file" id="file-conv-cross" accept=".xlsx,.csv" class="hidden">
       </label>
     </div>
-    <button id="btn-run-cross-dest" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:20px;" disabled>⚡ Ejecutar Cruce Destinos</button>
+    <button id="btn-run-cross-dest" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:20px;" disabled>âš¡ Ejecutar Cruce Destinos</button>
     <div style="height:1px;background:var(--borderSoft);margin-bottom:20px;"></div>
-    <h4 style="font-size:13px;margin-bottom:4px;">Cruce de Orígenes</h4>
+    <h4 style="font-size:13px;margin-bottom:4px;">Cruce de OrÃ­genes</h4>
     <p style="font-size:10px;color:var(--textFaint);margin-bottom:10px;">El archivo debe tener columnas <strong>ISO</strong> y <strong>RTE_TO</strong>.</p>
     <label class="file-drop" style="flex-direction:row;text-align:left;gap:12px;">
       <div>
         <div style="font-size:12px;font-weight:600;">Subir Excel Cruce Origen</div>
-        <div style="font-size:10px;color:var(--textFaint);">ISO + RTE_TO → asigna ORIGEN</div>
+        <div style="font-size:10px;color:var(--textFaint);">ISO + RTE_TO â†’ asigna ORIGEN</div>
       </div>
       <input type="file" id="file-origin-cross" accept=".xlsx,.csv" class="hidden">
     </label>
@@ -770,22 +785,22 @@ select.input{cursor:pointer;}
 
 <div id="modal-session" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-session')">✕</button>
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Sesión</h3>
+    <button class="modal-close" onclick="closeModal('modal-session')">âœ•</button>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">SesiÃ³n</h3>
     <label class="file-drop" style="margin-bottom:12px;">
-      <span style="font-size:12px;font-weight:600;">Cargar Sesión Guardada (.json)</span>
+      <span style="font-size:12px;font-weight:600;">Cargar SesiÃ³n Guardada (.json)</span>
       <span style="font-size:10px;color:var(--textFaint);">Restaura tu progreso desde un archivo local</span>
       <input type="file" id="file-load-session" accept=".json" class="hidden">
     </label>
-    <button id="btn-save-session-modal" class="btn btn-secondary" style="width:100%;justify-content:center;padding:8px;">Guardar Sesión Actual (.json)</button>
+    <button id="btn-save-session-modal" class="btn btn-secondary" style="width:100%;justify-content:center;padding:8px;">Guardar SesiÃ³n Actual (.json)</button>
   </div>
 </div>
 
 <div id="modal-projects" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-projects')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-projects')">âœ•</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:6px;">Proyectos</h3>
-    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se filtrará automáticamente por los vehículos configurados en Parámetros.</p>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se filtrarÃ¡ automÃ¡ticamente por los vehÃ­culos configurados en ParÃ¡metros.</p>
     <label class="file-drop">
       <span style="font-size:12px;font-weight:600;">Subir Archivo de Proyectos</span>
       <span id="name-projects-up" style="font-size:10px;color:var(--textFaint);">Cargar .xlsx de Proyectos...</span>
@@ -796,7 +811,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-duplicates-upload" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-duplicates-upload')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-duplicates-upload')">âœ•</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Duplicados</h3>
     <label class="file-drop">
       <span style="font-size:12px;font-weight:600;">Subir Plan Actual</span>
@@ -815,7 +830,7 @@ select.input{cursor:pointer;}
 // STATE
 // ============================================================
 const DEFAULT_PARAMS = {
-  // Vehículos
+  // VehÃ­culos
   dupVehicles: ["VPV01"],
   projVehicles: ["VPR01","VPR02"],
   pvDestinos: ["VPV01","VPV02"],
@@ -826,16 +841,16 @@ const DEFAULT_PARAMS = {
   manualGestionTypes: ["RETIRO","REPITE","K8","ENVIO Y RETIRO","PROYECTO","SOLO ENVIO"],
   // Textos de correo
   emailRepitesIntro: "Buenas tardes @Despacho Ecommerce WH comparto repites",
-  emailPVIntro: "Favor su ayuda gestionando {numVeh}, para cumplir con la programación de post venta, @Despacho Ecommerce WH favor su ayuda gestionando los siguientes movimientos para armar las rutas:",
+  emailPVIntro: "Favor su ayuda gestionando {numVeh}, para cumplir con la programaciÃ³n de post venta, @Despacho Ecommerce WH favor su ayuda gestionando los siguientes movimientos para armar las rutas:",
   emailPVRecipient: "@Wilfredo Rugel",
-  emailLeslieIntro: "@Despacho Ecommerce WH Comparto las órdenes correspondientes al flujo de proyectos B2C que realizamos con {empresa}, el día {fecha}. Por favor, solicito su ayuda para procesar estas órdenes y ubicarlas en el andén 2A (Nave 4) para {empresa}, diferenciadas de los envío retiro. @Wilfredo Rugel favor se solicitan {numVeh} vehículos para cumplir con la programación de proyectos del día de mañana.",
+  emailLeslieIntro: "@Despacho Ecommerce WH Comparto las Ã³rdenes correspondientes al flujo de proyectos B2C que realizamos con {empresa}, el dÃ­a {fecha}. Por favor, solicito su ayuda para procesar estas Ã³rdenes y ubicarlas en el andÃ©n 2A (Nave 4) para {empresa}, diferenciadas de los envÃ­o retiro. @Wilfredo Rugel favor se solicitan {numVeh} vehÃ­culos para cumplir con la programaciÃ³n de proyectos del dÃ­a de maÃ±ana.",
   emailRuteoPMIntro: "Buenas tardes, comparto ruteos PM",
   projTemplateName: "Leslie",
-  // Encabezados de sección en correo
+  // Encabezados de secciÃ³n en correo
   sectionTitleRepites: "Repites",
   sectionTitlePV: "Postventa",
   sectionTitleK8: "K8",
-  sectionTitleCorr: "Corrección de Ruta",
+  sectionTitleCorr: "CorrecciÃ³n de Ruta",
   sectionTitleProj: "Proyectos",
   // Formato Outlook
   outlookFontFamily: "Aptos,Calibri,Arial,sans-serif",
@@ -852,7 +867,7 @@ const DEFAULT_PARAMS = {
   confirmBeforeClear: true,
   defaultK8Type: "K8 REGULAR"
 };
-const COLS = ["ISO","GESTIÓN","ORIGEN","DESTINO","VEH","CORREO REPITES","COMENTARIO_RAW"];
+const COLS = ["ISO","GESTIÃ“N","ORIGEN","DESTINO","VEH","CORREO REPITES","COMENTARIO_RAW"];
 function leslieGestionSet() { return new Set((params.leslieGestiones || []).map(g => String(g).trim().toUpperCase())); }
 let params = { ...DEFAULT_PARAMS };
 let rows = [];
@@ -898,7 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-save-dash")?.addEventListener("click", saveSession);
   document.getElementById("btn-export-json-alt")?.addEventListener("click", saveSession);
   document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
-    alert("Atajos tipo Excel:\n\nNAVEGACIÓN\n  Tab / Shift+Tab   Mover derecha / izquierda\n  Enter / ↓          Mover abajo\n  ↑                  Mover arriba\n  Home / End         Inicio / fin de fila\n  Ctrl+Home / Ctrl+End  Primera / última celda\n  PageUp / PageDown  Saltar 10 filas\n  F2                 Entrar al modo edición\n\nSELECCIÓN\n  Click + arrastrar  Seleccionar rango\n  Click en #fila     Seleccionar fila completa\n  Esc                Limpiar selección\n\nEDICIÓN\n  Ctrl+C / Ctrl+V    Copiar / pegar\n  Ctrl+Z             Deshacer\n  Supr / Backspace   Borrar celdas seleccionadas");
+    alert("Atajos tipo Excel:\n\nNAVEGACIÃ“N\n  Tab / Shift+Tab   Mover derecha / izquierda\n  Enter / â†“          Mover abajo\n  â†‘                  Mover arriba\n  Home / End         Inicio / fin de fila\n  Ctrl+Home / Ctrl+End  Primera / Ãºltima celda\n  PageUp / PageDown  Saltar 10 filas\n  F2                 Entrar al modo ediciÃ³n\n\nSELECCIÃ“N\n  Click + arrastrar  Seleccionar rango\n  Click en #fila     Seleccionar fila completa\n  Esc                Limpiar selecciÃ³n\n\nEDICIÃ“N\n  Ctrl+C / Ctrl+V    Copiar / pegar\n  Ctrl+Z             Deshacer\n  Supr / Backspace   Borrar celdas seleccionadas");
   });
 });
 
@@ -910,9 +925,7 @@ function showToast(msg, isError = false) {
   const t = document.getElementById("toast");
   if (!t) return;
   t.textContent = msg;
-  t.style.background = isError ? "rgba(154,53,53,0.85)" : "rgba(21,32,48,0.97)";
-  t.style.borderColor = isError ? "rgba(154,53,53,0.5)" : "rgba(58,114,172,0.4)";
-  t.style.color = isError ? "#e08080" : "var(--text)";
+  t.className = "toast" + (isError ? " toast-error" : "");
   t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 3000);
 }
@@ -965,7 +978,7 @@ function saveSession() {
   const a = document.createElement("a");
   a.href = url; a.download = "Sesion_RuteoPM_" + Date.now() + ".json";
   a.click(); URL.revokeObjectURL(url);
-  showToast("Sesión guardada");
+  showToast("SesiÃ³n guardada");
 }
 function updateSessionInfo() {
   const box = document.getElementById("load-session-info");
@@ -1042,7 +1055,7 @@ function applyTabularLogic(v, isRetiroTable, cIsoIdx, cVehIdx, cComIdx, cOriIdx,
   }
   const correoRepites = g.includes("REPITE") ? "SI" : "";
   return {
-    _ikid: genId(), ISO: iso, "GESTIÓN": g,
+    _ikid: genId(), ISO: iso, "GESTIÃ“N": g,
     ORIGEN: ori || (g === "RETIRO" ? "RETIRO" : ""),
     DESTINO: "", "CORREO REPITES": correoRepites,
     COMENTARIO_RAW: com, VEH: veh, _SOURCE: source
@@ -1062,14 +1075,14 @@ function procesarUnificado() {
       const v = line.split(sep);
       const iso = (v[cIsoIdx] || "").trim().toUpperCase();
       if (iso) isosGen.push(iso);
-      return { _ikid: genId(), ISO: iso, "GESTIÓN": "ENVIO Y RETIRO", ORIGEN: "PENDIENTE", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "", _SOURCE: "EyR" };
+      return { _ikid: genId(), ISO: iso, "GESTIÃ“N": "ENVIO Y RETIRO", ORIGEN: "PENDIENTE", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "", _SOURCE: "EyR" };
     }).filter(r => r.ISO);
     if (data.length) {
       rows = [...rows, ...data];
       saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
       document.getElementById("eyr-isos-text").value = isosGen.join(", ");
       document.getElementById("eyr-isos-box").classList.remove("hidden");
-      showToast("Cargadas " + data.length + " filas Envío y Retiro");
+      showToast("Cargadas " + data.length + " filas EnvÃ­o y Retiro");
     }
     document.getElementById("paste-unified").value = "";
     return;
@@ -1097,7 +1110,7 @@ function procesarUnificado() {
         if (removed > 0) showToast("Se eliminaron " + removed + " ISOs duplicadas en Retiros", false);
       }
       if (data.length) {
-        const k8rows = data.filter(r => r["GESTIÓN"] && r["GESTIÓN"].includes("K8"));
+        const k8rows = data.filter(r => r["GESTIÃ“N"] && r["GESTIÃ“N"].includes("K8"));
         rows = [...rows, ...data];
         saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
         document.getElementById("paste-unified").value = "";
@@ -1158,7 +1171,7 @@ function setupEventListeners() {
     if (!pendingIsos) return;
     saveHistory();
     const newRows = pendingIsos.map(iso => ({
-      _ikid: genId(), ISO: iso, "GESTIÓN": gest,
+      _ikid: genId(), ISO: iso, "GESTIÃ“N": gest,
       ORIGEN: gest === "K8" ? "K8" : (gest === "RETIRO" ? "RETIRO" : ""),
       DESTINO: "", VEH: "",
       "CORREO REPITES": gest.includes("REPITE") ? "SI" : "",
@@ -1183,9 +1196,9 @@ function setupEventListeners() {
     const type = document.querySelector(".k8-option.selected")?.getAttribute("data-k8") || params.defaultK8Type || "K8 REGULAR";
     if (pendingK8Rows) {
       const ids = new Set(pendingK8Rows.map(r => r._ikid));
-      rows = rows.map(r => ids.has(r._ikid) ? { ...r, "GESTIÓN": type } : r);
+      rows = rows.map(r => ids.has(r._ikid) ? { ...r, "GESTIÃ“N": type } : r);
       saveData(); renderDashboard();
-      showToast(pendingK8Rows.length + " ISOs → " + type);
+      showToast(pendingK8Rows.length + " ISOs â†’ " + type);
       pendingK8Rows = null;
     }
     closeModal("modal-k8");
@@ -1213,8 +1226,8 @@ function setupEventListeners() {
     });
     const planVehMap = {};
     crossingPlanData.forEach(r => {
-      const iso = (r["Título"] || r["ISO"] || "").toString().trim();
-      const vehPlan = (r["Vehículo"] || r["VEHÍCULO"] || r["VEH"] || "").toString().trim().toUpperCase();
+      const iso = (r["TÃ­tulo"] || r["ISO"] || "").toString().trim();
+      const vehPlan = (r["VehÃ­culo"] || r["VEHÃCULO"] || r["VEH"] || "").toString().trim().toUpperCase();
       if (iso) planVehMap[iso] = vehPlan;
     });
     let updated = 0;
@@ -1234,7 +1247,7 @@ function setupEventListeners() {
       saveHistory();
       const originMap = {};
       json.forEach(r => {
-        let iso = r["ISO"] || r["Título"] || r["TITULO"] || r["Title"] || r["TITLE"];
+        let iso = r["ISO"] || r["TÃ­tulo"] || r["TITULO"] || r["Title"] || r["TITLE"];
         let rte = r["RTE_TO"] || r["Rte_To"] || r["rte_to"] || r["ORIGEN"];
         if (iso && rte) originMap[String(iso).trim().toUpperCase()] = String(rte).trim().toUpperCase();
       });
@@ -1245,7 +1258,7 @@ function setupEventListeners() {
         if (origin) { r.ORIGEN = origin; updated++; }
       });
       saveData(); renderDashboard(); closeModal("modal-crossing");
-      showToast("Cruce orígenes: " + updated + " actualizadas");
+      showToast("Cruce orÃ­genes: " + updated + " actualizadas");
     });
   });
   document.getElementById("btn-save-session-modal")?.addEventListener("click", () => {
@@ -1262,7 +1275,7 @@ function setupEventListeners() {
         if (data.duplicatesPlanData) duplicatesPlanData = data.duplicatesPlanData;
         saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
         closeModal("modal-session");
-        showToast("Sesión restaurada");
+        showToast("SesiÃ³n restaurada");
       } catch { showToast("Error JSON", true); }
     };
     reader.readAsText(e.target.files[0]);
@@ -1272,11 +1285,11 @@ function setupEventListeners() {
     document.getElementById("name-projects-up").textContent = e.target.files[0].name;
     readExcelFile(e.target.files[0], json => {
       const validVehicles = params.projVehicles.map(v => v.toUpperCase());
-      const isDos = json.length > 0 && ("VEHÍCULO" in json[0] || "Vehículo" in json[0]);
+      const isDos = json.length > 0 && ("VEHÃCULO" in json[0] || "VehÃ­culo" in json[0]);
       let filtered;
       if (isDos) {
         filtered = json.filter(r => {
-          const v = (r["VEHÍCULO"] || r["Vehículo"] || "").toUpperCase();
+          const v = (r["VEHÃCULO"] || r["VehÃ­culo"] || "").toUpperCase();
           return validVehicles.includes(v);
         }).map(r => ({ ...r, _tipo: "dos" }));
       } else {
@@ -1293,14 +1306,14 @@ function setupEventListeners() {
     readExcelFile(e.target.files[0], json => {
       const records = [];
       json.forEach(r => {
-        const iso = String(r["Título"] || r["ISO"] || r["Title"] || "").trim();
+        const iso = String(r["TÃ­tulo"] || r["ISO"] || r["Title"] || "").trim();
         if (!iso || iso === "INICIO" || iso === "FIN") return;
         const vehiculo = String(
-          r["Vehículo"] || r["VEHÍCULO"] || r["VEHICULO"] || r["Vehiculo"] ||
-          r["VEH"] || r["Vehículo Origen"] || r["DESTINO"] || ""
+          r["VehÃ­culo"] || r["VEHÃCULO"] || r["VEHICULO"] || r["Vehiculo"] ||
+          r["VEH"] || r["VehÃ­culo Origen"] || r["DESTINO"] || ""
         ).trim();
-        const destino = String(r["Destino"] || r["Dirección"] || r["DIRECCIÓN"] || r["Direccion"] || "").trim();
-        const tipo = String(r["Tipo"] || r["TIPO"] || r["Gestión"] || r["GESTIÓN"] || "").trim();
+        const destino = String(r["Destino"] || r["DirecciÃ³n"] || r["DIRECCIÃ“N"] || r["Direccion"] || "").trim();
+        const tipo = String(r["Tipo"] || r["TIPO"] || r["GestiÃ³n"] || r["GESTIÃ“N"] || "").trim();
         records.push({ iso: iso, vehiculo: vehiculo, destino: destino, tipo: tipo });
       });
       duplicatesPlanData = records;
@@ -1336,17 +1349,17 @@ function setupEventListeners() {
   document.getElementById("btn-add-row")?.addEventListener("click", addRow);
   document.getElementById("btn-create-new")?.addEventListener("click", addRow);
   document.getElementById("btn-clear-dash")?.addEventListener("click", () => {
-    if (!params.confirmBeforeClear || confirm("¿Limpiar toda la tabla?")) {
+    if (!params.confirmBeforeClear || confirm("Â¿Limpiar toda la tabla?")) {
       saveHistory(); rows = []; saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
     }
   });
   document.getElementById("btn-copy-leslie")?.addEventListener("click", () => {
-    const isos = rows.filter(r => leslieGestionSet().has(String(r["GESTIÓN"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
+    const isos = rows.filter(r => leslieGestionSet().has(String(r["GESTIÃ“N"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
     if (!isos.length) return showToast("Sin ISOs Leslie", true);
     navigator.clipboard.writeText(isos.join(", ")).then(() => showToast(isos.length + " ISOs Leslie copiadas")).catch(() => {});
   });
   document.getElementById("btn-copy-hd")?.addEventListener("click", () => {
-    const isos = rows.filter(r => !leslieGestionSet().has(String(r["GESTIÓN"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
+    const isos = rows.filter(r => !leslieGestionSet().has(String(r["GESTIÃ“N"] || "").trim().toUpperCase())).map(r => r.ISO).filter(Boolean);
     if (!isos.length) return showToast("Sin ISOs HD", true);
     navigator.clipboard.writeText(isos.join(", ")).then(() => showToast(isos.length + " ISOs HD copiadas")).catch(() => {});
   });
@@ -1365,7 +1378,7 @@ function setupEventListeners() {
     XLSX.writeFile(wb, "Ruteo_Postventa_" + new Date().toISOString().split("T")[0] + ".xlsx");
   });
   document.getElementById("btn-copy-table")?.addEventListener("click", () => {
-    if (!filteredRows.length) return showToast("Tabla vacía", true);
+    if (!filteredRows.length) return showToast("Tabla vacÃ­a", true);
     const visCols = COLS.filter(c => !hiddenCols.has(c));
     const sortedRows = [...filteredRows].sort((a,b) => String(a.DESTINO||"").toUpperCase().localeCompare(String(b.DESTINO||"").toUpperCase()));
     const html = buildHTMLTable(visCols, sortedRows, false);
@@ -1381,14 +1394,14 @@ function setupEventListeners() {
   document.getElementById("btn-export-dups")?.addEventListener("click", () => {
     const dupVehSet = new Set((params.dupVehicles || []).map(v => String(v).trim().toUpperCase()));
     const filtered = duplicatesPlanData.filter(rec => dupVehSet.has(String(rec.vehiculo || "").trim().toUpperCase()));
-    if (!filtered.length) return showToast("Sin filas para los vehículos parametrizados", true);
+    if (!filtered.length) return showToast("Sin filas para los vehÃ­culos parametrizados", true);
     const dashIsoSet = new Set(rows.map(r => String(r.ISO || "").trim().toUpperCase()).filter(Boolean));
-    let csv = "ISO,Vehículo,Destino,Tipo,En Dashboard,Gestión Dashboard\n";
+    let csv = "ISO,VehÃ­culo,Destino,Tipo,En Dashboard,GestiÃ³n Dashboard\n";
     filtered.forEach(rec => {
       const isoUp = String(rec.iso || "").trim().toUpperCase();
       const inDash = dashIsoSet.has(isoUp);
       const matches = inDash ? rows.filter(r => String(r.ISO || "").trim().toUpperCase() === isoUp) : [];
-      csv += '"' + rec.iso + '","' + (rec.vehiculo || "") + '","' + (rec.destino || "") + '","' + (rec.tipo || "") + '","' + (inDash ? "SI" : "NO") + '","' + matches.map(m => m["GESTIÓN"] || "").join(", ") + '"\n';
+      csv += '"' + rec.iso + '","' + (rec.vehiculo || "") + '","' + (rec.destino || "") + '","' + (rec.tipo || "") + '","' + (inDash ? "SI" : "NO") + '","' + matches.map(m => m["GESTIÃ“N"] || "").join(", ") + '"\n';
     });
     const blob = new Blob(["\uFEFF"+csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Duplicados.csv"; a.click();
@@ -1405,7 +1418,7 @@ function setupEventListeners() {
   // ---- TRANSFORM EVENT LISTENERS ----
   document.getElementById("transform-date")?.addEventListener("input", e => {
     const disp = document.getElementById("transform-date-display");
-    if (disp) disp.textContent = formatDateForRuteo(e.target.value) || "—";
+    if (disp) disp.textContent = formatDateForRuteo(e.target.value) || "â€”";
   });
   document.getElementById("file-transform-up")?.addEventListener("change", e => {
     if (!e.target.files[0]) return;
@@ -1422,13 +1435,13 @@ function setupEventListeners() {
   });
   document.getElementById("btn-transform-download")?.addEventListener("click", downloadTransformed);
   document.getElementById("btn-transform-clear")?.addEventListener("click", () => {
-    if (transformData.length && !confirm("¿Limpiar datos de transformación?")) return;
+    if (transformData.length && !confirm("Â¿Limpiar datos de transformaciÃ³n?")) return;
     transformData = [];
     transformComments = {};
     transformHeaders = [];
     document.getElementById("transform-file-name").textContent = "Subir archivo...";
     document.getElementById("transform-file-name").style.color = "var(--textFaint)";
-    document.getElementById("transform-date-display").textContent = "—";
+    document.getElementById("transform-date-display").textContent = "â€”";
     document.getElementById("transform-date").value = "";
     renderTransformTable();
     showToast("Datos limpiados");
@@ -1521,7 +1534,7 @@ function setupEventListeners() {
 // ============================================================
 function addRow() {
   saveHistory();
-  rows.push({ _ikid: genId(), ISO: "", "GESTIÓN": "", ORIGEN: "", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "" });
+  rows.push({ _ikid: genId(), ISO: "", "GESTIÃ“N": "", ORIGEN: "", DESTINO: "", VEH: "", "CORREO REPITES": "", COMENTARIO_RAW: "" });
   saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
   const s = document.getElementById("dash-spreadsheet"); s.scrollTop = s.scrollHeight;
 }
@@ -1561,7 +1574,7 @@ function renderDashboard() {
   document.getElementById("dash-table").style.display = isEmpty ? "none" : "table";
   document.getElementById("dash-stats-bar").classList.toggle("hidden", isEmpty);
   const statsCounts = {};
-  rows.forEach(r => { const g = (r["GESTIÓN"] || "").trim(); if (g) statsCounts[g] = (statsCounts[g] || 0) + 1; });
+  rows.forEach(r => { const g = (r["GESTIÃ“N"] || "").trim(); if (g) statsCounts[g] = (statsCounts[g] || 0) + 1; });
   let statsHtml = "";
   for (const [k, v] of Object.entries(statsCounts)) {
     statsHtml += '<div class="stat-chip"><span class="stat-chip-val">' + v + '</span><span class="stat-chip-lbl">' + k + '</span></div>';
@@ -1575,7 +1588,7 @@ function renderDashboard() {
   const hasDups = Object.values(isoCounts).some(v => v > 1);
   const dupIndicator = document.getElementById("dash-dup-indicator");
   if (dupIndicator) dupIndicator.style.display = hasDups ? "inline" : "none";
-  // Excel column letters: A, B, C, …, Z, AA, AB, …
+  // Excel column letters: A, B, C, â€¦, Z, AA, AB, â€¦
   function colLetter(n){ let s = ""; n++; while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
   let trLetters = '<th class="row-num row-num-corner-top"></th>';
   visCols.forEach((_, i) => { trLetters += '<th class="col-letter" data-col-idx="' + i + '">' + colLetter(i) + '</th>'; });
@@ -1583,20 +1596,20 @@ function renderDashboard() {
   let trH = '<th class="row-num row-num-corner-bot">#</th>';
   visCols.forEach((col, i) => {
     const isActive = colFilters[col] && colFilters[col].size > 0;
-    trH += '<th class="col-name" data-col-idx="' + i + '" style="' + (isActive ? 'color:var(--blue);' : '') + '"><div class="th-inner"><span>' + col + '</span><button class="filter-btn' + (isActive?" active":"") + '" onclick="toggleFilterDropdown(\'' + col + '\',this)">▾</button></div></th>';
+    trH += '<th class="col-name" data-col-idx="' + i + '" style="' + (isActive ? 'color:var(--blue);' : '') + '"><div class="th-inner"><span>' + col + '</span><button class="filter-btn' + (isActive?" active":"") + '" onclick="toggleFilterDropdown(\'' + col + '\',this)">â–¾</button></div></th>';
   });
   trH += '<th style="width:88px;"></th>';
   thead.innerHTML = '<tr class="col-letters-row">' + trLetters + '</tr><tr class="col-names-row">' + trH + '</tr>';
   let tbodyHtml = "";
   filteredRows.forEach((r, idx) => {
     const isoKey = (r.ISO || "").trim().toLowerCase();
-    const isRetiro = String(r["GESTIÓN"] || "").trim().toUpperCase() === "RETIRO";
+    const isRetiro = String(r["GESTIÃ“N"] || "").trim().toUpperCase() === "RETIRO";
     const isDup = (params.highlightDuplicates !== false) && !isRetiro && isoCounts[isoKey] > 1;
     tbodyHtml += '<tr class="' + (isDup ? "dup-row" : "") + '"><td class="row-num" style="' + (isDup ? "color:var(--red);" : "") + '" onclick="selectEntireRow(' + idx + ')" title="Seleccionar fila">' + (idx + 1) + '</td>';
     visCols.forEach((col, cIdx) => {
       tbodyHtml += '<td class="' + (col === "ISO" && isDup ? "dup-cell" : "") + '"><input type="text" id="cell-' + idx + '-' + cIdx + '" value="' + escHtml(r[col] || "") + '" data-rid="' + r._ikid + '" data-col="' + col + '" onchange="cellChanged(this)" onfocus="onCellFocus(this)" onblur="editingCell=null" onmousedown="onCellMouseDown(event,' + idx + ',' + cIdx + ')" onmouseenter="onCellMouseEnter(' + idx + ',' + cIdx + ')" onkeydown="cellKeyDown(event,' + idx + ',' + cIdx + ')"></td>';
     });
-    tbodyHtml += '<td><div class="row-actions"><button class="act-btn" style="color:var(--blue);" onclick="cycleGestion(\'' + r._ikid + '\')" title="Ciclar Gestión">↻</button><button class="act-btn" style="color:var(--green);" onclick="duplicateRow(\'' + r._ikid + '\')" title="Duplicar">⧉</button><button class="act-btn" style="color:var(--red);" onclick="deleteRow(\'' + r._ikid + '\')" title="Eliminar">✕</button></div></td></tr>';
+    tbodyHtml += '<td><div class="row-actions"><button class="act-btn" style="color:var(--blue);" onclick="cycleGestion(\'' + r._ikid + '\')" title="Ciclar GestiÃ³n">â†»</button><button class="act-btn" style="color:var(--green);" onclick="duplicateRow(\'' + r._ikid + '\')" title="Duplicar">â§‰</button><button class="act-btn" style="color:var(--red);" onclick="deleteRow(\'' + r._ikid + '\')" title="Eliminar">âœ•</button></div></td></tr>';
   });
   tbody.innerHTML = tbodyHtml;
   document.getElementById("dash-total").textContent = rows.length;
@@ -1705,13 +1718,13 @@ function cycleGestion(id) {
   saveHistory();
   const row = rows.find(r => r._ikid === id);
   if (row) {
-    const cur = String(row["GESTIÓN"] || "").toUpperCase();
-    row["GESTIÓN"] = gestions[(gestions.indexOf(cur) + 1) % gestions.length];
+    const cur = String(row["GESTIÃ“N"] || "").toUpperCase();
+    row["GESTIÃ“N"] = gestions[(gestions.indexOf(cur) + 1) % gestions.length];
     saveData(); renderDashboard();
   }
 }
 function copyVisibleTableHTML() {
-  if (!filteredRows.length) return showToast("Tabla vacía", true);
+  if (!filteredRows.length) return showToast("Tabla vacÃ­a", true);
   const visCols = COLS.filter(c => !hiddenCols.has(c));
   const html = buildHTMLTable(visCols, filteredRows, false);
   const plain = filteredRows.map(r => visCols.map(c => r[c]||"").join("\t")).join("\n");
@@ -1800,8 +1813,8 @@ function toggleFilterDropdown(col, btn) {
   dd.className = "filter-dropdown"; dd.id = "active-filter-dd";
   dd.innerHTML =
     '<div class="filter-dd-header">' +
-    '<button class="filter-dd-sort-btn' + (sortCol===col&&sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',true)">↑ Ordenar A→Z</button>' +
-    '<button class="filter-dd-sort-btn' + (sortCol===col&&!sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',false)">↓ Ordenar Z→A</button>' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',true)">â†‘ Ordenar Aâ†’Z</button>' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&!sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',false)">â†“ Ordenar Zâ†’A</button>' +
     '</div>' +
     '<div class="filter-dd-search"><input type="text" id="filter-dd-search-input" class="input" style="padding:4px 8px;font-size:10px;" placeholder="Buscar valor..." oninput="renderFilterDDList(\'' + col + '\')"></div>' +
     '<div class="filter-dd-list custom-scrollbar" id="filter-dd-list">' + renderFilterDDListHtml(col, uniqueVals, pendingColFilters[col], "") + '</div>' +
@@ -1809,7 +1822,7 @@ function toggleFilterDropdown(col, btn) {
     '<button style="font-size:9px;color:var(--textFaint);background:none;border:none;cursor:pointer;" onclick="closeActiveFilterDropdown(false)">Cancelar</button>' +
     '<div style="display:flex;gap:6px;align-items:center;">' +
     '<button style="font-size:9px;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline;" onclick="clearFilter(\'' + col + '\')">Borrar filtro</button>' +
-    '<button class="filter-dd-apply" onclick="applyFilterDD(\'' + col + '\')">✓ Aplicar</button>' +
+    '<button class="filter-dd-apply" onclick="applyFilterDD(\'' + col + '\')">âœ“ Aplicar</button>' +
     '</div></div>';
   th.style.position = "relative";
   th.appendChild(dd);
@@ -1828,7 +1841,7 @@ function renderFilterDDListHtml(col, uniqueVals, currentFilter, search) {
   filtered.forEach(v => {
     const checked = allSelected || (currentFilter && currentFilter.has(v));
     const vEsc = escHtml(String(v));
-    html += '<label class="filter-dd-item"><input type="checkbox" ' + (checked?"checked":"") + ' style="accent-color:var(--blue);" onchange="togglePendingFilterVal(\'' + col + '\',\'' + vEsc + '\',this.checked)"><span style="font-size:10px;color:' + (v?'var(--text)':'var(--textFaint)') + ';">' + (v !== "" ? vEsc : "(Vacío)") + '</span></label>';
+    html += '<label class="filter-dd-item"><input type="checkbox" ' + (checked?"checked":"") + ' style="accent-color:var(--blue);" onchange="togglePendingFilterVal(\'' + col + '\',\'' + vEsc + '\',this.checked)"><span style="font-size:10px;color:' + (v?'var(--text)':'var(--textFaint)') + ';">' + (v !== "" ? vEsc : "(VacÃ­o)") + '</span></label>';
   });
   return html;
 }
@@ -1864,7 +1877,7 @@ function closeActiveFilterDropdown(rerender) {
 }
 
 // ============================================================
-// DUPLICATES — UPDATED
+// DUPLICATES â€” UPDATED
 // ============================================================
 function renderDuplicates() {
   const tbody = document.getElementById("dup-tbody");
@@ -1881,7 +1894,7 @@ function renderDuplicates() {
   const dupVehSet = new Set(dupVehList);
   if (!dupVehSet.size) {
     if (banner) banner.classList.add("hidden");
-    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">No hay vehículos parametrizados. Configura <strong>Parámetros → Duplicados</strong>.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">No hay vehÃ­culos parametrizados. Configura <strong>ParÃ¡metros â†’ Duplicados</strong>.</td></tr>';
     return;
   }
 
@@ -1900,7 +1913,7 @@ function renderDuplicates() {
   if (!filtered.length) {
     if (banner) {
       banner.classList.remove("hidden");
-      banner.innerHTML = 'No se encontraron filas con vehículo en <strong>' + dupVehList.join(", ") + '</strong>.';
+      banner.innerHTML = 'No se encontraron filas con vehÃ­culo en <strong>' + dupVehList.join(", ") + '</strong>.';
     }
     tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">Sin coincidencias.</td></tr>';
     return;
@@ -1909,15 +1922,15 @@ function renderDuplicates() {
   const dupRows = filtered.filter(rec => dashIsoMap.has(String(rec.iso || "").trim().toUpperCase()));
   if (banner) {
     banner.classList.remove("hidden");
-    banner.innerHTML = 'Filtrado por vehículo en <strong style="color:var(--blue);">' + dupVehList.join(", ") + '</strong>: ' +
+    banner.innerHTML = 'Filtrado por vehÃ­culo en <strong style="color:var(--blue);">' + dupVehList.join(", ") + '</strong>: ' +
       '<strong>' + filtered.length + ' fila(s)</strong> en el archivo Plan. ' +
-      'De ellas, <strong style="color:#c04848;">' + dupRows.length + ' están duplicadas</strong> en el Dashboard.';
+      'De ellas, <strong style="color:#c04848;">' + dupRows.length + ' estÃ¡n duplicadas</strong> en el Dashboard.';
   }
 
   // Group filtered records by vehicle
   const byVehicle = {};
   filtered.forEach(rec => {
-    const v = String(rec.vehiculo || "").trim().toUpperCase() || "—";
+    const v = String(rec.vehiculo || "").trim().toUpperCase() || "â€”";
     if (!byVehicle[v]) byVehicle[v] = [];
     byVehicle[v].push(rec);
   });
@@ -1927,7 +1940,7 @@ function renderDuplicates() {
     const list = byVehicle[veh];
     const dupCount = list.filter(r => dashIsoMap.has(String(r.iso || "").trim().toUpperCase())).length;
     const okCount = list.length - dupCount;
-    html += '<tr><td colspan="5" style="padding:5px 10px;background:rgba(58,114,172,0.08);border-left:2px solid var(--blue);position:sticky;top:30px;z-index:5;">' +
+    html += '<tr><td colspan="5" style="padding:5px 10px;background:rgba(0,0,0,0.04);border-left:2px solid var(--blue);position:sticky;top:30px;z-index:5;">' +
       '<span style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.04em;font-family:var(--font-mono);">' + escHtml(veh) + '</span>' +
       '<span style="font-size:10px;color:var(--textFaint);margin-left:8px;">' + list.length + ' fila(s) en archivo</span>' +
       (dupCount > 0 ? '<span style="font-size:10px;font-weight:700;color:#c04848;margin-left:10px;background:rgba(154,53,53,0.14);padding:1px 7px;border-radius:2px;">' + dupCount + ' duplicada(s)</span>' : '') +
@@ -1941,14 +1954,14 @@ function renderDuplicates() {
       const rowBg = isDup ? "rgba(154,53,53,0.07)" : "transparent";
       const statusBadge = isDup
         ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(154,53,53,0.14);color:#c04848;border:1px solid rgba(154,53,53,0.32);"><span style="width:5px;height:5px;border-radius:50%;background:#c04848;"></span>Duplicada</span>'
-        : '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(58,114,172,0.1);color:var(--textSub);border:1px solid rgba(58,114,172,0.25);"><span style="width:5px;height:5px;border-radius:50%;background:var(--textSub);"></span>Solo en archivo</span>';
-      const vehBadge = '<span style="display:inline-flex;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(58,114,172,0.1);color:var(--blue);border:1px solid rgba(58,114,172,0.25);font-family:var(--font-mono);">' + escHtml(rec.vehiculo || "—") + '</span>';
+        : '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(0,0,0,0.05);color:var(--textSub);border:1px solid rgba(0,0,0,0.09);"><span style="width:5px;height:5px;border-radius:50%;background:var(--textSub);"></span>Solo en archivo</span>';
+      const vehBadge = '<span style="display:inline-flex;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(0,0,0,0.05);color:var(--blue);border:1px solid rgba(0,0,0,0.09);font-family:var(--font-mono);">' + escHtml(rec.vehiculo || "â€”") + '</span>';
       const dashGest = matches.length
-        ? matches.map(m => '<span style="display:inline-flex;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:600;background:var(--accentBg);color:var(--blue);border:1px solid rgba(58,114,172,0.3);margin-right:3px;">' + escHtml(m["GESTIÓN"] || "?") + '</span>').join("")
-        : '<span style="font-size:10px;color:var(--textFaint);font-style:italic;">—</span>';
+        ? matches.map(m => '<span style="display:inline-flex;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:600;background:var(--accentBg);color:var(--blue);border:1px solid rgba(0,0,0,0.09);margin-right:3px;">' + escHtml(m["GESTIÃ“N"] || "?") + '</span>').join("")
+        : '<span style="font-size:10px;color:var(--textFaint);font-style:italic;">â€”</span>';
       const destText = rec.destino
         ? '<span style="font-size:10px;color:var(--textSub);">' + escHtml(rec.destino) + '</span>'
-        : '<span style="font-size:10px;color:var(--textFaint);">—</span>';
+        : '<span style="font-size:10px;color:var(--textFaint);">â€”</span>';
       html += '<tr>' +
         '<td style="padding:6px 10px 6px 26px;font-family:var(--font-mono);font-size:11px;background:' + rowBg + ';' + (isDup ? "color:#c04848;font-weight:700;" : "color:var(--text);") + '">' + escHtml(rec.iso) + '</td>' +
         '<td style="padding:6px 10px;text-align:center;background:' + rowBg + ';">' + statusBadge + '</td>' +
@@ -1967,15 +1980,15 @@ function renderDuplicates() {
 function renderProjects() {
   const tbody = document.getElementById("proj-tbody"); if (!tbody) return;
   const label = document.getElementById("proj-name-label");
-  if (label) label.textContent = params.projTemplateName ? "— " + params.projTemplateName : "";
+  if (label) label.textContent = params.projTemplateName ? "â€” " + params.projTemplateName : "";
   if (!projectsData.length) {
     tbody.innerHTML = '<tr><td colspan="3" style="padding:28px;text-align:center;color:var(--textFaint);">Sube archivo de Proyectos.</td></tr>'; return;
   }
   let html = "";
   projectsData.forEach(p => {
-    const iso = p["Título"] || p["ISO"] || p["Title"] || "";
-    const veh = p["Vehículo"] || p["VEHÍCULO"] || p["VEHICULO"] || "";
-    const dir = p["Destino"] || p["Dirección"] || p["DIRECCIÓN"] || "";
+    const iso = p["TÃ­tulo"] || p["ISO"] || p["Title"] || "";
+    const veh = p["VehÃ­culo"] || p["VEHÃCULO"] || p["VEHICULO"] || "";
+    const dir = p["Destino"] || p["DirecciÃ³n"] || p["DIRECCIÃ“N"] || "";
     html += '<tr><td style="padding:7px 10px;font-family:var(--font-mono);font-size:11px;">' + iso + '</td><td style="padding:7px 10px;">' + veh + '</td><td style="padding:7px 10px;">' + dir + '</td></tr>';
   });
   tbody.innerHTML = html;
@@ -1988,7 +2001,7 @@ function updateExportTab() {
   const t = document.getElementById("export-isos-text");
   if (t) t.value = filteredRows.map(r => r.ISO).filter(Boolean).join(", ");
   const stats = {};
-  rows.forEach(r => { const g = r["GESTIÓN"] || ""; if (g) stats[g] = (stats[g] || 0) + 1; });
+  rows.forEach(r => { const g = r["GESTIÃ“N"] || ""; if (g) stats[g] = (stats[g] || 0) + 1; });
   const el = document.getElementById("export-stats");
   if (el) {
     if (!Object.keys(stats).length) { el.innerHTML = '<span style="opacity:0.4;font-style:italic;">Sin datos</span>'; return; }
@@ -2037,7 +2050,7 @@ function isPV(destino) {
 }
 function isK8(r) {
   const comm = String(r.COMENTARIO || r.COMENTARIO_RAW || "").toUpperCase();
-  const gest = String(r["GESTIÓN"] || "").toUpperCase();
+  const gest = String(r["GESTIÃ“N"] || "").toUpperCase();
   return comm.includes("K8") || gest.includes("K8");
 }
 function _emailFontCss(){ return "font-family:" + (params.outlookFontFamily || "Aptos,sans-serif") + ";font-size:" + (params.outlookFontSize || "12pt") + ";"; }
@@ -2048,20 +2061,20 @@ function getRuteoPMHtml() {
   const intro = emailIntroP(params.emailRuteoPMIntro);
   const dataRepites = sortByDestino(rows.filter(r => String(r["CORREO REPITES"]||"").toUpperCase() === "SI"));
   let sRepites = "";
-  if (dataRepites.length) sRepites = emailSectionHeading(params.sectionTitleRepites || "Repites") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataRepites, true);
+  if (dataRepites.length) sRepites = emailSectionHeading(params.sectionTitleRepites || "Repites") + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], dataRepites, true);
   const dataPV = sortByDestino(rows.filter(r => isPV(r.DESTINO)));
   let sPV = "";
-  if (dataPV.length) sPV = emailSectionHeading(params.sectionTitlePV || "Postventa") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataPV, true);
+  if (dataPV.length) sPV = emailSectionHeading(params.sectionTitlePV || "Postventa") + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], dataPV, true);
   const dataK8 = sortByDestino(rows.filter(r => isK8(r)));
   let sK8 = "";
-  if (dataK8.length) sK8 = emailSectionHeading(params.sectionTitleK8 || "K8") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataK8, true);
+  if (dataK8.length) sK8 = emailSectionHeading(params.sectionTitleK8 || "K8") + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], dataK8, true);
   let sLeslie = "";
   if (projectsData.length) {
     const normalizedProj = projectsData
-      .filter(r => { const iso = String(r["Título"]||r["ISO"]||"").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
-      .map(r => ({ "ISO": r["Título"]||r["ISO"]||r["Title"]||"", "VEHÍCULO": r["Vehículo"]||r["VEHÍCULO"]||r["VEHICULO"]||"", "DIRECCIÓN": r["Destino"]||r["Dirección"]||r["DIRECCIÓN"]||"" }))
-      .sort((a,b) => String(a["VEHÍCULO"]||"").localeCompare(String(b["VEHÍCULO"]||"")));
-    if (normalizedProj.length) sLeslie = emailSectionHeading((params.sectionTitleProj || "Proyectos") + " " + params.projTemplateName) + buildHTMLTable(["ISO","VEHÍCULO","DIRECCIÓN"], normalizedProj, true);
+      .filter(r => { const iso = String(r["TÃ­tulo"]||r["ISO"]||"").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
+      .map(r => ({ "ISO": r["TÃ­tulo"]||r["ISO"]||r["Title"]||"", "VEHÃCULO": r["VehÃ­culo"]||r["VEHÃCULO"]||r["VEHICULO"]||"", "DIRECCIÃ“N": r["Destino"]||r["DirecciÃ³n"]||r["DIRECCIÃ“N"]||"" }))
+      .sort((a,b) => String(a["VEHÃCULO"]||"").localeCompare(String(b["VEHÃCULO"]||"")));
+    if (normalizedProj.length) sLeslie = emailSectionHeading((params.sectionTitleProj || "Proyectos") + " " + params.projTemplateName) + buildHTMLTable(["ISO","VEHÃCULO","DIRECCIÃ“N"], normalizedProj, true);
   }
   const corrExcludeSet = new Set(params.corrExcludeDestinos.map(v => v.toUpperCase()));
   const dataCorr = sortByDestino(rows.filter(r => {
@@ -2070,9 +2083,9 @@ function getRuteoPMHtml() {
     if (isK8(r)) return false;
     if (corrExcludeSet.has(String(r.DESTINO||"").toUpperCase())) return false;
     return true;
-  }).map(r => ({ ...r, "GESTIÓN": "CORRECCION DE RUTA" })));
+  }).map(r => ({ ...r, "GESTIÃ“N": "CORRECCION DE RUTA" })));
   let sCorr = "";
-  if (dataCorr.length) sCorr = emailSectionHeading(params.sectionTitleCorr || "Corrección de Ruta") + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], dataCorr, true);
+  if (dataCorr.length) sCorr = emailSectionHeading(params.sectionTitleCorr || "CorrecciÃ³n de Ruta") + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], dataCorr, true);
   return intro + sRepites + sPV + sCorr + sK8 + sLeslie;
 }
 function copyAsHTML(html, plain) {
@@ -2102,15 +2115,15 @@ document.addEventListener("DOMContentLoaded", () => {
       let html = "", plain = "", title = "";
       if (tpl === "ruteo_pm") {
         html = getRuteoPMHtml();
-        plain = params.emailRuteoPMIntro + "\n\nRepites...\nPostventa...\nCorrección de Ruta...\nK8...\nProyectos...";
+        plain = params.emailRuteoPMIntro + "\n\nRepites...\nPostventa...\nCorrecciÃ³n de Ruta...\nK8...\nProyectos...";
         title = "Ruteo PM";
       }
       else if (tpl === "repites") {
         const data = sortByDestino(rows.filter(r => String(r["CORREO REPITES"]||"").toUpperCase() === "SI"));
         if (!data.length) return showToast("No hay filas con CORREO REPITES = SI", true);
         const introHtml = emailIntroP(params.emailRepitesIntro);
-        html = introHtml + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], data);
-        plain = params.emailRepitesIntro + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÓN"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
+        html = introHtml + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], data);
+        plain = params.emailRepitesIntro + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÃ“N"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
         title = "Repites";
       }
       else if (tpl === "pv") {
@@ -2118,39 +2131,39 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!data.length) return showToast("Sin datos de Postventa en columna DESTINO", true);
         const vehsPV = [...new Set(data.map(r => String(r.DESTINO||"").trim()).filter(Boolean))];
         const numVeh = vehsPV.length || 1;
-        const vehWord = numVeh === 1 ? "1 vehículo" : (numVeh + " vehículos");
+        const vehWord = numVeh === 1 ? "1 vehÃ­culo" : (numVeh + " vehÃ­culos");
         const pvIntroText = params.emailPVIntro.replace("{numVeh}", vehWord);
         const recipientPart = params.emailPVRecipient ? "Buenas tardes " + params.emailPVRecipient + ", " : "Buenas tardes, ";
         const introHtml = emailIntroP(recipientPart + pvIntroText);
-        html = introHtml + buildHTMLTable(["ISO","GESTIÓN","ORIGEN","DESTINO"], data);
-        plain = recipientPart + pvIntroText + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÓN"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
+        html = introHtml + buildHTMLTable(["ISO","GESTIÃ“N","ORIGEN","DESTINO"], data);
+        plain = recipientPart + pvIntroText + "\n\n" + data.map(r => r.ISO + "\t" + r["GESTIÃ“N"] + "\t" + r.ORIGEN + "\t" + r.DESTINO).join("\n");
         title = "Post Venta";
       }
       else if (tpl === "leslie") {
         if (!projectsData.length) return showToast("Sin datos de Proyectos cargados", true);
         const allRows = projectsData
-          .filter(r => { const iso = String(r["Título"] || r["ISO"] || r["Title"] || "").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
-          .map(r => ({ "ISO": r["Título"] || r["ISO"] || r["Title"] || "", "VEHÍCULO": r["Vehículo"] || r["VEHÍCULO"] || r["VEHICULO"] || "", "DIRECCIÓN": r["Destino"] || r["Dirección"] || r["DIRECCIÓN"] || "" }));
-        if (!allRows.length) return showToast("Sin filas válidas de Proyectos", true);
-        const displayRows = [...allRows].sort((a,b) => String(a["VEHÍCULO"]||"").localeCompare(String(b["VEHÍCULO"]||"")));
+          .filter(r => { const iso = String(r["TÃ­tulo"] || r["ISO"] || r["Title"] || "").trim().toUpperCase(); return iso !== "INICIO" && iso !== "FIN" && iso !== ""; })
+          .map(r => ({ "ISO": r["TÃ­tulo"] || r["ISO"] || r["Title"] || "", "VEHÃCULO": r["VehÃ­culo"] || r["VEHÃCULO"] || r["VEHICULO"] || "", "DIRECCIÃ“N": r["Destino"] || r["DirecciÃ³n"] || r["DIRECCIÃ“N"] || "" }));
+        if (!allRows.length) return showToast("Sin filas vÃ¡lidas de Proyectos", true);
+        const displayRows = [...allRows].sort((a,b) => String(a["VEHÃCULO"]||"").localeCompare(String(b["VEHÃCULO"]||"")));
         const hoy = new Date(); const man = new Date(hoy); man.setDate(hoy.getDate() + 1);
-        const days = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+        const days = ["domingo","lunes","martes","miÃ©rcoles","jueves","viernes","sÃ¡bado"];
         const months = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
         const fechaStr = days[man.getDay()] + " " + man.getDate() + " de " + months[man.getMonth()] + " de " + man.getFullYear();
-        const uniqueVehs = [...new Set(displayRows.map(r => r["VEHÍCULO"]).filter(Boolean))];
+        const uniqueVehs = [...new Set(displayRows.map(r => r["VEHÃCULO"]).filter(Boolean))];
         const numVehLeslie = uniqueVehs.length || 1;
         const empresa = params.projTemplateName || "Leslie";
         const introText = params.emailLeslieIntro.replace(/\{fecha\}/g, fechaStr).replace(/\{empresa\}/g, empresa).replace(/\{numVeh\}/g, numVehLeslie);
         const introHtml = emailIntroP(introText, "line-height:1.6;");
-        html = introHtml + buildHTMLTable(["ISO","VEHÍCULO","DIRECCIÓN"], displayRows);
-        plain = params.emailLeslieIntro + "\n\n" + displayRows.map(r => r["ISO"] + "\t" + r["VEHÍCULO"] + "\t" + r["DIRECCIÓN"]).join("\n");
+        html = introHtml + buildHTMLTable(["ISO","VEHÃCULO","DIRECCIÃ“N"], displayRows);
+        plain = params.emailLeslieIntro + "\n\n" + displayRows.map(r => r["ISO"] + "\t" + r["VEHÃCULO"] + "\t" + r["DIRECCIÃ“N"]).join("\n");
         title = empresa;
       }
       if (!html) return;
       copyAsHTML(html, plain);
-      showToast("✓ Plantilla " + title + " copiada");
+      showToast("âœ“ Plantilla " + title + " copiada");
       const origText = e.currentTarget.textContent;
-      e.currentTarget.textContent = "✓ Copiado!";
+      e.currentTarget.textContent = "âœ“ Copiado!";
       setTimeout(() => { e.currentTarget.textContent = origText; }, 2000);
     });
   });
@@ -2160,11 +2173,11 @@ document.addEventListener("DOMContentLoaded", () => {
 // PARAMS
 // ============================================================
 const PARAM_GROUPS = [
-  { id: "vehiculos", label: "Vehículos", desc: "Listas que controlan clasificación y filtros." },
-  { id: "gestiones", label: "Gestiones",  desc: "Tipos de gestión disponibles en los modales." },
-  { id: "correo",    label: "Correo",     desc: "Intros, destinatarios y títulos de las plantillas." },
+  { id: "vehiculos", label: "VehÃ­culos", desc: "Listas que controlan clasificaciÃ³n y filtros." },
+  { id: "gestiones", label: "Gestiones",  desc: "Tipos de gestiÃ³n disponibles en los modales." },
+  { id: "correo",    label: "Correo",     desc: "Intros, destinatarios y tÃ­tulos de las plantillas." },
   { id: "formato",   label: "Formato Outlook", desc: "Fuente y colores de las tablas de correo." },
-  { id: "transformar", label: "Transformar", desc: "Comportamiento de la pestaña Transformar." },
+  { id: "transformar", label: "Transformar", desc: "Comportamiento de la pestaÃ±a Transformar." },
   { id: "comportamiento", label: "Comportamiento", desc: "Opciones generales de la app." }
 ];
 
@@ -2175,7 +2188,7 @@ function renderParams() {
   function mkSection(groupId, icon, title, desc, bodyHtml) {
     return '<div class="param-section" data-group="' + groupId + '" data-search="' + escHtml((title + " " + desc).toLowerCase()) + '">' +
       '<div class="param-section-header">' +
-      '<div class="param-icon" style="background:rgba(58,114,172,0.12);color:var(--blue);">' + icon + '</div>' +
+      '<div class="param-icon" style="background:rgba(0,0,0,0.06);color:var(--blue);">' + icon + '</div>' +
       '<div><div style="font-size:13px;font-weight:700;">' + title + '</div>' +
       '<div style="font-size:11px;color:var(--textFaint);margin-top:2px;line-height:1.5;">' + desc + '</div></div>' +
       '</div><div class="param-body">' + bodyHtml + '</div></div>';
@@ -2183,7 +2196,7 @@ function renderParams() {
   function mkTagList(key, placeholder) {
     const color = "var(--blue)";
     const tags = (params[key] || []).map(function(item) {
-      return '<span class="tag-item" style="background:rgba(58,114,172,0.12);color:' + color + ';border:1px solid rgba(58,114,172,0.28);">' + escHtml(item) + '<button class="tag-remove" onclick="removeTag(\'' + key + '\',\'' + escHtml(item) + '\')">✕</button></span>';
+      return '<span class="tag-item" style="background:rgba(0,0,0,0.06);color:' + color + ';border:1px solid rgba(0,0,0,0.09);">' + escHtml(item) + '<button class="tag-remove" onclick="removeTag(\'' + key + '\',\'' + escHtml(item) + '\')">âœ•</button></span>';
     }).join("");
     return '<div class="tag-list" id="tags-' + key + '">' + tags + '</div>' +
       '<div class="tag-add-row"><input id="tag-input-' + key + '" type="text" class="input" placeholder="' + placeholder + '" style="font-family:var(--font-mono);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addTag(\'' + key + '\');}">' +
@@ -2228,7 +2241,7 @@ function renderParams() {
   const sidebar =
     '<div class="params-search-wrap">' +
     '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>' +
-    '<input type="text" id="params-search" placeholder="Buscar parámetro..." oninput="filterParams(this.value)">' +
+    '<input type="text" id="params-search" placeholder="Buscar parÃ¡metro..." oninput="filterParams(this.value)">' +
     '</div>' +
     PARAM_GROUPS.map((g, i) =>
       '<button class="params-nav-btn' + (i === 0 ? ' active' : '') + '" data-group="' + g.id + '" onclick="scrollToParamGroup(\'' + g.id + '\')">' +
@@ -2237,18 +2250,18 @@ function renderParams() {
     ).join("");
 
   // ============================================================
-  // GROUP: VEHÍCULOS
+  // GROUP: VEHÃCULOS
   // ============================================================
   const vehiculos =
-    '<div class="params-group-title" id="grp-vehiculos">Vehículos</div>' +
-    mkSection("vehiculos", "DUP", "Duplicados", "Vehículos del Plan SR que se consideran Postventa al detectar duplicados.",
+    '<div class="params-group-title" id="grp-vehiculos">VehÃ­culos</div>' +
+    mkSection("vehiculos", "DUP", "Duplicados", "VehÃ­culos del Plan SR que se consideran Postventa al detectar duplicados.",
       mkTagList("dupVehicles", "Ej: VPV01")) +
-    mkSection("vehiculos", "PRY", "Proyectos", "Vehículos del archivo de Proyectos que se incluyen automáticamente.",
+    mkSection("vehiculos", "PRY", "Proyectos", "VehÃ­culos del archivo de Proyectos que se incluyen automÃ¡ticamente.",
       mkTagList("projVehicles", "Ej: VPR01") +
       mkTextField("projTemplateName", "Nombre del Transporte", false, "Aparece en plantillas como \"Proyectos {nombre}\"")) +
     mkSection("vehiculos", "PV", "Postventa", "Valores en columna DESTINO que se consideran Postventa.",
       mkTagList("pvDestinos", "Ej: VPV01")) +
-    mkSection("vehiculos", "EXC", "Exclusiones", "Valores de DESTINO que se excluyen de Corrección de Ruta.",
+    mkSection("vehiculos", "EXC", "Exclusiones", "Valores de DESTINO que se excluyen de CorrecciÃ³n de Ruta.",
       mkTagList("corrExcludeDestinos", "Ej: VPR01"));
 
   // ============================================================
@@ -2256,9 +2269,9 @@ function renderParams() {
   // ============================================================
   const gestiones =
     '<div class="params-group-title" id="grp-gestiones">Gestiones</div>' +
-    mkSection("gestiones", "LSL", "Gestiones de Leslie / Proyectos", "Tipos de GESTIÓN considerados parte del flujo Leslie. Afecta el botón \"ISOs Leslie\" del Dashboard.",
+    mkSection("gestiones", "LSL", "Gestiones de Leslie / Proyectos", "Tipos de GESTIÃ“N considerados parte del flujo Leslie. Afecta el botÃ³n \"ISOs Leslie\" del Dashboard.",
       mkTagList("leslieGestiones", "Ej: ENVIO Y RETIRO")) +
-    mkSection("gestiones", "K8", "Subtipos de K8", "Opciones que aparecen al detectar gestión K8 en una carga.",
+    mkSection("gestiones", "K8", "Subtipos de K8", "Opciones que aparecen al detectar gestiÃ³n K8 en una carga.",
       mkTagList("k8Types", "Ej: K8 REGULAR") +
       mkSelect("defaultK8Type", "Tipo K8 por defecto", params.k8Types || [])) +
     mkSection("gestiones", "MAN", "Gestiones Manuales", "Botones disponibles al pegar ISOs sin formato tabla.",
@@ -2275,22 +2288,22 @@ function renderParams() {
       mkTextField("emailPVIntro", "Intro Postventa", true) +
       mkTextField("emailLeslieIntro", "Intro Proyectos / Leslie", true)) +
     mkSection("correo", "DST", "Destinatarios", "Nombres a mencionar en los intros.",
-      mkTextField("emailPVRecipient", "Destinatario Postventa", false, "Aparece como \"Buenas tardes [destinatario], …\"")) +
-    mkSection("correo", "TTL", "Títulos de Sección", "Encabezados que separan cada tabla dentro del correo Ruteo PM.",
-      mkTextField("sectionTitleRepites", "Sección Repites", false) +
-      mkTextField("sectionTitlePV", "Sección Postventa", false) +
-      mkTextField("sectionTitleK8", "Sección K8", false) +
-      mkTextField("sectionTitleCorr", "Sección Corrección de Ruta", false) +
-      mkTextField("sectionTitleProj", "Sección Proyectos", false, "Se concatena con el Nombre del Transporte"));
+      mkTextField("emailPVRecipient", "Destinatario Postventa", false, "Aparece como \"Buenas tardes [destinatario], â€¦\"")) +
+    mkSection("correo", "TTL", "TÃ­tulos de SecciÃ³n", "Encabezados que separan cada tabla dentro del correo Ruteo PM.",
+      mkTextField("sectionTitleRepites", "SecciÃ³n Repites", false) +
+      mkTextField("sectionTitlePV", "SecciÃ³n Postventa", false) +
+      mkTextField("sectionTitleK8", "SecciÃ³n K8", false) +
+      mkTextField("sectionTitleCorr", "SecciÃ³n CorrecciÃ³n de Ruta", false) +
+      mkTextField("sectionTitleProj", "SecciÃ³n Proyectos", false, "Se concatena con el Nombre del Transporte"));
 
   // ============================================================
   // GROUP: FORMATO OUTLOOK
   // ============================================================
   const formato =
     '<div class="params-group-title" id="grp-formato">Formato Outlook</div>' +
-    mkSection("formato", "FNT", "Tipografía", "Fuente y tamaño usados en intros y tablas pegadas en Outlook.",
-      mkTextField("outlookFontFamily", "Familia tipográfica", false, "CSS font-family stack") +
-      mkTextField("outlookFontSize", "Tamaño", false, "Ej: 12pt, 11pt")) +
+    mkSection("formato", "FNT", "TipografÃ­a", "Fuente y tamaÃ±o usados en intros y tablas pegadas en Outlook.",
+      mkTextField("outlookFontFamily", "Familia tipogrÃ¡fica", false, "CSS font-family stack") +
+      mkTextField("outlookFontSize", "TamaÃ±o", false, "Ej: 12pt, 11pt")) +
     mkSection("formato", "COL", "Colores de Tabla", "Encabezado y bordes de las tablas en formato \"con color\" (no clean).",
       mkColorField("outlookHeaderBg", "Fondo del Encabezado") +
       mkColorField("outlookHeaderColor", "Texto del Encabezado") +
@@ -2301,9 +2314,9 @@ function renderParams() {
   // ============================================================
   const transformar =
     '<div class="params-group-title" id="grp-transformar">Transformar</div>' +
-    mkSection("transformar", "TRF", "Pestaña Transformar", "Opciones para la conversión del archivo de ruteo.",
+    mkSection("transformar", "TRF", "PestaÃ±a Transformar", "Opciones para la conversiÃ³n del archivo de ruteo.",
       mkSelect("transformDateFormat", "Formato de Fecha", ["DD-MMM-YY", "DD-MM-YYYY", "YYYY-MM-DD", "MM/DD/YYYY"]) +
-      mkTextField("transformCommentSeparator", "Separador de Comentarios", false, "Carácter entre NOTAS existente y COMENTARIO BO"));
+      mkTextField("transformCommentSeparator", "Separador de Comentarios", false, "CarÃ¡cter entre NOTAS existente y COMENTARIO BO"));
 
   // ============================================================
   // GROUP: COMPORTAMIENTO
@@ -2311,9 +2324,9 @@ function renderParams() {
   const comportamiento =
     '<div class="params-group-title" id="grp-comportamiento">Comportamiento</div>' +
     mkSection("comportamiento", "CFG", "Opciones Generales", "Cambia el comportamiento de la app.",
-      mkToggle("autoSaveSession", "Guardado automático", "Persiste cambios en localStorage al editar.") +
+      mkToggle("autoSaveSession", "Guardado automÃ¡tico", "Persiste cambios en localStorage al editar.") +
       mkToggle("highlightDuplicates", "Resaltar duplicados", "Marca en rojo filas con ISOs repetidas en el Dashboard.") +
-      mkToggle("confirmBeforeClear", "Confirmar antes de limpiar", "Pide confirmación al pulsar \"Limpiar\" en el Dashboard."));
+      mkToggle("confirmBeforeClear", "Confirmar antes de limpiar", "Pide confirmaciÃ³n al pulsar \"Limpiar\" en el Dashboard."));
 
   container.innerHTML =
     '<div class="params-layout">' +
@@ -2355,7 +2368,7 @@ window.scrollToParamGroup = function(gid){
 window.updateBoolParam = function(key, val){
   params[key] = !!val;
   saveData();
-  showToast("Parámetro guardado");
+  showToast("ParÃ¡metro guardado");
   if (key === "highlightDuplicates") renderDashboard();
 };
 window.updateColorParam = function(key, val){
@@ -2394,13 +2407,13 @@ window.updateTextParam = function(key, value) {
   params[key] = value;
   saveData();
   _onParamChanged(key);
-  showToast("Parámetro guardado");
+  showToast("ParÃ¡metro guardado");
 };
 document.getElementById("btn-reset-params")?.addEventListener("click", () => {
-  if (confirm("¿Restaurar parámetros por defecto?")) {
+  if (confirm("Â¿Restaurar parÃ¡metros por defecto?")) {
     params = { ...DEFAULT_PARAMS };
     saveData(); renderParams();
-    showToast("Parámetros restablecidos");
+    showToast("ParÃ¡metros restablecidos");
   }
 });
 document.getElementById("btn-export-params")?.addEventListener("click", () => {
@@ -2417,7 +2430,7 @@ document.getElementById("file-import-params")?.addEventListener("change", e => {
     try {
       params = { ...DEFAULT_PARAMS, ...JSON.parse(ev.target.result) };
       saveData(); renderParams();
-      showToast("Configuración importada");
+      showToast("ConfiguraciÃ³n importada");
     } catch { showToast("Error al leer JSON", true); }
   };
   reader.readAsText(e.target.files[0]);
@@ -2425,7 +2438,7 @@ document.getElementById("file-import-params")?.addEventListener("change", e => {
 });
 
 // ============================================================
-// TRANSFORM TAB — NEW
+// TRANSFORM TAB â€” NEW
 // ============================================================
 const TRANSFORM_MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
@@ -2470,16 +2483,16 @@ function renderTransformTable() {
   if (bottom) bottom.classList.remove("hidden");
   if (dlBtn) dlBtn.disabled = false;
 
-  // Build a gestión lookup map from dashboard
+  // Build a gestiÃ³n lookup map from dashboard
   const gestMap = {};
   rows.forEach(r => {
-    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÓN"] || "";
+    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÃ“N"] || "";
   });
 
   // Count matches
   let matched = 0, unmatched = 0;
   transformData.forEach(row => {
-    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    const isoKey = String(row["ISO"] || row["TÃ­tulo"] || row["TITULO"] || "").trim().toUpperCase();
     if (isoKey && gestMap[isoKey]) matched++; else if (isoKey) unmatched++;
   });
 
@@ -2498,17 +2511,17 @@ function renderTransformTable() {
     let extra = "";
     if (HIGHLIGHT_BLUE.has(col)) extra = " col-highlight";
     else if (HIGHLIGHT_GREEN.has(col)) extra = ' style="background:rgba(42,101,72,0.18);color:var(--green);"';
-    else if (HIGHLIGHT_ORANGE.has(col)) extra = ' style="background:rgba(58,114,172,0.12);color:var(--textSub);"';
+    else if (HIGHLIGHT_ORANGE.has(col)) extra = ' style="background:rgba(0,0,0,0.06);color:var(--textSub);"';
     thHtml += '<th class="' + (HIGHLIGHT_BLUE.has(col) ? "col-highlight" : "") + '"' + (HIGHLIGHT_GREEN.has(col) || HIGHLIGHT_ORANGE.has(col) ? extra : '') + '>' + escHtml(String(col)) + '</th>';
   });
   // COMENTARIO BO column header
-  thHtml += '<th style="background:rgba(58,114,172,0.14);color:var(--blue);border-left:2px solid rgba(58,114,172,0.35);">COMENTARIO BO</th>';
+  thHtml += '<th style="background:rgba(0,0,0,0.07);color:var(--blue);border-left:2px solid rgba(0,0,0,0.09);">COMENTARIO BO</th>';
   theadRow.innerHTML = thHtml;
 
   // Build body
   let tbodyHtml = "";
   transformData.forEach((row, idx) => {
-    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    const isoKey = String(row["ISO"] || row["TÃ­tulo"] || row["TITULO"] || "").trim().toUpperCase();
     const hasMatch = isoKey && !!gestMap[isoKey];
     const comment = transformComments[idx] || "";
     tbodyHtml += '<tr>';
@@ -2516,14 +2529,14 @@ function renderTransformTable() {
     displayCols.forEach(col => {
       let cellStyle = "";
       let inputStyle = "";
-      if (HIGHLIGHT_BLUE.has(col)) { cellStyle = "background:rgba(58,114,172,0.08);"; inputStyle = "color:var(--blue);font-weight:600;"; }
+      if (HIGHLIGHT_BLUE.has(col)) { cellStyle = "background:rgba(0,0,0,0.04);"; inputStyle = "color:var(--blue);font-weight:600;"; }
       else if (HIGHLIGHT_GREEN.has(col)) { cellStyle = "background:rgba(42,101,72,0.08);"; inputStyle = "color:" + (hasMatch ? "var(--green)" : "var(--textFaint)") + ";font-weight:600;"; }
-      else if (HIGHLIGHT_ORANGE.has(col)) { cellStyle = "background:rgba(58,114,172,0.04);"; }
+      else if (HIGHLIGHT_ORANGE.has(col)) { cellStyle = "background:rgba(0,0,0,0.026);"; }
       tbodyHtml += '<td style="' + cellStyle + '"><input type="text" readonly value="' + escHtml(String(row[col] || "")) + '" style="padding:4px 7px;font-size:10px;' + inputStyle + '"></td>';
     });
-    // COMENTARIO BO — editable
-    tbodyHtml += '<td style="background:rgba(58,114,172,0.05);border-left:2px solid rgba(58,114,172,0.22);">' +
-      '<input type="text" value="' + escHtml(comment) + '" placeholder="Añadir comentario..." ' +
+    // COMENTARIO BO â€” editable
+    tbodyHtml += '<td style="background:rgba(0,0,0,0.03);border-left:2px solid rgba(0,0,0,0.09);">' +
+      '<input type="text" value="' + escHtml(comment) + '" placeholder="AÃ±adir comentario..." ' +
       'style="padding:4px 7px;font-size:10px;" ' +
       'oninput="transformComments[' + idx + ']=this.value" ' +
       'data-transform-idx="' + idx + '">' +
@@ -2534,7 +2547,7 @@ function renderTransformTable() {
 
   // Update stats
   document.getElementById("transform-stats").innerHTML =
-    '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(58,114,172,0.12);border:1px solid rgba(58,114,172,0.28);color:var(--blue);font-weight:700;font-family:var(--font-mono);">' + transformData.length + ' filas</span>' +
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.09);color:var(--blue);font-weight:700;font-family:var(--font-mono);">' + transformData.length + ' filas</span>' +
     '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(42,101,72,0.14);border:1px solid rgba(42,101,72,0.32);color:var(--green);font-weight:700;font-family:var(--font-mono);">' + matched + ' cruzadas</span>' +
     (unmatched > 0 ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(154,53,53,0.12);border:1px solid rgba(154,53,53,0.3);color:var(--red);font-weight:700;font-family:var(--font-mono);">' + unmatched + ' sin cruce</span>' : '');
 
@@ -2550,10 +2563,10 @@ function downloadTransformed() {
   const formattedDate = formatDateForRuteo(dateStr);
   if (!formattedDate) return showToast("Selecciona una fecha primero", true);
 
-  // Build gestión map from dashboard
+  // Build gestiÃ³n map from dashboard
   const gestMap = {};
   rows.forEach(r => {
-    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÓN"] || "";
+    if (r.ISO) gestMap[String(r.ISO).trim().toUpperCase()] = r["GESTIÃ“N"] || "";
   });
 
   let updatedFecha = 0, updatedRef = 0, updatedNotas = 0;
@@ -2567,7 +2580,7 @@ function downloadTransformed() {
     updatedFecha++;
 
     // 2. Update ID_REFERENCIA via ISO cross-reference
-    const isoKey = String(row["ISO"] || row["Título"] || row["TITULO"] || "").trim().toUpperCase();
+    const isoKey = String(row["ISO"] || row["TÃ­tulo"] || row["TITULO"] || "").trim().toUpperCase();
     if (isoKey) {
       const gest = gestMap[isoKey];
       if (gest) {
@@ -2595,8 +2608,9 @@ function downloadTransformed() {
   const filename = "Ruteo_Transformado_" + formattedDate.replace(/-/g,"") + ".xlsx";
   XLSX.writeFile(wb, filename);
 
-  showToast("✓ Descargado: " + updatedFecha + " fechas, " + updatedRef + " gestiones, " + updatedNotas + " notas");
+  showToast("âœ“ Descargado: " + updatedFecha + " fechas, " + updatedRef + " gestiones, " + updatedNotas + " notas");
 }
 </script>
 </body>
 </html>
+
