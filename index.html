@@ -24,96 +24,83 @@ body {
   padding: 24px;
 }
 
-.list {
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   width: 100%;
-  max-width: 480px;
+  max-width: 720px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  border-left: 1px solid rgba(0,0,0,0.08);
 }
 
 a {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  padding: 15px 0;
-  border-bottom: 1px solid rgba(0,0,0,0.07);
+  padding: 20px;
+  border-right: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
   text-decoration: none;
   color: #18181B;
-  gap: 16px;
-  transition: padding-left 0.14s ease;
+  min-height: 110px;
+  background: #FAFAF9;
+  transition: background 0.12s ease;
 }
 
-a:first-child { border-top: 1px solid rgba(0,0,0,0.07); }
-
-a:hover { padding-left: 8px; }
+a:hover { background: #FFFFFF; }
 
 .num {
   font-size: 10px;
   font-family: ui-monospace, monospace;
   color: #A1A1AA;
   letter-spacing: 0.04em;
-  flex-shrink: 0;
-  width: 20px;
 }
 
 .name {
-  font-size: 14px;
-  font-weight: 500;
-  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
-.arrow {
-  color: #A1A1AA;
-  font-size: 16px;
-  transition: transform 0.14s ease, color 0.14s ease;
-  line-height: 1;
-}
-
-a:hover .arrow {
-  transform: translateX(3px);
-  color: #18181B;
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 </head>
 <body>
-<nav class="list">
+<nav class="grid">
   <a href="RUTEOPM.html">
     <span class="num">01</span>
     <span class="name">Ruteo PM</span>
-    <span class="arrow">→</span>
   </a>
   <a href="RUTEOHD.html">
     <span class="num">02</span>
     <span class="name">AM Route Builder</span>
-    <span class="arrow">→</span>
   </a>
   <a href="RUTEO24HRS.html">
     <span class="num">03</span>
     <span class="name">Ruteo 24H</span>
-    <span class="arrow">→</span>
   </a>
   <a href="PREOLAREGIONES.html">
     <span class="num">04</span>
     <span class="name">Asignador PREOLA</span>
-    <span class="arrow">→</span>
   </a>
   <a href="GENERARRESUMEN.html">
     <span class="num">05</span>
     <span class="name">Generar Resumen PM</span>
-    <span class="arrow">→</span>
   </a>
   <a href="ADHERENCIACSV.html">
     <span class="num">06</span>
     <span class="name">Filtro Geosort</span>
-    <span class="arrow">→</span>
   </a>
   <a href="ACTUALIZAROTIF.html">
     <span class="num">07</span>
     <span class="name">Actualizar OTIF</span>
-    <span class="arrow">→</span>
   </a>
   <a href="REPORTERUTAS.html">
     <span class="num">08</span>
     <span class="name">Avance en Ruta</span>
-    <span class="arrow">→</span>
   </a>
 </nav>
 </body>
