@@ -95,12 +95,12 @@ body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:
 </head>
 <body>
 
-<button id="theme-toggle" onclick="(function(){var r=document.documentElement;var t=r.getAttribute('data-theme');var n=t==='light'?'dark':'light';r.setAttribute('data-theme',n);document.getElementById('theme-toggle').textContent=n==='light'?'🌙':'☀️';})()" 
-  style="position:fixed;top:8px;right:14px;z-index:9999;background:var(--bgCard);border:1px solid var(--borderSoft);color:var(--text);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:13px;">🌙</button>
+<button id="theme-toggle" onclick="(function(){var r=document.documentElement;var t=r.getAttribute('data-theme');var n=t==='light'?'dark':'light';r.setAttribute('data-theme',n);document.getElementById('theme-toggle').textContent=n==='light'?'Claro':'Oscuro';})()"
+  style="position:fixed;top:8px;right:14px;z-index:9999;background:var(--bgCard);border:1px solid var(--borderSoft);color:var(--textSub);border-radius:var(--r-sm);padding:3px 9px;cursor:pointer;font-size:10px;font-weight:600;font-family:var(--font-base);letter-spacing:.04em;">Oscuro</button>
 
 <header class="header">
   <div class="header-top">
-    <div class="logo-text">📊 GENERAR RESUMEN PM</div>
+    <div class="logo-text">GENERAR RESUMEN PM</div>
   </div>
   <div class="tabs-container">
     <div class="tabs-wrapper">
@@ -116,18 +116,18 @@ body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:
     <div class="inner-container">
       <div class="grid-2">
         <div class="card" id="card-simpli">
-          <div style="font-weight:600;margin-bottom:8px;color:var(--blue);">INPUT SIMPLIROUTE</div>
+          <div class="field-label" style="color:var(--blue);">INPUT SIMPLIROUTE</div>
           <label class="file-drop" id="drop-simpli">
-            <span style="font-size:24px;">📍</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--textFaint)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
             <span id="lbl-simpli" style="color:var(--textSub);">Subir archivo de SimpliRoute...</span>
             <span id="badge-simpli" class="hidden badge-loaded">✓ CARGADO</span>
             <input type="file" id="file-simpli" accept=".xlsx,.xls,.csv">
           </label>
         </div>
         <div class="card" id="card-conv">
-          <div style="font-weight:600;margin-bottom:8px;color:var(--green);">MATRIZ CONVERSIÓN</div>
+          <div class="field-label" style="color:var(--green);">MATRIZ CONVERSIÓN</div>
           <label class="file-drop" id="drop-conv">
-            <span style="font-size:24px;">🔁</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--textFaint)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
             <span id="lbl-conv" style="color:var(--textSub);">Subir documento de conversión...</span>
             <span id="badge-conv" class="hidden badge-loaded">✓ CARGADO</span>
             <input type="file" id="file-conv" accept=".xlsx,.xls">
@@ -135,7 +135,7 @@ body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:8px;">
-        <button id="btn-process" class="btn btn-primary" style="padding:10px 32px;font-size:12px;border-radius:20px;font-weight:600;">▶ Generar Resumen</button>
+        <button id="btn-process" class="btn btn-primary btn-lg" style="padding:10px 32px;">▶ Generar Resumen</button>
       </div>
       <div id="logs" class="logs-panel hidden"></div>
     </div>
@@ -182,7 +182,7 @@ body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:
       <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto; display:flex; flex-direction:column; align-items:flex-start;">
         <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc; width:100%;">
           <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global (Basado en filtros)</h3>
-          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">📋 Copiar Tabla</button>
+          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">Copiar Tabla</button>
         </div>
         <div style="padding:16px; width:100%; display:flex; justify-content:center;">
           <table class="dash-table" id="mini-table">
@@ -199,7 +199,7 @@ body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:
           <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados Detallada</h3>
           <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Visibles</span>
         </div>
-        <button id="btn-copy" class="btn btn-secondary">📋 Copiar Tabla</button>
+        <button id="btn-copy" class="btn btn-secondary">Copiar Tabla</button>
       </div>
       
       <div class="table-wrap custom-scrollbar" id="main-table-wrap" style="display:flex; flex-direction:column; align-items:center;">

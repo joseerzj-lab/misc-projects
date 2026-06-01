@@ -123,29 +123,28 @@
 <div class="header">
 <div class="header-brand">PREOLA REGIONES</div>
 <div class="tabs">
-<button class="tab active" onclick="switchTab('params')" id="tab-params">⚙️ Parámetros <span class="badge" id="badge-params">0</span></button>
-<button class="tab" onclick="switchTab('results')" id="tab-results">📊 Resultados <span class="badge" id="badge-results">0</span></button>
-<button class="tab" onclick="switchTab('bulk')" id="tab-bulk">📋 Carga Parámetros</button>
+<button class="tab active" onclick="switchTab('params')" id="tab-params">Parámetros <span class="badge" id="badge-params">0</span></button>
+<button class="tab" onclick="switchTab('results')" id="tab-results">Resultados <span class="badge" id="badge-results">0</span></button>
+<button class="tab" onclick="switchTab('bulk')" id="tab-bulk">Carga Parámetros</button>
 </div>
 </div>
 <div class="main">
 <!-- LEFT COLUMN -->
 <div class="gap12" style="align-content:start">
-```
 <!-- UPLOAD -->
 <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
  ondragover="event.preventDefault();this.classList.add('drag')"
  ondragleave="this.classList.remove('drag')"
  ondrop="handleDrop(event)">
 <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden" onchange="handleFile(this.files[0])"/>
-<div class="upload-icon" id="uploadIcon">📂</div>
+<div class="upload-icon" id="uploadIcon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
 <div id="uploadLabel" style="font-weight:800;font-size:14px">Subir PREOLA</div>
 <div id="uploadSub" style="color:var(--text-muted);font-size:11px;margin-top:4px">Arrastra o haz clic · .xlsx</div>
 </div>
 <button class="btn-run hidden" id="btnRun" onclick="handleRun()">▶ EJECUTAR ASIGNACIÓN</button>
 <div id="downloadBtns" class="gap4 hidden">
-<button class="btn btn-green" onclick="downloadPreola()">⬇ PREOLA_ASIGNADO.xlsx</button>
-<button class="btn" onclick="downloadAsignacion()">⬇ preola.xlsx (sin headers)</button>
+<button class="btn btn-green" onclick="downloadPreola()">↓ PREOLA_ASIGNADO.xlsx</button>
+<button class="btn" onclick="downloadAsignacion()">↓ preola.xlsx (sin headers)</button>
 </div>
 <div id="statsArea" class="gap4 hidden">
 <div class="stat-card" style="border:1px solid rgba(227,179,65,.2)">
