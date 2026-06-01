@@ -3,749 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Herramientas — Logística IKEA</title>
-<meta name="description" content="Panel de herramientas internas para gestión de rutas y logística de última milla.">
+<title>Herramientas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:        #FAFAF9;
-  --bgCard:    #FFFFFF;
-  --bgCardAlt: rgba(0,0,0,0.026);
-  --bgHover:   rgba(0,0,0,0.042);
-  --text:      #18181B;
-  --textSub:   #52525B;
-  --textFaint: #A1A1AA;
-  --border:      rgba(0,0,0,0.09);
-  --borderSoft:  rgba(0,0,0,0.06);
-  --blue:   #2563EB;
-  --green:  #16A34A;
-  --orange: #EA580C;
-  --pasteBlue:   #EFF6FF;
-  --pasteGreen:  #F0FDF4;
-  --pasteOrange: #FFF7ED;
-  --pasteGray:   #F4F4F5;
-  --font-base: 'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif;
-  --font-mono: ui-monospace,'Geist Mono',SFMono-Regular,monospace;
-  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-sm: 0 1px 4px rgba(0,0,0,0.05);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
-  --t-fast: 0.12s ease;
-  --t-slow: 0.28s cubic-bezier(0.16,1,0.3,1);
-}
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  font-family: var(--font-base);
-  font-size: 14px;
-  line-height: 1.55;
-  background: var(--bg);
-  color: var(--text);
+
+html, body {
+  height: 100%;
+  background: #FAFAF9;
+  color: #18181B;
+  font-family: 'Plus Jakarta Sans', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
 }
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 3px; }
-
-/* ─── HEADER ──────────────────────────────────────────────── */
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(250,250,249,0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
-.header-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: inherit;
-}
-
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  background: var(--text);
-  border-radius: var(--r-sm);
+body {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  padding: 24px;
 }
 
-.brand-mark svg { color: white; }
-
-.brand-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--text);
+.list {
+  width: 100%;
+  max-width: 480px;
 }
 
-.brand-sub {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--textFaint);
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  text-decoration: none;
+  color: #18181B;
+  gap: 16px;
+  transition: padding-left 0.14s ease;
 }
 
-.header-meta {
-  font-size: 11px;
-  color: var(--textFaint);
-  font-family: var(--font-mono);
+a:first-child { border-top: 1px solid rgba(0,0,0,0.07); }
+
+a:hover { padding-left: 8px; }
+
+.num {
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  color: #A1A1AA;
   letter-spacing: 0.04em;
+  flex-shrink: 0;
+  width: 20px;
 }
 
-/* ─── HERO ────────────────────────────────────────────────── */
-.hero {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 52px 24px 40px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 24px;
-}
-
-@media (max-width: 640px) {
-  .hero { grid-template-columns: 1fr; padding: 36px 20px 28px; }
-  .hero-count { display: none; }
-}
-
-.hero-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--textFaint);
-  margin-bottom: 12px;
-}
-
-.hero-title {
-  font-size: clamp(26px, 4vw, 36px);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-  color: var(--text);
-  max-width: 560px;
-}
-
-.hero-title em {
-  font-style: normal;
-  color: var(--textSub);
-}
-
-.hero-body {
+.name {
   font-size: 14px;
-  color: var(--textSub);
-  margin-top: 14px;
-  max-width: 460px;
-  line-height: 1.65;
+  font-weight: 500;
+  flex: 1;
 }
 
-.hero-count {
-  text-align: right;
-  padding-bottom: 4px;
-}
-
-.count-num {
-  font-size: 44px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  letter-spacing: -0.04em;
-  color: var(--text);
+.arrow {
+  color: #A1A1AA;
+  font-size: 16px;
+  transition: transform 0.14s ease, color 0.14s ease;
   line-height: 1;
 }
 
-.count-lbl {
-  font-size: 11px;
-  color: var(--textFaint);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-top: 4px;
-}
-
-/* ─── DIVIDER ─────────────────────────────────────────────── */
-.section-divider {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
-.divider-line {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0;
-}
-
-/* ─── GRID ────────────────────────────────────────────────── */
-.grid-section {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 32px 24px 48px;
-}
-
-.grid-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  color: var(--textFaint);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.grid-label::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--borderSoft);
-}
-
-/* Bento grid asimétrico */
-.app-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 900px) { .app-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .app-grid { grid-template-columns: 1fr; } }
-
-/* Card featured — ocupa 2 columnas */
-.card-featured {
-  grid-column: span 2;
-}
-
-@media (max-width: 900px) { .card-featured { grid-column: span 2; } }
-@media (max-width: 560px) { .card-featured { grid-column: span 1; } }
-
-/* ─── APP CARD ────────────────────────────────────────────── */
-.app-card {
-  background: var(--bgCard);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  text-decoration: none;
-  color: inherit;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast), transform 0.16s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.app-card:hover {
-  border-color: rgba(0,0,0,0.16);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.app-card:active { transform: translateY(0); }
-
-/* Pill de categoría */
-.app-category {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: var(--r-sm);
-  font-size: 10px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  border: 1px solid;
-  margin-bottom: 16px;
-  width: fit-content;
-}
-
-.cat-ruteo   { background: var(--pasteBlue);   color: var(--blue);   border-color: rgba(37,99,235,0.18);  }
-.cat-analisis{ background: var(--pasteGreen);  color: var(--green);  border-color: rgba(22,163,74,0.18);  }
-.cat-gestion { background: var(--pasteOrange); color: var(--orange); border-color: rgba(234,88,12,0.18);  }
-
-/* Icono del app */
-.app-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--bgCardAlt);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
-  color: var(--textSub);
-  flex-shrink: 0;
-}
-
-.card-featured .app-icon {
-  width: 40px;
-  height: 40px;
-}
-
-/* Nombre */
-.app-name {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--text);
-  margin-bottom: 6px;
-  line-height: 1.2;
-}
-
-.card-featured .app-name { font-size: 18px; }
-
-/* Descripción */
-.app-desc {
-  font-size: 12px;
-  color: var(--textSub);
-  line-height: 1.65;
-  flex: 1;
-}
-
-.card-featured .app-desc { font-size: 13px; }
-
-/* Footer de la card: meta + acción */
-.app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--borderSoft);
-  gap: 8px;
-}
-
-.app-meta {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--textFaint);
-  letter-spacing: 0.03em;
-}
-
-.app-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text);
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bgCardAlt);
-  text-decoration: none;
-  transition: background var(--t-fast), border-color var(--t-fast), transform 0.10s ease;
-  white-space: nowrap;
-}
-
-.app-link:hover {
-  background: var(--text);
-  color: white;
-  border-color: var(--text);
-  transform: translateY(-1px);
-}
-
-.app-link svg { transition: transform var(--t-fast); }
-.app-link:hover svg { transform: translateX(2px); }
-
-/* Featured card — fondo sutilmente diferente */
-.card-featured {
-  background: #FFFFFF;
-}
-
-.card-featured .app-footer {
-  margin-top: 20px;
-}
-
-/* Tag de "requiere internet" */
-.req-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9px;
-  font-weight: 500;
-  font-family: var(--font-mono);
-  color: var(--textFaint);
-  padding: 2px 6px;
-  border: 1px solid var(--borderSoft);
-  border-radius: var(--r-sm);
-  background: var(--bgCardAlt);
-}
-
-/* ─── FOOTER ──────────────────────────────────────────────── */
-.footer {
-  border-top: 1px solid var(--border);
-  margin-top: auto;
-}
-
-.footer-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 20px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.footer-note {
-  font-size: 11px;
-  color: var(--textFaint);
-  font-family: var(--font-mono);
-}
-
-/* ─── ANIMACIONES ─────────────────────────────────────────── */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.app-card {
-  animation: fadeInUp 0.36s cubic-bezier(0.16,1,0.3,1) both;
-}
-
-/* Stagger por posición con CSS custom property */
-.app-card:nth-child(1) { animation-delay: 0.04s; }
-.app-card:nth-child(2) { animation-delay: 0.10s; }
-.app-card:nth-child(3) { animation-delay: 0.14s; }
-.app-card:nth-child(4) { animation-delay: 0.18s; }
-.app-card:nth-child(5) { animation-delay: 0.22s; }
-.app-card:nth-child(6) { animation-delay: 0.26s; }
-.app-card:nth-child(7) { animation-delay: 0.30s; }
-.app-card:nth-child(8) { animation-delay: 0.34s; }
-
-@media (prefers-reduced-motion: reduce) {
-  .app-card { animation: none; }
+a:hover .arrow {
+  transform: translateX(3px);
+  color: #18181B;
 }
 </style>
 </head>
 <body>
-
-<!-- HEADER -->
-<header class="header">
-  <div class="header-inner">
-    <a href="#" class="brand">
-      <div class="brand-mark">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <rect x="1" y="1" width="6" height="6" rx="1" fill="white" opacity="0.9"/>
-          <rect x="9" y="1" width="6" height="6" rx="1" fill="white" opacity="0.6"/>
-          <rect x="1" y="9" width="6" height="6" rx="1" fill="white" opacity="0.6"/>
-          <rect x="9" y="9" width="6" height="6" rx="1" fill="white" opacity="0.9"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">Logística Tools</div>
-      </div>
-    </a>
-    <span class="header-meta">8 herramientas</span>
-  </div>
-</header>
-
-<!-- HERO -->
-<section class="hero">
-  <div>
-    <p class="hero-label">Panel de herramientas internas</p>
-    <h1 class="hero-title">Ruteo y análisis<br><em>de última milla</em></h1>
-    <p class="hero-body">
-      Herramientas para gestión de rutas, generación de reportes
-      y análisis de adherencia. Todas corren en el navegador, sin instalación.
-    </p>
-  </div>
-  <div class="hero-count">
-    <div class="count-num">8</div>
-    <div class="count-lbl">Apps</div>
-  </div>
-</section>
-
-<div class="section-divider"><hr class="divider-line"></div>
-
-<!-- GRID -->
-<main class="grid-section">
-
-  <!-- RUTEO -->
-  <p class="grid-label">Ruteo</p>
-  <div class="app-grid">
-
-    <!-- RUTEOPM — featured -->
-    <a class="app-card card-featured" href="RUTEOPM.html">
-      <span class="app-category cat-ruteo">Ruteo</span>
-      <div class="app-icon">
-        <!-- table/spreadsheet icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <line x1="3" y1="9" x2="21" y2="9"/>
-          <line x1="3" y1="15" x2="21" y2="15"/>
-          <line x1="9" y1="9" x2="9" y2="21"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Ruteo PM</h2>
-      <p class="app-desc">
-        Tabla spreadsheet para construir y gestionar rutas de entrega PM.
-        Guarda proyectos comprimidos en el navegador, detecta duplicados
-        de órdenes y exporta rutas formateadas a Excel.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX · lz-string</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- RUTEOHD -->
-    <a class="app-card" href="RUTEOHD.html">
-      <span class="app-category cat-ruteo">Ruteo</span>
-      <div class="app-icon">
-        <!-- sun / AM icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4"/>
-          <line x1="12" y1="2" x2="12" y2="5"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-          <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
-          <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
-          <line x1="2" y1="12" x2="5" y2="12"/>
-          <line x1="19" y1="12" x2="22" y2="12"/>
-        </svg>
-      </div>
-      <h2 class="app-name">AM Route Builder</h2>
-      <p class="app-desc">
-        Construye rutas de entrega matutinas importando órdenes desde Excel
-        y exportando hojas de ruta listas para el conductor.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- RUTEO24HRS -->
-    <a class="app-card" href="RUTEO24HRS.html">
-      <span class="app-category cat-ruteo">Ruteo</span>
-      <div class="app-icon">
-        <!-- clock icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/>
-          <polyline points="12 7 12 12 15 15"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Ruteo 24H</h2>
-      <p class="app-desc">
-        Motor de ruteo para el ciclo de 24 horas. Importa órdenes,
-        asigna ventanas horarias y exporta rutas consolidadas.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX · Lucide</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-  </div><!-- /app-grid -->
-
-  <!-- ANÁLISIS & REPORTES -->
-  <p class="grid-label" style="margin-top:32px">Análisis y reportes</p>
-  <div class="app-grid">
-
-    <!-- GENERARRESUMEN — featured -->
-    <a class="app-card card-featured" href="GENERARRESUMEN.html">
-      <span class="app-category cat-analisis">Análisis</span>
-      <div class="app-icon">
-        <!-- document icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="8" y1="13" x2="16" y2="13"/>
-          <line x1="8" y1="17" x2="13" y2="17"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Generar Resumen PM</h2>
-      <p class="app-desc">
-        Consolida múltiples archivos de entregas PM en un resumen unificado.
-        Acepta archivos Excel y texto pegado, genera el reporte
-        listo para reportar a coordinación.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX · CSV</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- ADHERENCIACSV -->
-    <a class="app-card" href="ADHERENCIACSV.html">
-      <span class="app-category cat-analisis">Análisis</span>
-      <div class="app-icon">
-        <!-- filter icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Filtro Geosort</h2>
-      <p class="app-desc">
-        Filtra y procesa reportes de adherencia de rutas exportados
-        desde Geosort para clientes IKEA. Exporta Excel limpio.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- REPORTERUTAS -->
-    <a class="app-card" href="REPORTERUTAS.html">
-      <span class="app-category cat-analisis">Análisis</span>
-      <div class="app-icon">
-        <!-- bar chart icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6"  y1="20" x2="6"  y2="14"/>
-          <line x1="2"  y1="20" x2="22" y2="20"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Avance en Ruta</h2>
-      <p class="app-desc">
-        Visualiza el avance de rutas activas con gráficos de Recharts.
-        Construido con React 18 en el navegador.
-      </p>
-      <div class="app-footer">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span class="app-meta">React · Recharts</span>
-          <span class="req-tag">
-            <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="7"/></svg>
-            online
-          </span>
-        </div>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-  </div><!-- /app-grid -->
-
-  <!-- GESTIÓN -->
-  <p class="grid-label" style="margin-top:32px">Gestión</p>
-  <div class="app-grid">
-
-    <!-- PREOLAREGIONES — featured -->
-    <a class="app-card card-featured" href="PREOLAREGIONES.html">
-      <span class="app-category cat-gestion">Gestión</span>
-      <div class="app-icon">
-        <!-- map pin icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Asignador PREOLA</h2>
-      <p class="app-desc">
-        Asigna rutas y capacidades a regiones y facilidades con
-        parámetros configurables por zona. Persistencia de configuración
-        entre sesiones con versionado automático.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX · localStorage</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- ACTUALIZAROTIF -->
-    <a class="app-card" href="ACTUALIZAROTIF.html">
-      <span class="app-category cat-gestion">Gestión</span>
-      <div class="app-icon">
-        <!-- refresh icon -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-      </div>
-      <h2 class="app-name">Actualizar OTIF</h2>
-      <p class="app-desc">
-        Actualiza las métricas OTIF cargando el archivo de seguimiento
-        desde Excel. Calcula variaciones y muestra resumen de estado.
-      </p>
-      <div class="app-footer">
-        <span class="app-meta">XLSX</span>
-        <span class="app-link">
-          Abrir
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </span>
-      </div>
-    </a>
-
-    <!-- Slot vacío decorativo -->
-    <div style="border:1px dashed var(--borderSoft);border-radius:var(--r-xl);display:flex;align-items:center;justify-content:center;min-height:140px;color:var(--textFaint);">
-      <span style="font-size:11px;font-family:var(--font-mono);letter-spacing:0.06em;">próximamente</span>
-    </div>
-
-  </div><!-- /app-grid -->
-
-</main>
-
-<!-- FOOTER -->
-<footer class="footer">
-  <div class="footer-inner">
-    <span class="footer-note">Logística Tools — uso interno</span>
-    <span class="footer-note">Todos los datos se procesan localmente en el navegador</span>
-  </div>
-</footer>
-
+<nav class="list">
+  <a href="RUTEOPM.html">
+    <span class="num">01</span>
+    <span class="name">Ruteo PM</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="RUTEOHD.html">
+    <span class="num">02</span>
+    <span class="name">AM Route Builder</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="RUTEO24HRS.html">
+    <span class="num">03</span>
+    <span class="name">Ruteo 24H</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="PREOLAREGIONES.html">
+    <span class="num">04</span>
+    <span class="name">Asignador PREOLA</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="GENERARRESUMEN.html">
+    <span class="num">05</span>
+    <span class="name">Generar Resumen PM</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="ADHERENCIACSV.html">
+    <span class="num">06</span>
+    <span class="name">Filtro Geosort</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="ACTUALIZAROTIF.html">
+    <span class="num">07</span>
+    <span class="name">Actualizar OTIF</span>
+    <span class="arrow">→</span>
+  </a>
+  <a href="REPORTERUTAS.html">
+    <span class="num">08</span>
+    <span class="name">Avance en Ruta</span>
+    <span class="arrow">→</span>
+  </a>
+</nav>
 </body>
 </html>
