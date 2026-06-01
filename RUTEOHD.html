@@ -59,7 +59,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-base);min-hei
   cursor:pointer;transition:background var(--t-normal),border-color var(--t-normal);text-align:center;background:var(--bgCardAlt);
 }
 .upload-zone:hover{background:var(--accentBg);border-color:rgba(37,99,235,0.35)}
-.upload-zone .icon{font-size:1.8rem;color:var(--textFaint)}
+.upload-zone .icon{color:var(--textFaint);display:flex;align-items:center;justify-content:center}
 .upload-zone .fname{font-size:11px;font-weight:600;word-break:break-all;max-width:200px;color:var(--textSub)}
 .tag-ok{font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;text-align:center;margin-top:5px;letter-spacing:0.05em}
 input[type=date],input[type=text]{
@@ -90,7 +90,7 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 .btn-yellow{background:var(--pasteOrange);color:var(--orange);border-color:rgba(234,88,12,0.18)}
 .btn-yellow:hover:not(:disabled){background:rgba(234,88,12,0.12)}
 .btn-full{width:100%}
-.btn-pill{border-radius:999px;padding:9px 28px}
+.btn-pill{padding:9px 28px}
 .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .btn-stack{display:flex;flex-direction:column;gap:8px}
 .lbl-section{font-size:10px;font-weight:600;color:var(--textFaint);text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px}
@@ -119,13 +119,13 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 </head>
 <body>
 <div id="header">
-<div class="brand"><span>📦</span>Rutear HD+PV+PR</div>
+<div class="brand">Rutear HD+PV+PR</div>
 <div id="tabs">
-<button class="tab-btn active" data-tab="archivos">📁 Cargar Archivos</button>
-<button class="tab-btn" data-tab="preruteo">📋 Pre Ruteo</button>
-<button class="tab-btn" data-tab="postruteo">⚙️ Post Ruteo</button>
-<button class="tab-btn" data-tab="exports">🚀 Exportar</button>
-<button class="tab-btn" data-tab="correo">✉️ Generar Correo</button>
+<button class="tab-btn active" data-tab="archivos">Cargar Archivos</button>
+<button class="tab-btn" data-tab="preruteo">Pre Ruteo</button>
+<button class="tab-btn" data-tab="postruteo">Post Ruteo</button>
+<button class="tab-btn" data-tab="exports">Exportar</button>
+<button class="tab-btn" data-tab="correo">Generar Correo</button>
 </div>
 </div>
 <div id="main">
@@ -133,15 +133,14 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 <div id="tab-archivos" class="tab-section active panel">
 <div class="grid2">
 <div class="card" style="display:flex;flex-direction:column;gap:16px">
-<div class="lbl-blue">📁 Archivo Base SCI <span style="color:#f87171;font-weight:900">!</span></div>
+<div class="lbl-blue">Archivo Base SCI <span style="color:#f87171;font-weight:900">!</span></div>
 <label class="upload-zone" for="inp-f1">
-<div class="icon">📄</div>
+<div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
 <div class="fname" id="f1-name">Base SCI</div>
 <input type="file" id="inp-f1" accept=".xlsx,.xls" style="display:none"/>
 </label>
 <div class="tag-ok" id="f1-tag" style="display:none"></div>
 </div>
-```
 <div style="display:flex;flex-direction:column;gap:16px">
 <div class="card">
 <div class="lbl-blue">Fecha de Picking</div>
@@ -185,7 +184,7 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 <div class="card" style="width:100%;display:flex;flex-direction:column;gap:20px">
 <div class="lbl-blue">Plan de SimpliRoute</div>
 <label class="upload-zone" for="inp-simpli">
-<span class="icon">📁</span>
+<span class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>
 <div style="flex:1;min-width:0">
 <div style="font-size:13px;font-weight:700;word-break:break-all" id="simpli-name">Cargar Plan Finalizado</div>
 <div style="font-size:10px;opacity:.4">Archivo exportado de SimpliRoute</div>

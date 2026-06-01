@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Avance en Ruta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -17,7 +19,7 @@
 <style>
 :root{--ar-bg:#f6f8fa;--ar-bg-card:#ffffff;--ar-bg-card-alt:#f6f8fa;--ar-bg-hover:rgba(0,0,0,0.04);--ar-bg-active:rgba(0,0,0,0.06);--ar-text:#1f2328;--ar-text-sub:#3d444d;--ar-text-muted:#636c76;--ar-text-faint:#818b98;--ar-text-disabled:#adb5bd;--ar-border:rgba(0,0,0,0.09);--ar-border-soft:rgba(0,0,0,0.05)}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body,#root{height:100%;width:100%;overflow:hidden;font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f6f8fa;color:#1f2328}
+html,body,#root{height:100%;width:100%;overflow:hidden;font-family:'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;background:#f6f8fa;color:#1f2328}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:99px}
@@ -59,18 +61,18 @@ const C = {
   purple:'#b19cd9',purpleBg:'rgba(177,156,217,0.12)',purpleBorder:'rgba(177,156,217,0.25)',
   teal:'#2dd4bf',tealBg:'rgba(45,212,191,0.1)',tealBorder:'rgba(45,212,191,0.25)'
 };
-const T = {fontFamily:'"Inter",system-ui,-apple-system,sans-serif',fontMono:'"JetBrains Mono","Fira Code",monospace',xs:9,sm:10,base:11,md:12,lg:13,xl:15};
+const T = {fontFamily:'"Plus Jakarta Sans","Helvetica Neue",system-ui,-apple-system,sans-serif',fontMono:'"JetBrains Mono","Fira Code",monospace',xs:9,sm:10,base:11,md:12,lg:13,xl:15};
 const R = {sm:4,md:8,lg:10,xl:12,pill:20,full:9999};
 const SP = {1:4,2:8,3:12,4:16,5:20,6:24};
 
 const REPORT_TABS = [
-  {id:'carga',label:'Cargar Datos',icon:'📁',badgeVariant:'blue'},
-  {id:'reporte',label:'Tabla de Datos',icon:'📋',badgeVariant:'green'},
-  {id:'grafico',label:'Gráfico Interactivo',icon:'📊',badgeVariant:'purple'},
-  {id:'resumen',label:'Avance en Ruta',icon:'📝',badgeVariant:'yellow'},
-  {id:'isos',label:'ISOs por camion',icon:'🚚',badgeVariant:'orange'},
-  {id:'incidencias',label:'Incidencias',icon:'🚨',badgeVariant:'red'},
-  {id:'consultar',label:'Consultar ISOs',icon:'🔍',badgeVariant:'teal'},
+  {id:'carga',label:'Cargar Datos',icon:'',badgeVariant:'blue'},
+  {id:'reporte',label:'Tabla de Datos',icon:'',badgeVariant:'green'},
+  {id:'grafico',label:'Gráfico Interactivo',icon:'',badgeVariant:'purple'},
+  {id:'resumen',label:'Avance en Ruta',icon:'',badgeVariant:'yellow'},
+  {id:'isos',label:'ISOs por camion',icon:'',badgeVariant:'orange'},
+  {id:'incidencias',label:'Incidencias',icon:'!',badgeVariant:'red'},
+  {id:'consultar',label:'Consultar ISOs',icon:'',badgeVariant:'teal'},
 ];
 
 // Recharts
@@ -81,15 +83,15 @@ const motion = {div: 'div', tr: 'tr', span: 'span', button: 'button', img: 'img'
 const AnimatePresence = ({children}) => children;
 // Lucide
 const LucideIcons = window.lucideReact || {};
-const Search = LucideIcons.Search || (()=>React.createElement('span',null,'🔍'));
+const Search = LucideIcons.Search || (()=>React.createElement('span',null,''));
 const X_Icon = LucideIcons.X || (()=>React.createElement('span',null,'✕'));
-const Copy = LucideIcons.Copy || (()=>React.createElement('span',null,'📋'));
+const Copy = LucideIcons.Copy || (()=>React.createElement('span',null,''));
 const Maximize2 = LucideIcons.Maximize2 || (()=>React.createElement('span',null,'⛶'));
-const FileDown = LucideIcons.FileDown || (()=>React.createElement('span',null,'💾'));
-const FileSpreadsheet = LucideIcons.FileSpreadsheet || (()=>React.createElement('span',null,'📄'));
+const FileDown = LucideIcons.FileDown || (()=>React.createElement('span',null,''));
+const FileSpreadsheet = LucideIcons.FileSpreadsheet || (()=>React.createElement('span',null,''));
 const AlertTriangle = LucideIcons.AlertTriangle || (()=>React.createElement('span',null,'⚠'));
-const Truck = LucideIcons.Truck || (()=>React.createElement('span',null,'🚚'));
-const ImageIcon = LucideIcons.Image || (()=>React.createElement('span',null,'🖼'));
+const Truck = LucideIcons.Truck || (()=>React.createElement('span',null,''));
+const ImageIcon = LucideIcons.Image || (()=>React.createElement('span',null,'[img]'));
 const ChevronDown = LucideIcons.ChevronDown || (()=>React.createElement('span',null,'▼'));
 const ZoomIn = LucideIcons.ZoomIn || (()=>React.createElement('span',null,'+'));
 const ZoomOut = LucideIcons.ZoomOut || (()=>React.createElement('span',null,'-'));
@@ -122,13 +124,13 @@ function pillStyle(level,extra){const map={high:{bg:C.redBg,color:C.red,border:C
 function Badge({variant='muted',style:sx,children}){return <span style={pillStyle(variant,sx)}>{children}</span>}
 
 function Btn({onClick,variant='secondary',style:sx,disabled,children,...rest}){
-  const BTN={primary:{background:'linear-gradient(135deg,#0051BA,#1a6dd4)',color:'#fff',border:'1px solid rgba(56,139,253,0.4)',boxShadow:'0 4px 12px rgba(0,81,186,0.3)'},secondary:{background:'rgba(0,0,0,0.03)',color:TC.textSub,border:`1px solid ${TC.border}`},ghost:{background:'transparent',color:TC.textFaint,border:'1px solid transparent'},danger:{background:C.redBg,color:C.red,border:`1px solid ${C.redBorder}`},success:{background:C.greenBg,color:C.green,border:`1px solid ${C.greenBorder}`},warning:{background:C.orangeBg,color:C.orange,border:`1px solid ${C.orangeBorder}`},blue:{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueBorder}`}};
+  const BTN={primary:{background:'#18181B',color:'#fff',border:'1px solid rgba(0,0,0,0.06)'},secondary:{background:'rgba(0,0,0,0.03)',color:TC.textSub,border:`1px solid ${TC.border}`},ghost:{background:'transparent',color:TC.textFaint,border:'1px solid transparent'},danger:{background:C.redBg,color:C.red,border:`1px solid ${C.redBorder}`},success:{background:C.greenBg,color:C.green,border:`1px solid ${C.greenBorder}`},warning:{background:C.orangeBg,color:C.orange,border:`1px solid ${C.orangeBorder}`},blue:{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueBorder}`}};
   const b=BTN[variant]||BTN.secondary;
   return <button onClick={onClick} disabled={disabled} style={{...b,fontSize:T.base,padding:'5px 12px',borderRadius:R.md,height:30,fontWeight:700,cursor:disabled?'not-allowed':'pointer',opacity:disabled?0.5:1,fontFamily:T.fontFamily,display:'inline-flex',alignItems:'center',gap:4,transition:'all 0.15s',...sx}} {...rest}>{children}</button>
 }
 
 function Card({style:sx,children,...rest}){
-  return <div style={{borderRadius:R.lg,border:`1px solid ${TC.border}`,background:TC.bgCard,boxShadow:'0 4px 24px rgba(0,0,0,0.08)',overflow:'hidden',padding:16,...sx}} {...rest}>{children}</div>
+  return <div style={{borderRadius:R.lg,border:`1px solid ${TC.border}`,background:TC.bgCard,overflow:'hidden',padding:16,...sx}} {...rest}>{children}</div>
 }
 
 function DropdownMenu({children,options,closeOnSelect=true}){
@@ -142,11 +144,13 @@ function DropdownMenu({children,options,closeOnSelect=true}){
   </div>
 }
 
-function GlassHeader({appName,icon,tabs,activeTab,onTabChange,badges}){
-  return <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:48,background:'rgba(255,255,255,0.95)',borderBottom:`1px solid ${TC.borderSoft}`,backdropFilter:'blur(12px)',gap:16,flexShrink:0}}>
-    <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>{icon}</span><span style={{fontSize:13,fontWeight:900,letterSpacing:'-0.02em',color:TC.text}}>{appName}</span></div>
-    <div style={{display:'flex',gap:2,marginLeft:16,flex:1}}>
-      {tabs.map(t=>{const isActive=activeTab===t.id;return <button key={t.id} onClick={()=>onTabChange(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 14px',borderRadius:R.pill,border:'none',background:isActive?'#0051BA':'transparent',color:isActive?'#fff':TC.textMuted,fontSize:10,fontWeight:700,cursor:'pointer',transition:'all 0.15s',fontFamily:T.fontFamily}}><span>{t.icon}</span>{t.label}{badges&&badges[t.id]>0&&<span style={{background:isActive?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.06)',padding:'1px 6px',borderRadius:99,fontSize:9,fontWeight:800}}>{badges[t.id]}</span>}</button>})}
+function GlassHeader({appName,tabs,activeTab,onTabChange,badges}){
+  return <div style={{display:'flex',flexDirection:'column',background:'#fff',borderBottom:`1px solid rgba(0,0,0,0.09)`,boxShadow:'0 1px 2px rgba(0,0,0,0.04)',flexShrink:0}}>
+    <div style={{display:'flex',alignItems:'center',padding:'0 14px',height:36,borderBottom:`1px solid rgba(0,0,0,0.06)`}}>
+      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.09em',color:'#A1A1AA',textTransform:'uppercase',fontFamily:T.fontFamily}}>{appName}</span>
+    </div>
+    <div style={{display:'flex',padding:'0 6px'}}>
+      {tabs.map(t=>{const isActive=activeTab===t.id;return <button key={t.id} onClick={()=>onTabChange(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 13px',border:'none',borderBottom:isActive?'2px solid #18181B':'2px solid transparent',borderRadius:'4px 4px 0 0',background:'transparent',color:isActive?'#18181B':'#A1A1AA',fontSize:11,fontWeight:isActive?600:500,cursor:'pointer',transition:'color 0.12s,background 0.12s,border-color 0.12s',fontFamily:T.fontFamily,marginBottom:'-1px',whiteSpace:'nowrap'}} onMouseEnter={e=>{if(!isActive){e.currentTarget.style.color='#52525B';e.currentTarget.style.background='rgba(0,0,0,0.042)'}}} onMouseLeave={e=>{if(!isActive){e.currentTarget.style.color='#A1A1AA';e.currentTarget.style.background='transparent'}}}>{t.label}{badges&&badges[t.id]>0&&<span style={{background:'#F4F4F5',padding:'1px 5px',borderRadius:3,fontSize:9,fontWeight:800,color:'#52525B',border:'1px solid rgba(0,0,0,0.09)',fontFamily:T.fontMono}}>{badges[t.id]}</span>}</button>})}
     </div>
   </div>
 }
@@ -195,7 +199,7 @@ function TableModal({isOpen,onClose,title,subtitle,data:mData,columns,isConflict
   let rMin=-1,rMax=-1,cMin=-1,cMax=-1;if(sel.start&&sel.end){rMin=Math.min(sel.start.r,sel.end.r);rMax=Math.max(sel.start.r,sel.end.r);cMin=Math.min(sel.start.c,sel.end.c);cMax=Math.max(sel.start.c,sel.end.c)}
   return <div style={{position:'fixed',inset:0,zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center'}}>
     <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}}/>
-    <div style={{position:'relative',zIndex:1,width:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:16,border:`1px solid ${TC.border}`,boxShadow:'0 20px 60px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+    <div style={{position:'relative',zIndex:1,width:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:10,border:`1px solid ${TC.border}`,boxShadow:'0 16px 40px rgba(0,0,0,0.08)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <div style={{padding:'16px 24px',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div><div style={{fontWeight:800,fontSize:14,color:TC.text}}>{title}</div>{subtitle&&<div style={{fontSize:10,color:TC.textMuted,marginTop:2}}>{subtitle}</div>}</div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -247,14 +251,14 @@ function TabIncidencias({incidencias,selectedRegions}){
 
   return <div style={{height:'100%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
     <div style={{padding:'12px 24px',display:'flex',alignItems:'center',gap:12,borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,flexShrink:0}}>
-      <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:16}}>🚨</span><span style={{fontSize:13,fontWeight:800,color:TC.text}}>Incidencias</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:16}}>!</span><span style={{fontSize:13,fontWeight:800,color:TC.text}}>Incidencias</span></div>
       <Badge variant="high">{totalInc} incidencias</Badge>
       <Badge variant="purple">{totalFotos} fotos</Badge>
       <div style={{flex:1}}/>
       <input value={filterPat} onChange={e=>setFilterPat(e.target.value)} placeholder="Buscar patente o ISO..." style={{border:`1px solid ${TC.border}`,borderRadius:R.pill,padding:'5px 14px',fontSize:T.sm,width:250,outline:'none',fontFamily:T.fontFamily,color:TC.text}}/>
     </div>
     <div style={{flex:1,overflow:'auto',padding:24}}>
-      {filtered.length===0?<div style={{textAlign:'center',padding:60,opacity:0.3}}><div style={{fontSize:48}}>🚨</div><div style={{fontWeight:700,marginTop:8}}>No hay incidencias</div></div>:
+      {filtered.length===0?<div style={{textAlign:'center',padding:60,opacity:0.3}}><div style={{fontSize:48}}>!</div><div style={{fontWeight:700,marginTop:8}}>No hay incidencias</div></div>:
       <div style={{display:'flex',flexDirection:'column',gap:16}}>
         {filtered.map(pat=>{const d=incidencias[pat];const isExp=expandedPats.has(pat);return <Card key={pat} style={{padding:0}}>
           <div onClick={(e)=>togglePat(pat,e)} style={{padding:'12px 20px',borderBottom:isExp?`1px solid ${TC.borderSoft}`:'none',display:'flex',alignItems:'center',gap:12,background:isExp?'rgba(0,0,0,0.02)':'transparent',cursor:'pointer',transition:'background 0.2s'}}>
@@ -274,7 +278,7 @@ function TabIncidencias({incidencias,selectedRegions}){
                 <Badge variant="medium">{ev.motivo}</Badge>
                 <Badge variant="muted">{ev.estado}</Badge>
               </div>
-              {ev.comentario&&<div style={{fontSize:10,color:TC.textMuted,marginBottom:8,fontStyle:'italic'}}>💬 {ev.comentario}</div>}
+              {ev.comentario&&<div style={{fontSize:10,color:TC.textMuted,marginBottom:8,fontStyle:'italic'}}>{ev.comentario}</div>}
               {ev.fotos.length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {ev.fotos.map((f,fi)=><img key={fi} src={getDirectUrl(f)} alt="" onClick={()=>setImgModal({open:true,images:ev.fotos,index:fi})} style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:`2px solid ${TC.borderSoft}`,cursor:'pointer',transition:'transform 0.15s'}} onMouseEnter={e=>e.currentTarget.style.transform='scale(1.05)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'} onError={e=>{e.target.style.display='none'}}/>)}
               </div>}
@@ -533,7 +537,7 @@ function ReporteRutas(){
   //  RENDER
   // ════════════════════════════════════════════════════════
   return <div style={{height:'100%',display:'flex',flexDirection:'column',background:TC.bg}}>
-    <GlassHeader appName="REPORTE DE RUTAS" icon="📊" tabs={REPORT_TABS} activeTab={activeTab} onTabChange={id=>setActiveTab(id)} badges={{reporte:data?.regions?Object.keys(data.regions).length:0}}/>
+    <GlassHeader appName="REPORTE DE RUTAS" icon="" tabs={REPORT_TABS} activeTab={activeTab} onTabChange={id=>setActiveTab(id)} badges={{reporte:data?.regions?Object.keys(data.regions).length:0}}/>
     <div style={{flex:1,overflow:'hidden',position:'relative',background:TC.bg}}>
 
 {/* ─── TAB: CARGA ─── */}
@@ -541,7 +545,7 @@ function ReporteRutas(){
   <div style={{maxWidth:600,width:'100%'}}>
     <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
       <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:80,cursor:'pointer',border:'2px dashed rgba(56,189,248,.2)',borderRadius:12,transition:'all 0.2s'}}>
-        <div style={{fontSize:60}}>📂</div>
+        <div style={{fontSize:60}}></div>
         <div style={{textAlign:'center'}}>
           <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:TC.text}}>Cargar Reporte de Operación</div>
           <div style={{fontSize:11,textTransform:'uppercase',letterSpacing:3,opacity:0.4,fontWeight:700,marginBottom:24,color:TC.text}}>CSV · UTF-8</div>
@@ -559,7 +563,7 @@ function ReporteRutas(){
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:24}}>
       <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
         <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
-          <div style={{fontSize:24}}>📅</div>
+          <div style={{fontSize:24}}></div>
           <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Planificación</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
           <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handlePlanFile}/>
           {planData&&<Badge variant="blue" style={{marginTop:8}}>✓ {planData.fileName}</Badge>}
@@ -567,7 +571,7 @@ function ReporteRutas(){
       </Card>
       <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
         <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
-          <div style={{fontSize:24}}>🔄</div>
+          <div style={{fontSize:24}}></div>
           <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Conversión</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
           <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handleConvFile}/>
           {convData&&<Badge variant="blue" style={{marginTop:8}}>✓ {convData.fileName}</Badge>}
@@ -580,15 +584,15 @@ function ReporteRutas(){
 {/* ─── TAB: REPORTE ─── */}
 {activeTab==='reporte'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
   <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
-    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📊</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
     {/* Toolbar */}
     <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:`1px solid rgba(0,0,0,0.05)`,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
       <div style={{display:'flex',padding:4,borderRadius:99,background:'rgba(0,0,0,0.05)',border:`1px solid ${TC.border}`}}>
-        <button onClick={()=>setViewMode('numbers')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='numbers'?'#2563eb':'transparent',color:viewMode==='numbers'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>🔢 Números</button>
-        <button onClick={()=>setViewMode('pct')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='pct'?'#2563eb':'transparent',color:viewMode==='pct'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>📈 Porcentajes</button>
+        <button onClick={()=>setViewMode('numbers')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='numbers'?'#2563eb':'transparent',color:viewMode==='numbers'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>Números</button>
+        <button onClick={()=>setViewMode('pct')} style={{fontSize:10,fontWeight:700,padding:'8px 20px',borderRadius:99,border:'none',cursor:'pointer',background:viewMode==='pct'?'#2563eb':'transparent',color:viewMode==='pct'?'#fff':TC.textMuted,transition:'all 0.15s',fontFamily:T.fontFamily}}>Porcentajes</button>
       </div>
       <DropdownMenu closeOnSelect={false} options={[{label:'Todas las Regiones',onClick:()=>setSelectedRegions(new Set(allRegions)),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},{label:'Ninguna',onClick:()=>setSelectedRegions(new Set()),Icon:<span>✕</span>},...allRegions.map(r=>({label:r,onClick:()=>setSelectedRegions(prev=>{const n=new Set(prev);n.has(r)?n.delete(r):n.add(r);return n}),Icon:<div style={{width:12,height:12,borderRadius:99,background:selectedRegions.has(r)?'#3b82f6':'rgba(0,0,0,0.1)'}}/>}))]}>
-        <span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Regiones ({selectedRegions.size})</span>
+        <span style={{fontSize:10,fontWeight:700,color:TC.text}}>Regiones ({selectedRegions.size})</span>
       </DropdownMenu>
       <div style={{flex:1}}/>
       <div style={{marginLeft:'auto',display:'flex',gap:8}}>
@@ -598,7 +602,7 @@ function ReporteRutas(){
     </div>
     {/* Alerts */}
     {data.hasConflicts&&showConflictAlert&&<div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.25)',borderRadius:12,padding:12,display:'flex',alignItems:'center',gap:12,position:'relative'}}><AlertTriangle size={18} style={{color:'#f97316',flexShrink:0}}/><div style={{fontSize:13,paddingRight:32,color:TC.text}}><strong>⚠️ Conflictos de Estado:</strong> Hay ParentOrders con múltiples estados simultáneos.</div><button onClick={()=>setShowConflictAlert(false)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',padding:8,background:'none',border:'none',cursor:'pointer',color:'rgba(249,115,22,0.5)',fontSize:14}}>✕</button></div>}
-    {data.auditRisk&&Object.keys(data.auditRisk).length>0&&<div style={{background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:12,padding:12,display:'flex',alignItems:'center',gap:12}}><Truck size={18} style={{color:'#ef4444',flexShrink:0}}/><div style={{fontSize:13,color:TC.text}}><strong>🔍 Auditoría Geográfica:</strong> Se han detectado rutas con riesgo de Off-Route o Comuna Incorrecta.</div></div>}
+    {data.auditRisk&&Object.keys(data.auditRisk).length>0&&<div style={{background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:12,padding:12,display:'flex',alignItems:'center',gap:12}}><Truck size={18} style={{color:'#ef4444',flexShrink:0}}/><div style={{fontSize:13,color:TC.text}}><strong>Auditoría Geográfica:</strong> Se han detectado rutas con riesgo de Off-Route o Comuna Incorrecta.</div></div>}
     {/* Main table */}
     <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.borderSoft}`,boxShadow:'0 10px 40px rgba(0,0,0,0.06)'}}>
       <div ref={tableRef} id="table-export-container" style={{overflowX:'auto'}}>
@@ -642,9 +646,9 @@ function ReporteRutas(){
 {/* ─── TAB: GRÁFICO ─── */}
 {activeTab==='grafico'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
   <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
-    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📈</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
     <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
-      <DropdownMenu options={allRegions.map(r=>({label:r,onClick:()=>setChartRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:chartRegion===r?'#a855f7':'rgba(0,0,0,0.1)'}}/>}))}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Región: {chartRegion||'Seleccionar...'}</span></DropdownMenu>
+      <DropdownMenu options={allRegions.map(r=>({label:r,onClick:()=>setChartRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:chartRegion===r?'#a855f7':'rgba(0,0,0,0.1)'}}/>}))}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>Región: {chartRegion||'Seleccionar...'}</span></DropdownMenu>
       <div style={{height:24,width:1,background:'rgba(0,0,0,0.08)',margin:'0 8px'}}/>
       <div style={{display:'flex',padding:4,borderRadius:8,background:'rgba(0,0,0,0.04)',gap:4}}>
         <button onClick={()=>setChartGroupBy('patente')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartGroupBy==='patente'?'#fff':'transparent',boxShadow:chartGroupBy==='patente'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartGroupBy==='patente'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Patente</button>
@@ -685,9 +689,9 @@ function ReporteRutas(){
 {/* ─── TAB: RESUMEN ─── */}
 {activeTab==='resumen'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
   <div style={{maxWidth:800,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
-    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>📝</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
     <div style={{display:'flex',gap:16,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'12px 16px',borderRadius:12,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.8)'}}>
-      <DropdownMenu options={[{label:'Todas las Regiones',onClick:()=>setSummaryRegion('ALL'),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setSummaryRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:summaryRegion===r?'#eab308':'rgba(0,0,0,0.1)'}}/>}))]}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>📍 Región: {summaryRegion==='ALL'?'Todas':summaryRegion}</span></DropdownMenu>
+      <DropdownMenu options={[{label:'Todas las Regiones',onClick:()=>setSummaryRegion('ALL'),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setSummaryRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:summaryRegion===r?'#eab308':'rgba(0,0,0,0.1)'}}/>}))]}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>Región: {summaryRegion==='ALL'?'Todas':summaryRegion}</span></DropdownMenu>
       <div style={{flex:1}}/>
       <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(summaryRef,'resumen_ejecutivo','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(summaryRef,'resumen_ejecutivo','copy'),Icon:<Copy size={14}/>},{label:'Exportar Datos (Excel)',onClick:exportSummaryCSV,Icon:<FileSpreadsheet size={14}/>}]}><FileDown size={14}/> Exportar Resumen</DropdownMenu>
     </div>
@@ -729,7 +733,7 @@ function ReporteRutas(){
 {/* ─── TAB: INCIDENCIAS ─── */}
 {activeTab==='incidencias'&&<div style={{position:'absolute',inset:0}}>
   {data?<TabIncidencias incidencias={data.incidenciasByPatente} selectedRegions={selectedRegions}/>:
-  <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',opacity:0.3}}><span style={{fontSize:48,marginBottom:16}}>🚨</span><p style={{fontWeight:700}}>Carga un reporte para ver incidencias</p></div>}
+  <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',opacity:0.3}}><span style={{fontSize:48,marginBottom:16}}>!</span><p style={{fontWeight:700}}>Carga un reporte para ver incidencias</p></div>}
 </div>}
 
 {/* ─── TAB: CONSULTAR ISOs ─── */}
@@ -737,7 +741,7 @@ function ReporteRutas(){
   {/* Header */}
   <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 24px',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,flexShrink:0}}>
     <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:16}}>🔍</span>
+      <span style={{fontSize:16}}></span>
       <span style={{fontSize:13,fontWeight:800,color:TC.text}}>Consultar ISOs</span>
       <Badge variant="teal">GeoSort</Badge>
     </div>
@@ -753,8 +757,8 @@ function ReporteRutas(){
       </div>
       <textarea value={isoInput} onChange={e=>setIsoInput(e.target.value)} placeholder={'Ej:\nISO-00123\nISO-00456'} style={{flex:1,width:'100%',minHeight:200,padding:14,borderRadius:10,background:TC.bgCard,color:TC.text,border:`1px solid ${TC.border}`,fontSize:11,fontFamily:T.fontMono,resize:'none',outline:'none',boxSizing:'border-box'}}/>
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
-        {isoInput.trim()&&<div style={{fontSize:10,color:TC.textFaint,fontFamily:T.fontMono,textAlign:'center'}}>📝 {isoInput.split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length} ISOs detectadas</div>}
-        <Btn variant="primary" onClick={consultarISOs} style={{width:'100%',padding:'10px'}} disabled={!isoInput.trim()}>🔎 Consultar</Btn>
+        {isoInput.trim()&&<div style={{fontSize:10,color:TC.textFaint,fontFamily:T.fontMono,textAlign:'center'}}> {isoInput.split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length} ISOs detectadas</div>}
+        <Btn variant="primary" onClick={consultarISOs} style={{width:'100%',padding:'10px'}} disabled={!isoInput.trim()}>Consultar</Btn>
         <Btn variant="ghost" onClick={()=>{setIsoInput('');setIsoResults([])}} style={{width:'100%'}}>✕ Limpiar</Btn>
       </div>
     </div>
@@ -762,7 +766,7 @@ function ReporteRutas(){
     {/* Right Panel: Results */}
     <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:TC.bgCard}}>
       {isoResults.length===0?<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:TC.textDisabled}}>
-        <span style={{fontSize:40}}>📋</span>
+        <span style={{fontSize:40}}></span>
         <span style={{fontSize:13,fontWeight:600,color:TC.textSub}}>Realiza una búsqueda para ver resultados</span>
       </div>:<>
         {/* Stats bar */}
@@ -778,7 +782,7 @@ function ReporteRutas(){
           </div>
           <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:10,fontFamily:T.fontMono,color:TC.textFaint}}>{filteredIsoResults.length}/{isoResults.length} ISOs</span>
-            <Btn onClick={copiarTablaISOs} variant="primary" style={{fontSize:10,padding:'5px 12px'}}>📋 Copiar tabla</Btn>
+            <Btn onClick={copiarTablaISOs} variant="primary" style={{fontSize:10,padding:'5px 12px'}}>Copiar tabla</Btn>
           </div>
         </div>
         {/* Filter bar */}
@@ -839,7 +843,7 @@ function ReporteRutas(){
 {/* ─── TAB: ISOs ─── */}
 {activeTab==='isos'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
   <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
-    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}>🚚</div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'rgba(0,0,0,0.03)',padding:16,borderRadius:12,border:`1px solid ${TC.borderSoft}`}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
         <div style={{padding:8,background:'rgba(249,115,22,0.08)',color:'#f97316',borderRadius:8}}><Truck size={20}/></div>
