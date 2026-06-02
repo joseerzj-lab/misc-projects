@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- xlsx-js-style: fork de SheetJS API-compatible que SÍ escribe estilos de celda (fills) para el formato condicional del export -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- html2canvas: captura el tablero de semáforos a PNG -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -500,6 +500,8 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<
 /* ── Export con formato condicional (xlsx-js-style) ── */
 function exportXlsx(){
   if(!RESULTS.length) return;
+  if(typeof XLSX==='undefined'){ showToast('No se pudo cargar la librería de Excel (revisa tu conexión)','error'); return; }
+  try{
   const sorted = [...RESULTS].sort((a,b)=>{
     const da=a.days==null?Infinity:a.days, db=b.days==null?Infinity:b.days; return db-da;
   });
@@ -543,6 +545,7 @@ function exportXlsx(){
   const fname = `Leadtime_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.xlsx`;
   XLSX.writeFile(wb, fname);
   showToast('Exportado: '+fname,'ok');
+  }catch(err){ console.error(err); showToast('Error al exportar Excel','error'); }
 }
 function setStyle(ws,r,c,s){
   const ref = XLSX.utils.encode_cell({r,c});
@@ -573,7 +576,9 @@ function exportImage(){
       </div>`;
   };
 
-  const groups = chunk(view,15);
+  // Dos columnas: izquierda con la mitad (1 más si es impar)
+  const half = Math.ceil(view.length/2);
+  const groups = view.length>1 ? [view.slice(0,half), view.slice(half)] : [view];
   const colW = 340;
   const width = 56 + groups.length*colW + (groups.length-1)*12;
   const cols = groups.map(g=>
