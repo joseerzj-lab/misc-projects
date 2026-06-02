@@ -196,7 +196,7 @@ select.input{cursor:pointer;}
 .guide-head:hover .guide-title{color:var(--text);}
 .guide-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--textSub);transition:color var(--t-fast);}
 .guide-toggle{font-family:var(--font-mono);color:var(--textFaint);font-size:14px;font-weight:400;line-height:1;}
-.guide.open .guide-toggle::before{content:"âˆ’";}
+.guide.open .guide-toggle::before{content:"−";}
 .guide:not(.open) .guide-toggle::before{content:"+";}
 .guide-body{display:none;padding:0 14px 12px;}
 .guide.open .guide-body{display:block;animation:fadeIn 0.16s ease;}
@@ -335,13 +335,13 @@ select.input{cursor:pointer;}
     </div>
     <div class="guide-body">
       <div class="guide-steps">
-        <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Navegación:</strong> <span class="guide-kbd">Tab</span> / <span class="guide-kbd">Shift+Tab</span>, <span class="guide-kbd">Enter</span> / <span class="guide-kbd">→“</span>, <span class="guide-kbd">→‘</span>, <span class="guide-kbd">Home</span>/<span class="guide-kbd">End</span> extremos de fila, <span class="guide-kbd">Ctrl+Home</span>/<span class="guide-kbd">Ctrl+End</span> inicio/fin de tabla.</div></div>
+        <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Navegación:</strong> <span class="guide-kbd">Tab</span> / <span class="guide-kbd">Shift+Tab</span>, <span class="guide-kbd">Enter</span> / <span class="guide-kbd">↓</span>, <span class="guide-kbd">↑</span>, <span class="guide-kbd">Home</span>/<span class="guide-kbd">End</span> extremos de fila, <span class="guide-kbd">Ctrl+Home</span>/<span class="guide-kbd">Ctrl+End</span> inicio/fin de tabla.</div></div>
         <div class="guide-step"><span class="guide-step-num">2</span><div><strong>PageUp</strong>/<strong>PageDown</strong> saltan 10 filas. <strong>F2</strong> entra al modo edición de la celda activa.</div></div>
         <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Selección múltiple:</strong> Click + arrastrar para rango. Click en el <strong>número de fila</strong> selecciona la fila entera. <span class="guide-kbd">Esc</span> limpia.</div></div>
         <div class="guide-step"><span class="guide-step-num">4</span><div><strong>Copiar / pegar:</strong> <span class="guide-kbd">Ctrl+C</span> y <span class="guide-kbd">Ctrl+V</span>. <span class="guide-kbd">Supr</span>/<span class="guide-kbd">Backspace</span> borran. <span class="guide-kbd">Ctrl+Z</span> deshace.</div></div>
         <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Barra de fórmulas</strong> (arriba) muestra la referencia tipo Excel (ej. <code>C7</code>) y permite editar el valor de la celda activa.</div></div>
         <div class="guide-step"><span class="guide-step-num">6</span><div><strong>Cabeceras:</strong> Letras (A, B, C…) y números de fila activos se iluminan en azul. La fila activa se resalta.</div></div>
-        <div class="guide-step"><span class="guide-step-num">7</span><div><strong>Filtros:</strong> Click en <code>â–¾</code> de la cabecera para filtrar por valor u ordenar A→’Z. <strong>Reemplazar / Columnas</strong> abren paneles.</div></div>
+        <div class="guide-step"><span class="guide-step-num">7</span><div><strong>Filtros:</strong> Click en <code>▾</code> de la cabecera para filtrar por valor u ordenar A→Z. <strong>Reemplazar / Columnas</strong> abren paneles.</div></div>
         <div class="guide-step"><span class="guide-step-num">8</span><div><strong>Copiar ISOs:</strong> <code>ISOs</code> todas; <code>ISOs Leslie</code> sólo gestiones de proyectos; <code>ISOs HD</code> el resto.</div></div>
         <div class="guide-step"><span class="guide-step-num">9</span><div><strong>Filas duplicadas</strong> aparecen en rojo. El contador inferior derecho avisa cuántas hay.</div></div>
       </div>
@@ -372,14 +372,14 @@ select.input{cursor:pointer;}
     <div id="dash-col-checks" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
   <div id="formula-bar" class="formula-bar">
-    <span id="cell-name-box" class="cell-name-box">â€”</span>
+    <span id="cell-name-box" class="cell-name-box">—</span>
     <span class="formula-bar-fx">fx</span>
     <input type="text" id="formula-bar-input" class="formula-bar-input" placeholder="Selecciona una celda…" readonly>
   </div>
   <div id="replace-bar" class="replace-bar">
     <span style="font-size:10px;font-weight:600;color:var(--textSub);">Buscar y Reemplazar:</span>
     <input type="text" id="replace-search" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Buscar...">
-    <span style="color:var(--textFaint);">→’</span>
+    <span style="color:var(--textFaint);">→</span>
     <input type="text" id="replace-with" class="input" style="max-width:160px;padding:4px 8px;" placeholder="Reemplazar por...">
     <button id="btn-do-replace" class="btn btn-primary" style="padding:4px 12px;">Reemplazar Todo</button>
     <span style="font-size:9px;opacity:0.5;font-style:italic;">Afecta solo columnas visibles</span>
@@ -423,8 +423,8 @@ select.input{cursor:pointer;}
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div>Carga el archivo <strong>Plan</strong> desde <code>Cargar →’ Duplicados</code>. El sistema lee ISO + Vehículo de cada fila.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div>Se <strong>filtra</strong> el archivo por los vehículos definidos en <code>Parámetros →’ Duplicados</code> (ej. <code>VPV01</code>).</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Carga el archivo <strong>Plan</strong> desde <code>Cargar → Duplicados</code>. El sistema lee ISO + Vehículo de cada fila.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se <strong>filtra</strong> el archivo por los vehículos definidos en <code>Parámetros → Duplicados</code> (ej. <code>VPV01</code>).</div></div>
           <div class="guide-step"><span class="guide-step-num">3</span><div>Se muestran <strong>todas esas filas</strong>, no sólo las duplicadas. Cada una se compara contra el Dashboard.</div></div>
           <div class="guide-step"><span class="guide-step-num">4</span><div>Las filas marcadas <strong style="color:#c04848;">Duplicada</strong> son ISOs que también existen en el Dashboard. Las marcadas <strong>Solo en archivo</strong> no.</div></div>
           <div class="guide-step"><span class="guide-step-num">5</span><div>Usa <strong>Exportar CSV</strong> para llevarte el detalle (ISO, vehículo, destino, gestión, estado).</div></div>
@@ -463,8 +463,8 @@ select.input{cursor:pointer;}
       </div>
       <div class="guide-body">
         <div class="guide-steps">
-          <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el archivo de proyectos en <code>Cargar →’ Proyectos</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div>Se filtra por los vehículos de <code>Parámetros →’ Proyectos</code>. Edita la lista para incluir más.</div></div>
+          <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el archivo de proyectos en <code>Cargar → Proyectos</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div>Se filtra por los vehículos de <code>Parámetros → Proyectos</code>. Edita la lista para incluir más.</div></div>
           <div class="guide-step"><span class="guide-step-num">3</span><div>El nombre que aparece junto al título viene del campo <code>Nombre del Transporte</code> en parámetros.</div></div>
           <div class="guide-step"><span class="guide-step-num">4</span><div>Estas filas se incluyen automáticamente en las plantillas <strong>RUTEO PM</strong> y <strong>LESLIE</strong>.</div></div>
         </div>
@@ -496,9 +496,9 @@ select.input{cursor:pointer;}
       <div class="guide-body">
         <div class="guide-steps">
           <div class="guide-step"><span class="guide-step-num">1</span><div><strong>Excel (.xlsx):</strong> Descarga la tabla principal con todas las columnas visibles para abrir en Excel/Sheets.</div></div>
-          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>JSON:</strong> Respaldo completo (filas + proyectos + duplicados). Sirve para restaurar luego desde <code>Cargar →’ Sesión JSON</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Copiar Tabla HTML:</strong> Copia con formato Outlook al portapapeles â€” pega directo en el correo manteniendo estilos.</div></div>
-          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>ISOs Actuales:</strong> Bloque listo para pegar â€” solo los códigos ISO uno por línea.</div></div>
+          <div class="guide-step"><span class="guide-step-num">2</span><div><strong>JSON:</strong> Respaldo completo (filas + proyectos + duplicados). Sirve para restaurar luego desde <code>Cargar → Sesión JSON</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>Copiar Tabla HTML:</strong> Copia con formato Outlook al portapapeles — pega directo en el correo manteniendo estilos.</div></div>
+          <div class="guide-step"><span class="guide-step-num">4</span><div><strong>ISOs Actuales:</strong> Bloque listo para pegar — solo los códigos ISO uno por línea.</div></div>
           <div class="guide-step"><span class="guide-step-num">5</span><div><strong>Resumen por Gestión:</strong> Cuenta de filas agrupadas por tipo (Repite, K8, Postventa, etc.).</div></div>
         </div>
       </div>
@@ -548,10 +548,10 @@ select.input{cursor:pointer;}
         <div class="guide-steps">
           <div class="guide-step"><span class="guide-step-num">1</span><div><strong>RUTEO PM:</strong> Resumen completo (Repites + Postventa + K8 + Corrección + Proyectos) listo para Outlook.</div></div>
           <div class="guide-step"><span class="guide-step-num">2</span><div><strong>REPITES:</strong> Filas marcadas como <code>CORREO REPITES = SI</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>POST VENTA:</strong> Filas con DESTINO igual a los valores configurados en <code>Parámetros →’ Postventa</code>.</div></div>
+          <div class="guide-step"><span class="guide-step-num">3</span><div><strong>POST VENTA:</strong> Filas con DESTINO igual a los valores configurados en <code>Parámetros → Postventa</code>.</div></div>
           <div class="guide-step"><span class="guide-step-num">4</span><div><strong>LESLIE:</strong> Toma del archivo de Proyectos. El nombre y los textos vienen de <code>Parámetros</code>.</div></div>
           <div class="guide-step"><span class="guide-step-num">5</span><div>Variables disponibles en los intros: <code>{fecha}</code>, <code>{empresa}</code>, <code>{numVeh}</code>.</div></div>
-          <div class="guide-step"><span class="guide-step-num">6</span><div>Click en <strong>Copiar HTML</strong> y pega directo en Outlook â€” el formato (fuente, colores, tablas) se mantiene.</div></div>
+          <div class="guide-step"><span class="guide-step-num">6</span><div>Click en <strong>Copiar HTML</strong> y pega directo en Outlook — el formato (fuente, colores, tablas) se mantiene.</div></div>
         </div>
       </div>
     </div>
@@ -589,7 +589,7 @@ select.input{cursor:pointer;}
             <h3 id="tpl-leslie-title" style="font-size:12px;font-weight:700;">LESLIE</h3>
             <button class="btn btn-secondary btn-copy-tpl" data-tpl="leslie" style="padding:3px 9px;font-size:10px;">Copiar HTML</button>
           </div>
-          <p style="font-size:10px;color:var(--textFaint);">Proyectos B2C â€” tabla ISO / VEHÍCULO / DIRECCIÓN</p>
+          <p style="font-size:10px;color:var(--textFaint);">Proyectos B2C — tabla ISO / VEHÍCULO / DIRECCIÓN</p>
         </div>
       </div>
     </div>
@@ -636,7 +636,7 @@ select.input{cursor:pointer;}
         <div class="guide-step"><span class="guide-step-num">1</span><div>Sube el <strong>.xlsx de ruteo</strong> original. Las columnas se preservan y solo se editan algunas.</div></div>
         <div class="guide-step"><span class="guide-step-num">2</span><div>Selecciona la <strong>Fecha Programada</strong>. Se convierte al formato ruteo (<code>DD-MMM-YY</code>) automáticamente.</div></div>
         <div class="guide-step"><span class="guide-step-num">3</span><div><strong>ID_REFERENCIA</strong> se cruza contra el Dashboard usando la columna ISO. Si encuentra match, se considera <em>cruzada</em>.</div></div>
-        <div class="guide-step"><span class="guide-step-num">4</span><div>Edita la columna <strong>COMENTARIO BO</strong> â€” su contenido se concatena a NOTAS al descargar.</div></div>
+        <div class="guide-step"><span class="guide-step-num">4</span><div>Edita la columna <strong>COMENTARIO BO</strong> — su contenido se concatena a NOTAS al descargar.</div></div>
         <div class="guide-step"><span class="guide-step-num">5</span><div>Click en <strong>Transformar y Descargar</strong> para obtener el .xlsx final con FECHA + NOTAS aplicadas.</div></div>
         <div class="guide-step"><span class="guide-step-num">6</span><div>Las celdas <code>azul</code> se modifican, las <code>verdes</code> marcan cruces con el Dashboard.</div></div>
       </div>
@@ -660,7 +660,7 @@ select.input{cursor:pointer;}
       <div style="display:flex;align-items:center;gap:10px;">
         <input type="date" id="transform-date" class="input" style="width:160px;padding:6px 10px;font-size:12px;">
         <div style="display:flex;flex-direction:column;gap:2px;">
-          <div class="transform-date-display" id="transform-date-display">â€”</div>
+          <div class="transform-date-display" id="transform-date-display">—</div>
           <div style="font-size:9px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.06em;">Formato ruteo</div>
         </div>
       </div>
@@ -680,7 +680,7 @@ select.input{cursor:pointer;}
       <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;">
         <span style="padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.06);color:var(--blue);border:1px solid rgba(0,0,0,0.09);font-weight:700;">FECHA_PROGRAMADA</span>
         <span style="padding:2px 8px;border-radius:4px;background:rgba(42,101,72,0.14);color:var(--green);border:1px solid rgba(42,101,72,0.32);font-weight:700;">ID_REFERENCIA</span>
-        <span style="padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.04);color:var(--textSub);border:1px solid rgba(0,0,0,0.08);font-weight:700;">NOTAS → COMENTARIO BO</span>
+        <span style="padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.04);color:var(--textSub);border:1px solid rgba(0,0,0,0.08);font-weight:700;">NOTAS ← COMENTARIO BO</span>
       </div>
     </div>
   </div>
@@ -712,14 +712,14 @@ select.input{cursor:pointer;}
       &nbsp;|&nbsp;
       Sin cruce: <span id="transform-unmatched" style="color:#c04848;font-family:var(--font-mono);font-weight:700;">0</span>
     </div>
-    <div style="font-size:10px;color:var(--textFaint);">Edita COMENTARIO BO →’ se añadirá a NOTAS al descargar</div>
+    <div style="font-size:10px;color:var(--textFaint);">Edita COMENTARIO BO → se añadirá a NOTAS al descargar</div>
   </div>
 </div>
 
 <!-- MODALS -->
 <div id="modal-unified" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-unified')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('modal-unified')">✕</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Carga Unificada</h3>
     <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Pega cualquier tabla de Repites, Retiros, K8 o Envío y Retiro desde Excel.</p>
     <textarea id="paste-unified" class="input textarea custom-scrollbar" style="height:140px;font-family:var(--font-mono);font-size:11px;margin-bottom:14px;" placeholder="Pega aquí los datos..."></textarea>
@@ -736,7 +736,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-selection" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Â¿Qué tipo de gestión es?</h3>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">¿Qué tipo de gestión es?</h3>
     <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron <span id="sel-iso-count" style="font-weight:700;color:var(--blue);">0</span> ISOs sin formato tabla. Selecciona el tipo:</p>
     <div id="manual-gestion-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;"></div>
     <button onclick="closeModal('modal-selection')" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Cancelar</button>
@@ -746,7 +746,7 @@ select.input{cursor:pointer;}
 <div id="modal-k8" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h3 style="font-size:14px;font-weight:700;margin-bottom:5px;">Gestión K8 Detectada</h3>
-    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron ISOs con posible gestión K8. Â¿Qué tipo aplicar?</p>
+    <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se detectaron ISOs con posible gestión K8. ¿Qué tipo aplicar?</p>
     <div id="k8-options-list" style="margin-bottom:16px;"></div>
     <button id="btn-apply-k8" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Aplicar</button>
   </div>
@@ -754,7 +754,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-crossing" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-crossing')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('modal-crossing')">✕</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Cruce de Datos</h3>
     <h4 style="font-size:13px;margin-bottom:8px;">Cruce de Destinos</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
@@ -769,14 +769,14 @@ select.input{cursor:pointer;}
         <input type="file" id="file-conv-cross" accept=".xlsx,.csv" class="hidden">
       </label>
     </div>
-    <button id="btn-run-cross-dest" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:20px;" disabled>âš¡ Ejecutar Cruce Destinos</button>
+    <button id="btn-run-cross-dest" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:20px;" disabled>⚡ Ejecutar Cruce Destinos</button>
     <div style="height:1px;background:var(--borderSoft);margin-bottom:20px;"></div>
     <h4 style="font-size:13px;margin-bottom:4px;">Cruce de Orígenes</h4>
     <p style="font-size:10px;color:var(--textFaint);margin-bottom:10px;">El archivo debe tener columnas <strong>ISO</strong> y <strong>RTE_TO</strong>.</p>
     <label class="file-drop" style="flex-direction:row;text-align:left;gap:12px;">
       <div>
         <div style="font-size:12px;font-weight:600;">Subir Excel Cruce Origen</div>
-        <div style="font-size:10px;color:var(--textFaint);">ISO + RTE_TO →’ asigna ORIGEN</div>
+        <div style="font-size:10px;color:var(--textFaint);">ISO + RTE_TO → asigna ORIGEN</div>
       </div>
       <input type="file" id="file-origin-cross" accept=".xlsx,.csv" class="hidden">
     </label>
@@ -785,7 +785,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-session" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-session')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('modal-session')">✕</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Sesión</h3>
     <label class="file-drop" style="margin-bottom:12px;">
       <span style="font-size:12px;font-weight:600;">Cargar Sesión Guardada (.json)</span>
@@ -798,7 +798,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-projects" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-projects')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('modal-projects')">✕</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:6px;">Proyectos</h3>
     <p style="font-size:11px;color:var(--textFaint);margin-bottom:12px;">Se filtrará automáticamente por los vehículos configurados en Parámetros.</p>
     <label class="file-drop">
@@ -811,7 +811,7 @@ select.input{cursor:pointer;}
 
 <div id="modal-duplicates-upload" class="modal-overlay" onclick="closeModal(this)">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-duplicates-upload')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('modal-duplicates-upload')">✕</button>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Duplicados</h3>
     <label class="file-drop">
       <span style="font-size:12px;font-weight:600;">Subir Plan Actual</span>
@@ -913,7 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-save-dash")?.addEventListener("click", saveSession);
   document.getElementById("btn-export-json-alt")?.addEventListener("click", saveSession);
   document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
-    alert("Atajos tipo Excel:\n\nNAVEGACIÓN\n  Tab / Shift+Tab   Mover derecha / izquierda\n  Enter / →“          Mover abajo\n  →‘                  Mover arriba\n  Home / End         Inicio / fin de fila\n  Ctrl+Home / Ctrl+End  Primera / última celda\n  PageUp / PageDown  Saltar 10 filas\n  F2                 Entrar al modo edición\n\nSELECCIÓN\n  Click + arrastrar  Seleccionar rango\n  Click en #fila     Seleccionar fila completa\n  Esc                Limpiar selección\n\nEDICIÓN\n  Ctrl+C / Ctrl+V    Copiar / pegar\n  Ctrl+Z             Deshacer\n  Supr / Backspace   Borrar celdas seleccionadas");
+    alert("Atajos tipo Excel:\n\nNAVEGACIÓN\n  Tab / Shift+Tab   Mover derecha / izquierda\n  Enter / ↓          Mover abajo\n  ↑                  Mover arriba\n  Home / End         Inicio / fin de fila\n  Ctrl+Home / Ctrl+End  Primera / última celda\n  PageUp / PageDown  Saltar 10 filas\n  F2                 Entrar al modo edición\n\nSELECCIÓN\n  Click + arrastrar  Seleccionar rango\n  Click en #fila     Seleccionar fila completa\n  Esc                Limpiar selección\n\nEDICIÓN\n  Ctrl+C / Ctrl+V    Copiar / pegar\n  Ctrl+Z             Deshacer\n  Supr / Backspace   Borrar celdas seleccionadas");
   });
 });
 
@@ -1198,7 +1198,7 @@ function setupEventListeners() {
       const ids = new Set(pendingK8Rows.map(r => r._ikid));
       rows = rows.map(r => ids.has(r._ikid) ? { ...r, "GESTIÓN": type } : r);
       saveData(); renderDashboard();
-      showToast(pendingK8Rows.length + " ISOs →’ " + type);
+      showToast(pendingK8Rows.length + " ISOs → " + type);
       pendingK8Rows = null;
     }
     closeModal("modal-k8");
@@ -1349,7 +1349,7 @@ function setupEventListeners() {
   document.getElementById("btn-add-row")?.addEventListener("click", addRow);
   document.getElementById("btn-create-new")?.addEventListener("click", addRow);
   document.getElementById("btn-clear-dash")?.addEventListener("click", () => {
-    if (!params.confirmBeforeClear || confirm("Â¿Limpiar toda la tabla?")) {
+    if (!params.confirmBeforeClear || confirm("¿Limpiar toda la tabla?")) {
       saveHistory(); rows = []; saveData(); renderDashboard(); updateBadges(); updateSessionInfo();
     }
   });
@@ -1418,7 +1418,7 @@ function setupEventListeners() {
   // ---- TRANSFORM EVENT LISTENERS ----
   document.getElementById("transform-date")?.addEventListener("input", e => {
     const disp = document.getElementById("transform-date-display");
-    if (disp) disp.textContent = formatDateForRuteo(e.target.value) || "â€”";
+    if (disp) disp.textContent = formatDateForRuteo(e.target.value) || "—";
   });
   document.getElementById("file-transform-up")?.addEventListener("change", e => {
     if (!e.target.files[0]) return;
@@ -1435,13 +1435,13 @@ function setupEventListeners() {
   });
   document.getElementById("btn-transform-download")?.addEventListener("click", downloadTransformed);
   document.getElementById("btn-transform-clear")?.addEventListener("click", () => {
-    if (transformData.length && !confirm("Â¿Limpiar datos de transformación?")) return;
+    if (transformData.length && !confirm("¿Limpiar datos de transformación?")) return;
     transformData = [];
     transformComments = {};
     transformHeaders = [];
     document.getElementById("transform-file-name").textContent = "Subir archivo...";
     document.getElementById("transform-file-name").style.color = "var(--textFaint)";
-    document.getElementById("transform-date-display").textContent = "â€”";
+    document.getElementById("transform-date-display").textContent = "—";
     document.getElementById("transform-date").value = "";
     renderTransformTable();
     showToast("Datos limpiados");
@@ -1596,7 +1596,7 @@ function renderDashboard() {
   let trH = '<th class="row-num row-num-corner-bot">#</th>';
   visCols.forEach((col, i) => {
     const isActive = colFilters[col] && colFilters[col].size > 0;
-    trH += '<th class="col-name" data-col-idx="' + i + '" style="' + (isActive ? 'color:var(--blue);' : '') + '"><div class="th-inner"><span>' + col + '</span><button class="filter-btn' + (isActive?" active":"") + '" onclick="toggleFilterDropdown(\'' + col + '\',this)">â–¾</button></div></th>';
+    trH += '<th class="col-name" data-col-idx="' + i + '" style="' + (isActive ? 'color:var(--blue);' : '') + '"><div class="th-inner"><span>' + col + '</span><button class="filter-btn' + (isActive?" active":"") + '" onclick="toggleFilterDropdown(\'' + col + '\',this)">▾</button></div></th>';
   });
   trH += '<th style="width:88px;"></th>';
   thead.innerHTML = '<tr class="col-letters-row">' + trLetters + '</tr><tr class="col-names-row">' + trH + '</tr>';
@@ -1609,7 +1609,7 @@ function renderDashboard() {
     visCols.forEach((col, cIdx) => {
       tbodyHtml += '<td class="' + (col === "ISO" && isDup ? "dup-cell" : "") + '"><input type="text" id="cell-' + idx + '-' + cIdx + '" value="' + escHtml(r[col] || "") + '" data-rid="' + r._ikid + '" data-col="' + col + '" onchange="cellChanged(this)" onfocus="onCellFocus(this)" onblur="editingCell=null" onmousedown="onCellMouseDown(event,' + idx + ',' + cIdx + ')" onmouseenter="onCellMouseEnter(' + idx + ',' + cIdx + ')" onkeydown="cellKeyDown(event,' + idx + ',' + cIdx + ')"></td>';
     });
-    tbodyHtml += '<td><div class="row-actions"><button class="act-btn" style="color:var(--blue);" onclick="cycleGestion(\'' + r._ikid + '\')" title="Ciclar Gestión">→»</button><button class="act-btn" style="color:var(--green);" onclick="duplicateRow(\'' + r._ikid + '\')" title="Duplicar">â§‰</button><button class="act-btn" style="color:var(--red);" onclick="deleteRow(\'' + r._ikid + '\')" title="Eliminar">âœ•</button></div></td></tr>';
+    tbodyHtml += '<td><div class="row-actions"><button class="act-btn" style="color:var(--blue);" onclick="cycleGestion(\'' + r._ikid + '\')" title="Ciclar Gestión">↻</button><button class="act-btn" style="color:var(--green);" onclick="duplicateRow(\'' + r._ikid + '\')" title="Duplicar">⧉</button><button class="act-btn" style="color:var(--red);" onclick="deleteRow(\'' + r._ikid + '\')" title="Eliminar">✕</button></div></td></tr>';
   });
   tbody.innerHTML = tbodyHtml;
   document.getElementById("dash-total").textContent = rows.length;
@@ -1813,8 +1813,8 @@ function toggleFilterDropdown(col, btn) {
   dd.className = "filter-dropdown"; dd.id = "active-filter-dd";
   dd.innerHTML =
     '<div class="filter-dd-header">' +
-    '<button class="filter-dd-sort-btn' + (sortCol===col&&sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',true)">→‘ Ordenar A→’Z</button>' +
-    '<button class="filter-dd-sort-btn' + (sortCol===col&&!sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',false)">→“ Ordenar Z→’A</button>' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',true)">↑ Ordenar A→Z</button>' +
+    '<button class="filter-dd-sort-btn' + (sortCol===col&&!sortAsc?" active":"") + '" onclick="setSort(\'' + col + '\',false)">↓ Ordenar Z→A</button>' +
     '</div>' +
     '<div class="filter-dd-search"><input type="text" id="filter-dd-search-input" class="input" style="padding:4px 8px;font-size:10px;" placeholder="Buscar valor..." oninput="renderFilterDDList(\'' + col + '\')"></div>' +
     '<div class="filter-dd-list custom-scrollbar" id="filter-dd-list">' + renderFilterDDListHtml(col, uniqueVals, pendingColFilters[col], "") + '</div>' +
@@ -1822,7 +1822,7 @@ function toggleFilterDropdown(col, btn) {
     '<button style="font-size:9px;color:var(--textFaint);background:none;border:none;cursor:pointer;" onclick="closeActiveFilterDropdown(false)">Cancelar</button>' +
     '<div style="display:flex;gap:6px;align-items:center;">' +
     '<button style="font-size:9px;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline;" onclick="clearFilter(\'' + col + '\')">Borrar filtro</button>' +
-    '<button class="filter-dd-apply" onclick="applyFilterDD(\'' + col + '\')">âœ“ Aplicar</button>' +
+    '<button class="filter-dd-apply" onclick="applyFilterDD(\'' + col + '\')">✓ Aplicar</button>' +
     '</div></div>';
   th.style.position = "relative";
   th.appendChild(dd);
@@ -1877,7 +1877,7 @@ function closeActiveFilterDropdown(rerender) {
 }
 
 // ============================================================
-// DUPLICATES â€” UPDATED
+// DUPLICATES — UPDATED
 // ============================================================
 function renderDuplicates() {
   const tbody = document.getElementById("dup-tbody");
@@ -1894,7 +1894,7 @@ function renderDuplicates() {
   const dupVehSet = new Set(dupVehList);
   if (!dupVehSet.size) {
     if (banner) banner.classList.add("hidden");
-    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">No hay vehículos parametrizados. Configura <strong>Parámetros →’ Duplicados</strong>.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--textFaint);">No hay vehículos parametrizados. Configura <strong>Parámetros → Duplicados</strong>.</td></tr>';
     return;
   }
 
@@ -1930,7 +1930,7 @@ function renderDuplicates() {
   // Group filtered records by vehicle
   const byVehicle = {};
   filtered.forEach(rec => {
-    const v = String(rec.vehiculo || "").trim().toUpperCase() || "â€”";
+    const v = String(rec.vehiculo || "").trim().toUpperCase() || "—";
     if (!byVehicle[v]) byVehicle[v] = [];
     byVehicle[v].push(rec);
   });
@@ -1955,13 +1955,13 @@ function renderDuplicates() {
       const statusBadge = isDup
         ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(154,53,53,0.14);color:#c04848;border:1px solid rgba(154,53,53,0.32);"><span style="width:5px;height:5px;border-radius:50%;background:#c04848;"></span>Duplicada</span>'
         : '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(0,0,0,0.05);color:var(--textSub);border:1px solid rgba(0,0,0,0.09);"><span style="width:5px;height:5px;border-radius:50%;background:var(--textSub);"></span>Solo en archivo</span>';
-      const vehBadge = '<span style="display:inline-flex;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(0,0,0,0.05);color:var(--blue);border:1px solid rgba(0,0,0,0.09);font-family:var(--font-mono);">' + escHtml(rec.vehiculo || "â€”") + '</span>';
+      const vehBadge = '<span style="display:inline-flex;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;background:rgba(0,0,0,0.05);color:var(--blue);border:1px solid rgba(0,0,0,0.09);font-family:var(--font-mono);">' + escHtml(rec.vehiculo || "—") + '</span>';
       const dashGest = matches.length
         ? matches.map(m => '<span style="display:inline-flex;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:600;background:var(--accentBg);color:var(--blue);border:1px solid rgba(0,0,0,0.09);margin-right:3px;">' + escHtml(m["GESTIÓN"] || "?") + '</span>').join("")
-        : '<span style="font-size:10px;color:var(--textFaint);font-style:italic;">â€”</span>';
+        : '<span style="font-size:10px;color:var(--textFaint);font-style:italic;">—</span>';
       const destText = rec.destino
         ? '<span style="font-size:10px;color:var(--textSub);">' + escHtml(rec.destino) + '</span>'
-        : '<span style="font-size:10px;color:var(--textFaint);">â€”</span>';
+        : '<span style="font-size:10px;color:var(--textFaint);">—</span>';
       html += '<tr>' +
         '<td style="padding:6px 10px 6px 26px;font-family:var(--font-mono);font-size:11px;background:' + rowBg + ';' + (isDup ? "color:#c04848;font-weight:700;" : "color:var(--text);") + '">' + escHtml(rec.iso) + '</td>' +
         '<td style="padding:6px 10px;text-align:center;background:' + rowBg + ';">' + statusBadge + '</td>' +
@@ -1980,7 +1980,7 @@ function renderDuplicates() {
 function renderProjects() {
   const tbody = document.getElementById("proj-tbody"); if (!tbody) return;
   const label = document.getElementById("proj-name-label");
-  if (label) label.textContent = params.projTemplateName ? "â€” " + params.projTemplateName : "";
+  if (label) label.textContent = params.projTemplateName ? "— " + params.projTemplateName : "";
   if (!projectsData.length) {
     tbody.innerHTML = '<tr><td colspan="3" style="padding:28px;text-align:center;color:var(--textFaint);">Sube archivo de Proyectos.</td></tr>'; return;
   }
@@ -2161,9 +2161,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (!html) return;
       copyAsHTML(html, plain);
-      showToast("âœ“ Plantilla " + title + " copiada");
+      showToast("✓ Plantilla " + title + " copiada");
       const origText = e.currentTarget.textContent;
-      e.currentTarget.textContent = "âœ“ Copiado!";
+      e.currentTarget.textContent = "✓ Copiado!";
       setTimeout(() => { e.currentTarget.textContent = origText; }, 2000);
     });
   });
@@ -2196,7 +2196,7 @@ function renderParams() {
   function mkTagList(key, placeholder) {
     const color = "var(--blue)";
     const tags = (params[key] || []).map(function(item) {
-      return '<span class="tag-item" style="background:rgba(0,0,0,0.06);color:' + color + ';border:1px solid rgba(0,0,0,0.09);">' + escHtml(item) + '<button class="tag-remove" onclick="removeTag(\'' + key + '\',\'' + escHtml(item) + '\')">âœ•</button></span>';
+      return '<span class="tag-item" style="background:rgba(0,0,0,0.06);color:' + color + ';border:1px solid rgba(0,0,0,0.09);">' + escHtml(item) + '<button class="tag-remove" onclick="removeTag(\'' + key + '\',\'' + escHtml(item) + '\')">✕</button></span>';
     }).join("");
     return '<div class="tag-list" id="tags-' + key + '">' + tags + '</div>' +
       '<div class="tag-add-row"><input id="tag-input-' + key + '" type="text" class="input" placeholder="' + placeholder + '" style="font-family:var(--font-mono);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addTag(\'' + key + '\');}">' +
@@ -2410,7 +2410,7 @@ window.updateTextParam = function(key, value) {
   showToast("Parámetro guardado");
 };
 document.getElementById("btn-reset-params")?.addEventListener("click", () => {
-  if (confirm("Â¿Restaurar parámetros por defecto?")) {
+  if (confirm("¿Restaurar parámetros por defecto?")) {
     params = { ...DEFAULT_PARAMS };
     saveData(); renderParams();
     showToast("Parámetros restablecidos");
@@ -2438,7 +2438,7 @@ document.getElementById("file-import-params")?.addEventListener("change", e => {
 });
 
 // ============================================================
-// TRANSFORM TAB â€” NEW
+// TRANSFORM TAB — NEW
 // ============================================================
 const TRANSFORM_MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
@@ -2534,7 +2534,7 @@ function renderTransformTable() {
       else if (HIGHLIGHT_ORANGE.has(col)) { cellStyle = "background:rgba(0,0,0,0.026);"; }
       tbodyHtml += '<td style="' + cellStyle + '"><input type="text" readonly value="' + escHtml(String(row[col] || "")) + '" style="padding:4px 7px;font-size:10px;' + inputStyle + '"></td>';
     });
-    // COMENTARIO BO â€” editable
+    // COMENTARIO BO — editable
     tbodyHtml += '<td style="background:rgba(0,0,0,0.03);border-left:2px solid rgba(0,0,0,0.09);">' +
       '<input type="text" value="' + escHtml(comment) + '" placeholder="Añadir comentario..." ' +
       'style="padding:4px 7px;font-size:10px;" ' +
@@ -2608,7 +2608,7 @@ function downloadTransformed() {
   const filename = "Ruteo_Transformado_" + formattedDate.replace(/-/g,"") + ".xlsx";
   XLSX.writeFile(wb, filename);
 
-  showToast("âœ“ Descargado: " + updatedFecha + " fechas, " + updatedRef + " gestiones, " + updatedNotas + " notas");
+  showToast("✓ Descargado: " + updatedFecha + " fechas, " + updatedRef + " gestiones, " + updatedNotas + " notas");
 }
 </script>
 </body>
