@@ -403,24 +403,41 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
     <div class="toolbar" id="summary-toolbar">
       <span style="font-size:11px;color:var(--textSub)" id="summary-info">0 alertas</span>
       <div class="toolbar-sep"></div>
-      <div class="filter-pills">
+      <div class="filter-pills" id="summary-status-pills">
         <button class="filter-pill active" onclick="setSummaryFilter('all',this)">Todos</button>
         <button class="filter-pill" onclick="setSummaryFilter('pendiente',this)">⏳ Pendiente</button>
         <button class="filter-pill" onclick="setSummaryFilter('alerta',this)">⚠ Alerta</button>
         <button class="filter-pill" onclick="setSummaryFilter('resuelto',this)">✓ Resuelto</button>
       </div>
       <div class="toolbar-sep"></div>
+      <div class="filter-pills" id="summary-sev-pills">
+        <button class="filter-pill active" onclick="setSeverityFilter('all',this)">Severidad: todas</button>
+        <button class="filter-pill" onclick="setSeverityFilter('roja',this)">🔴 Rojas</button>
+        <button class="filter-pill" onclick="setSeverityFilter('amarilla',this)">🟡 Amarillas</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <select class="input" id="summary-veh" onchange="setVehFilter(this.value)" style="max-width:160px"><option value="all">Todos los vehículos</option></select>
+      <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Limpiar filtros</button>
       <div style="position:relative">
-        <svg style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint)" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="input" id="summary-search" placeholder="Buscar…" oninput="renderSummary()" style="padding-left:26px;max-width:160px">
+        <input class="input" id="summary-search" placeholder="Buscar…" oninput="renderSummary()" style="max-width:160px">
       </div>
       <div style="margin-left:auto;display:flex;gap:6px">
         <button class="btn btn-blue btn-sm" onclick="copySummaryToClipboard()">📋 Copiar</button>
-        <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Excel</button>
+        <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Exportar</button>
       </div>
+    </div>
+    <div class="sel-bar hidden" id="sel-bar">
+      <span id="sel-count">0 seleccionadas</span>
+      <button class="btn btn-sm" style="background:#fff;color:#111" onclick="clearSelection()">Quitar selección</button>
+      <span style="margin-left:auto;font-size:10px;opacity:0.8">La exportación/copia usa la selección; si no hay, usa lo filtrado.</span>
     </div>
     <div class="summary-table-wrap" id="summary-wrap">
       <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt)">
+      <span class="section-label">Datos / Sesión</span>
+      <button class="btn btn-secondary btn-sm" onclick="exportFullPlan()">↓ Plan completo (XLSX)</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportSession()">↓ Sesión (JSON)</button>
     </div>
   </div>
 
@@ -532,7 +549,12 @@ function isProjectVeh(veh){ return vehSet(params.projectVehicles).has((veh||'').
 let geoFilter = 'all'
 let proyFilter = 'all'
 let summaryFilter = 'all'
-let summarySort = { col: null, dir: 1 }
+let severityFilter = 'all'      // all | roja | amarilla
+let vehFilter = 'all'           // 'all' o nombre de vehículo
+let summaryColFilters = {}      // { colKey: Set(valoresPermitidos) }
+let selectedRows = new Set()    // claves rowKey seleccionadas
+let openColPopover = null
+function rowKey(r){ return r.tipo + '|' + r.iso }
 let geoFocusISO = null
 let proyFocusISO = null
 
@@ -829,17 +851,22 @@ function getSummaryRows() {
   for (const c of conflicts) {
     if (isExcludedVeh(c.veh)) continue
     rows.push({
-      iso: c.iso, veh: c.veh, dir: c.dir,
-      obs: 'Comuna Incorrecta',
-      detalle: `${c.comunaDireccion} → ${c.comunaReal}`,
-      tipo: 'geo',
-      status: getConflictStatus(c.iso),
+      iso:c.iso, veh:c.veh, dir:c.dir,
+      obs:'Comuna Incorrecta',
+      detalle:`${c.comunaDireccion} → ${c.comunaReal}`,
+      severity:c.severity||'roja', tipo:'geo',
+      status:getConflictStatus(c.iso),
     })
   }
-  return rows.sort((a,b) => {
-    const o = {alerta:0,pendiente:1,resuelto:2}
-    return (o[a.status]||0) - (o[b.status]||0)
-  })
+  for (const r of getProyectosData()) {
+    rows.push({
+      iso:r.iso, veh:r.veh, dir:r.dir,
+      obs:'Proyecto', detalle:r.conductor||'',
+      severity:'', tipo:'proy',
+      status:getProyStatus(r.iso),
+    })
+  }
+  return rows.sort((a,b)=>{ const o={alerta:0,pendiente:1,resuelto:2}; return (o[a.status]||0)-(o[b.status]||0) })
 }
 function ts() {
   const d=new Date(), p=n=>String(n).padStart(2,'0')
@@ -929,10 +956,21 @@ function setProyFilter(f, btn) {
 }
 function setSummaryFilter(f, btn) {
   summaryFilter = f
-  document.querySelectorAll('#summary-toolbar .filter-pill').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('#summary-status-pills .filter-pill').forEach(b => b.classList.remove('active'))
   if (btn) btn.classList.add('active')
   renderSummary()
 }
+function setSeverityFilter(f, btn){ severityFilter=f; document.querySelectorAll('#summary-sev-pills .filter-pill').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active'); renderSummary() }
+function setVehFilter(v){ vehFilter=v; renderSummary() }
+function clearAllFilters(){
+  summaryFilter='all'; severityFilter='all'; vehFilter='all'; summaryColFilters={}
+  const s=document.getElementById('summary-search'); if(s)s.value=''
+  document.querySelectorAll('#summary-status-pills .filter-pill').forEach((b,i)=>b.classList.toggle('active',i===0))
+  document.querySelectorAll('#summary-sev-pills .filter-pill').forEach((b,i)=>b.classList.toggle('active',i===0))
+  const v=document.getElementById('summary-veh'); if(v)v.value='all'
+  renderSummary()
+}
+function clearSelection(){ selectedRows.clear(); renderSummary() }
 
 // ═══════════════════════════════════════════════════════════
 //  UPDATE ALL UI
@@ -1285,101 +1323,132 @@ function focusProyecto(iso) {
 // ═══════════════════════════════════════════════════════════
 //  SUMMARY TABLE
 // ═══════════════════════════════════════════════════════════
-function renderSummary() {
-  const wrap = document.getElementById('summary-wrap')
-  const rows = getSummaryRows()
+function getFilteredSummaryRows() {
   const q = (document.getElementById('summary-search')?.value||'').toLowerCase()
-  const pend = rows.filter(r=>r.status==='pendiente').length
-  document.getElementById('summary-info').innerHTML = `${rows.length} alertas · <span style="color:var(--orange);font-weight:700">${pend} pendientes</span>`
-
-  let visible = rows.filter(r => {
-    if (summaryFilter !== 'all' && r.status !== summaryFilter) return false
+  return getSummaryRows().filter(r => {
+    if (summaryFilter!=='all' && r.status!==summaryFilter) return false
+    if (severityFilter!=='all' && r.severity!==severityFilter) return false
+    if (vehFilter!=='all' && r.veh!==vehFilter) return false
+    for (const col of Object.keys(summaryColFilters)) {
+      const allowed = summaryColFilters[col]
+      if (allowed && allowed.size && !allowed.has(String(r[col]??''))) return false
+    }
     if (q) return r.iso.toLowerCase().includes(q)||r.veh.toLowerCase().includes(q)||(r.dir||'').toLowerCase().includes(q)
     return true
   })
+}
 
-  if (summarySort.col) {
-    visible = [...visible].sort((a,b) => {
-      const va = String(a[summarySort.col]||'').toLowerCase()
-      const vb = String(b[summarySort.col]||'').toLowerCase()
-      return va<vb ? -summarySort.dir : va>vb ? summarySort.dir : 0
-    })
+function renderSummary() {
+  const wrap = document.getElementById('summary-wrap')
+  if (!wrap) return
+  const vehSel = document.getElementById('summary-veh')
+  if (vehSel) {
+    const vehs = [...new Set(getSummaryRows().map(r=>r.veh))].sort((a,b)=>a.localeCompare(b,'es'))
+    const cur = vehFilter
+    vehSel.innerHTML = '<option value="all">Todos los vehículos</option>' + vehs.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')
+    vehSel.value = cur
   }
+  const all = getSummaryRows()
+  const visible = getFilteredSummaryRows()
+  const pend = all.filter(r=>r.status==='pendiente').length
+  document.getElementById('summary-info').innerHTML = `${all.length} alertas · <span style="font-weight:700">${pend} pendientes</span>`
+  const selBar = document.getElementById('sel-bar')
+  if (selBar) { selBar.classList.toggle('hidden', selectedRows.size===0); const sc=document.getElementById('sel-count'); if(sc) sc.textContent=`${selectedRows.size} seleccionadas` }
 
-  if (!rows.length) {
-    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>'
-    return
-  }
-  if (!visible.length) {
-    wrap.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
-    return
-  }
+  if (!all.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>'; return }
+  if (!visible.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-title">Sin resultados con los filtros actuales</div></div>'; return }
 
   const COLS = [
-    {key:'iso',label:'ISO',w:'110px'},
-    {key:'veh',label:'Vehículo',w:'160px'},
-    {key:'dir',label:'Dirección',w:''},
-    {key:'obs',label:'Tipo',w:'120px'},
-    {key:'detalle',label:'Detalle',w:'200px'},
-    {key:'status',label:'Estado',w:'160px'},
+    {key:'iso',label:'ISO'},{key:'veh',label:'Vehículo'},{key:'dir',label:'Dirección'},
+    {key:'obs',label:'Tipo'},{key:'detalle',label:'Detalle'},{key:'severity',label:'Severidad'},{key:'status',label:'Estado'},
   ]
+  const visKeys = visible.map(rowKey)
+  const allSelected = visKeys.length && visKeys.every(k=>selectedRows.has(k))
 
-  wrap.innerHTML = `<table class="dash-table" style="table-layout:fixed;width:100%">
+  wrap.innerHTML = `<table class="dash-table" style="table-layout:auto;width:100%">
     <thead><tr>
-      <th style="width:36px;text-align:center">#</th>
-      ${COLS.map(c=>`<th style="${c.w?'width:'+c.w:''};cursor:pointer" onclick="sortSummary('${c.key}')">
-        <span>${c.label}</span>
-        ${summarySort.col===c.key?`<span class="sort-btn active">${summarySort.dir>0?'↑':'↓'}</span>`:'<span class="sort-btn">↕</span>'}
-      </th>`).join('')}
+      <th style="width:30px;text-align:center"><input type="checkbox" class="row-check" ${allSelected?'checked':''} onclick="toggleSelectAll(this.checked)"></th>
+      <th style="width:30px;text-align:center">#</th>
+      ${COLS.map(c=>{
+        const active = summaryColFilters[c.key] && summaryColFilters[c.key].size
+        return `<th>${c.label}<button class="col-filter-btn ${active?'active':''}" onclick="toggleColPopover(event,'${c.key}')">▼</button></th>`
+      }).join('')}
     </tr></thead>
     <tbody>
-    ${visible.map((r,i) => {
-      const isRes=r.status==='resuelto', isFlg=r.status==='alerta'
-      const stEl = isRes
-        ? `<span style="color:var(--green);font-weight:700;font-size:10px">✓ Resuelto</span>`
-        : isFlg ? `<span style="color:var(--red);font-weight:700;font-size:10px">⚠ Alerta</span>`
-        : `<span style="color:var(--orange);font-weight:600;font-size:10px">⏳ Pendiente</span>`
-      return `<tr class="summary-tr ${isFlg?'flagged':''} ${isRes?'resolved':''}" style="border-left:3px solid ${isFlg?'var(--red)':isRes?'var(--green)':'transparent'}">
-        <td style="text-align:center;color:var(--textFaint);font-size:10px;font-family:var(--font-mono)">${i+1}</td>
-        <td><span style="font-family:var(--font-mono);font-weight:700;color:var(--blue);font-size:11px;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Click para copiar">${escH(r.iso)}</span></td>
-        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.veh)}">${escH(r.veh)}</td>
-        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.dir)}">${escH(r.dir||'—')}</td>
-        <td><span class="badge blue" style="font-size:9px">${escH(r.obs)}</span></td>
-        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.detalle)}">${escH(r.detalle)}</td>
+    ${visible.map((r,i)=>{
+      const k = rowKey(r)
+      const sel = selectedRows.has(k)
+      const stTxt = r.status==='resuelto'?'✓ Resuelto':r.status==='alerta'?'⚠ Alerta':'⏳ Pendiente'
+      const sevTxt = r.severity==='roja'?'● Lejos':r.severity==='amarilla'?'○ Borde':'—'
+      return `<tr class="${sel?'is-selected':''}">
+        <td style="text-align:center"><input type="checkbox" class="row-check" ${sel?'checked':''} onclick="toggleRowSel('${escH(k)}')"></td>
+        <td style="text-align:center;color:#999">${i+1}</td>
+        <td><span style="font-weight:700;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Copiar">${escH(r.iso)}</span></td>
+        <td>${escH(r.veh)}</td>
+        <td title="${escH(r.dir)}">${escH(r.dir||'—')}</td>
+        <td>${escH(r.obs)}</td>
+        <td title="${escH(r.detalle)}">${escH(r.detalle||'—')}</td>
+        <td class="sev-mark">${sevTxt}</td>
         <td>
-          <div class="flex items-center gap-xs">
-            ${stEl}
-            <span style="margin-left:auto;display:flex;gap:3px">
-              <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${isRes?'↩':'✓'}</button>
-              <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${isFlg?'✕':'⚠'}</button>
-            </span>
-          </div>
+          <span class="st-mark">${stTxt}</span>
+          <span style="margin-left:8px;display:inline-flex;gap:3px">
+            <button class="btn btn-sm btn-secondary" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${r.status==='resuelto'?'↩':'✓'}</button>
+            <button class="btn btn-sm btn-secondary" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${r.status==='alerta'?'✕':'⚠'}</button>
+          </span>
         </td>
       </tr>`
     }).join('')}
     </tbody>
   </table>`
 }
-
-function sortSummary(col) {
-  if (summarySort.col===col) summarySort.dir = -summarySort.dir
-  else { summarySort.col=col; summarySort.dir=1 }
+function toggleRowSel(k){ if(selectedRows.has(k))selectedRows.delete(k); else selectedRows.add(k); renderSummary() }
+function toggleSelectAll(check){ const vis=getFilteredSummaryRows().map(rowKey); if(check)vis.forEach(k=>selectedRows.add(k)); else vis.forEach(k=>selectedRows.delete(k)); renderSummary() }
+function toggleColPopover(ev, col){
+  ev.stopPropagation()
+  if (openColPopover) { openColPopover.remove(); openColPopover=null }
+  const th = ev.target.closest('th')
+  const values = [...new Set(getSummaryRows().map(r=>String(r[col]??'')))].sort((a,b)=>a.localeCompare(b,'es'))
+  const sel = summaryColFilters[col] || new Set(values)
+  const pop = document.createElement('div')
+  pop.className='col-popover'
+  pop.innerHTML = `<input class="input" placeholder="Buscar…" oninput="filterPopoverList(this)">
+    <div class="cp-list">${values.map(v=>`<label><input type="checkbox" class="row-check cp-cb" value="${escH(v)}" ${sel.has(v)?'checked':''}>${escH(v||'(vacío)')}</label>`).join('')}</div>
+    <div class="cp-actions">
+      <button class="btn btn-sm btn-secondary" onclick="applyColFilter('${col}',this)">Aplicar</button>
+      <button class="btn btn-sm btn-secondary" onclick="resetColFilter('${col}')">Quitar</button>
+    </div>`
+  th.appendChild(pop)
+  pop.addEventListener('click', e=>e.stopPropagation())
+  openColPopover = pop
+}
+function filterPopoverList(input){
+  const q=input.value.toLowerCase()
+  input.parentElement.querySelectorAll('.cp-list label').forEach(l=>{ l.style.display = l.textContent.toLowerCase().includes(q)?'flex':'none' })
+}
+function applyColFilter(col, btn){
+  const pop = btn.closest('.col-popover')
+  const checked = [...pop.querySelectorAll('.cp-cb:checked')].map(c=>c.value)
+  const total = pop.querySelectorAll('.cp-cb').length
+  if (checked.length===total) delete summaryColFilters[col]
+  else summaryColFilters[col] = new Set(checked)
+  if (openColPopover){ openColPopover.remove(); openColPopover=null }
   renderSummary()
 }
+function resetColFilter(col){ delete summaryColFilters[col]; if(openColPopover){openColPopover.remove();openColPopover=null} renderSummary() }
+document.addEventListener('click', ()=>{ if(openColPopover){ openColPopover.remove(); openColPopover=null } })
+
 function summaryResolve(iso, tipo) {
-  const isRes = resolvedConflicts.has(iso)
-  if (tipo==='geo') {
-    if (isRes) resolvedConflicts.delete(iso)
-    else { resolvedConflicts.add(iso); flaggedConflicts.delete(iso) }
-  }
+  const resSet = tipo==='proy' ? resolvedProyectos : resolvedConflicts
+  const flgSet = tipo==='proy' ? flaggedProyectos : flaggedConflicts
+  if (resSet.has(iso)) resSet.delete(iso)
+  else { resSet.add(iso); flgSet.delete(iso) }
   saveState(); updateAllUI()
 }
 function summaryFlag(iso, tipo) {
-  const isFlg = flaggedConflicts.has(iso)
-  if (tipo==='geo') {
-    if (isFlg) flaggedConflicts.delete(iso)
-    else { flaggedConflicts.add(iso); resolvedConflicts.delete(iso) }
-  }
+  const resSet = tipo==='proy' ? resolvedProyectos : resolvedConflicts
+  const flgSet = tipo==='proy' ? flaggedProyectos : flaggedConflicts
+  if (flgSet.has(iso)) flgSet.delete(iso)
+  else { flgSet.add(iso); resSet.delete(iso) }
   saveState(); updateAllUI()
 }
 
@@ -1414,19 +1483,25 @@ function exportConflictsXLSX() {
   W.writeFile(wb, `conflictos_geo_${ts()}.xlsx`)
   showToast('✓ Exportado')
 }
+function rowsForExport(){
+  const vis = getFilteredSummaryRows()
+  if (selectedRows.size) return vis.filter(r=>selectedRows.has(rowKey(r)))
+  return vis
+}
 function exportSummaryXLSX() {
-  const rows = getSummaryRows()
-  if (!rows.length) { showToast('Sin alertas','warn'); return }
+  const rows = rowsForExport()
+  if (!rows.length) { showToast('Sin filas para exportar','warn'); return }
   const W = getW(); if (!W) return
   const wb = W.utils.book_new()
   const ws = W.utils.aoa_to_sheet([
-    ['ISO','Vehículo','Dirección','Observación','Detalle','Estado'],
-    ...rows.map(r=>[r.iso,r.veh,r.dir,r.obs,r.detalle,r.status])
+    ['ISO','Vehículo','Dirección','Tipo','Detalle','Severidad','Estado'],
+    ...rows.map(r=>[r.iso,r.veh,r.dir,r.obs,r.detalle, r.severity==='roja'?'Lejos':r.severity==='amarilla'?'Borde':'', r.status])
   ])
-  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:20},{wch:55},{wch:14}]
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:18},{wch:40},{wch:10},{wch:12}]
+  ws['!freeze']={xSplit:0,ySplit:1}
   W.utils.book_append_sheet(wb, ws, 'Alertas')
   W.writeFile(wb, `resumen_alertas_${ts()}.xlsx`)
-  showToast('✓ Exportado')
+  showToast(`✓ Exportadas ${rows.length} filas`)
 }
 function exportSession() {
   if (!routeData.length) { showToast('Sin datos','warn'); return }
@@ -1444,22 +1519,23 @@ function exportSession() {
   showToast('✓ Sesión exportada')
 }
 function copySummaryToClipboard() {
-  const rows = getSummaryRows()
-  if (!rows.length) return
-  const hS='border:1px solid #ddd;padding:5px 8px;font-weight:700;background:#18181B;color:#fff;font-family:inherit;font-size:11px;'
-  const tS='border:1px solid #ddd;padding:4px 8px;font-family:inherit;font-size:11px;'
-  let rich=`<table style="border-collapse:collapse"><tr>${['ISO','Vehículo','Dirección','Tipo','Detalle','Estado'].map(h=>`<th style="${hS}">${h}</th>`).join('')}</tr>`
-  let plain='ISO\tVehículo\tDirección\tTipo\tDetalle\tEstado\n'
-  rows.forEach(r => {
+  const rows = rowsForExport()
+  if (!rows.length) { showToast('Sin filas','warn'); return }
+  const hS='border:1px solid #ccc;padding:5px 8px;font-weight:700;background:#111;color:#fff;font-size:11px;'
+  const tS='border:1px solid #ccc;padding:4px 8px;font-size:11px;'
+  const head=['ISO','Vehículo','Dirección','Tipo','Detalle','Severidad','Estado']
+  let rich=`<table style="border-collapse:collapse"><tr>${head.map(h=>`<th style="${hS}">${h}</th>`).join('')}</tr>`
+  let plain=head.join('\t')+'\n'
+  rows.forEach(r=>{
+    const sev=r.severity==='roja'?'Lejos':r.severity==='amarilla'?'Borde':''
     const e=r.status==='resuelto'?'Resuelto':r.status==='alerta'?'Alerta':'Pendiente'
-    rich+=`<tr>${[r.iso,r.veh,r.dir||'',r.obs,r.detalle,e].map(v=>`<td style="${tS}">${escH(String(v))}</td>`).join('')}</tr>`
-    plain+=`${r.iso}\t${r.veh}\t${r.dir||''}\t${r.obs}\t${r.detalle}\t${e}\n`
+    const cells=[r.iso,r.veh,r.dir||'',r.obs,r.detalle,sev,e]
+    rich+=`<tr>${cells.map(v=>`<td style="${tS}">${escH(String(v))}</td>`).join('')}</tr>`
+    plain+=cells.join('\t')+'\n'
   })
   rich+='</table>'
-  try {
-    navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([rich],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})])
-    showToast('✓ Copiado al portapapeles')
-  } catch { navigator.clipboard.writeText(plain); showToast('✓ Copiado (texto)') }
+  try { navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([rich],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]); showToast(`✓ Copiadas ${rows.length} filas`) }
+  catch { navigator.clipboard.writeText(plain); showToast('✓ Copiado (texto)') }
 }
 
 // ═══════════════════════════════════════════════════════════
