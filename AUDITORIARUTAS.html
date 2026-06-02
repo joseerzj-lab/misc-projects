@@ -248,15 +248,16 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
     </div>
     <div class="flex items-center gap-sm">
       <div id="geo-status" class="pill pill-gray hidden">Geo: cargando…</div>
+      <button class="btn btn-secondary btn-sm" onclick="openGuide()">❔ ¿Cómo auditar?</button>
       <button class="btn btn-secondary btn-sm" onclick="handleClear()">Limpiar</button>
     </div>
   </div>
   <div class="tabs-container">
     <div class="tabs-wrapper">
       <button class="tab-btn active" data-tab="tab-plan" onclick="switchTab('tab-plan',this)">📥 Cargar Plan</button>
-      <button class="tab-btn" data-tab="tab-geo" onclick="switchTab('tab-geo',this)">📍 Wrong Commune <span class="tab-badge hidden" id="badge-geo"></span></button>
+      <button class="tab-btn" data-tab="tab-geo" onclick="switchTab('tab-geo',this)">📍 Auditoría Geo <span class="tab-badge hidden" id="badge-geo"></span></button>
       <button class="tab-btn" data-tab="tab-proyectos" onclick="switchTab('tab-proyectos',this)">🚧 Proyectos <span class="tab-badge hidden" id="badge-proyectos"></span></button>
-      <button class="tab-btn" data-tab="tab-resumen" onclick="switchTab('tab-resumen',this)">📊 Summary <span class="tab-badge hidden" id="badge-resumen"></span></button>
+      <button class="tab-btn" data-tab="tab-resumen" onclick="switchTab('tab-resumen',this)">📊 Resumen <span class="tab-badge hidden" id="badge-resumen"></span></button>
     </div>
   </div>
 </header>
@@ -341,6 +342,12 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
           <button class="btn btn-danger btn-sm" onclick="flagAllConflicts()">Todo ⚠</button>
         </div>
         <div class="map-sidebar-filters">
+          <div class="flex items-center gap-xs">
+            <button class="btn btn-secondary btn-sm" onclick="navConflict(-1)" title="Anterior (←)">‹</button>
+            <button class="btn btn-secondary btn-sm" onclick="navConflict(1)" title="Siguiente (→)">›</button>
+            <button class="btn btn-secondary btn-sm" onclick="navNextPendiente()" title="Siguiente pendiente">⏭ Pend.</button>
+            <span id="geo-progress" class="stat-chip-lbl" style="margin-left:auto"></span>
+          </div>
           <input class="input" id="geo-search" placeholder="Buscar ISO, veh…" oninput="renderConflictList()" style="font-size:11px">
           <div class="filter-pills" id="geo-status-filter">
             <button class="filter-pill active" data-filter="all" onclick="setGeoFilter('all',this)">Todos</button>
@@ -348,6 +355,7 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
             <button class="filter-pill" data-filter="alerta" onclick="setGeoFilter('alerta',this)">⚠ Alerta</button>
             <button class="filter-pill" data-filter="resuelto" onclick="setGeoFilter('resuelto',this)">✓ Resuelto</button>
           </div>
+          <div style="font-size:10px;color:var(--textFaint)">Clic en un marcador o ítem para enfocarlo. 🔴 lejos · 🟡 cerca del borde · ✓/⚠ para revisar. Teclas: ← → R A Esc.</div>
         </div>
         <div class="map-sidebar-list" id="geo-list">
           <div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">Carga un plan y ejecuta análisis</div></div>
@@ -443,6 +451,20 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 
 
 </main>
+
+<div class="modal-overlay" id="guide-modal" onclick="if(event.target===this)closeGuide()">
+  <div class="modal-content">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Cómo auditar rutas</h2>
+    <ol style="font-size:12px;line-height:1.7;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+      <li><b>Carga el plan</b> (XLSX/CSV) en la pestaña Cargar Plan. Revisa los Parámetros (vehículos excluidos y de proyecto).</li>
+      <li>Ve a <b>Auditoría Geo</b>: el mapa muestra cada entrega. <b>🔴 = comuna equivocada lejos</b>, <b>🟡 = cerca del borde</b> (probable caso límite).</li>
+      <li>Navega con <b>‹ ›</b> o <b>← →</b>. Para cada conflicto decide: <b>✓ Resolver</b> (sin problema) o <b>⚠ Alerta</b> (error real). Atajos: R / A / Esc.</li>
+      <li>Revisa <b>Proyectos</b> (vehículos VPR01/VPR02) igual que los geo.</li>
+      <li>En <b>Resumen</b> filtra (estado, severidad, vehículo o por columna), <b>selecciona las filas</b> que quieras y <b>Exporta</b> solo esas.</li>
+    </ol>
+    <div style="margin-top:14px;text-align:right"><button class="btn btn-primary btn-sm" onclick="closeGuide()">Entendido</button></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -704,9 +726,12 @@ function processFile(file) {
       showToast(`✓ ${routeData.length} ISOs cargadas`)
 
       if (result.hasGeo && window.RM_COMUNAS_DATA) {
+        switchTab('tab-geo', document.querySelector('[data-tab="tab-geo"]'))
         setTimeout(() => {
           runGeoAnalysis()
         }, 300)
+      } else {
+        switchTab('tab-resumen', document.querySelector('[data-tab="tab-resumen"]'))
       }
     } catch(err) {
       showToast('Error al leer archivo: ' + err.message, 'error')
@@ -872,7 +897,7 @@ function ts() {
   const d=new Date(), p=n=>String(n).padStart(2,'0')
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`
 }
-function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;') }
 
 // ═══════════════════════════════════════════════════════════
 //  PARAMS PANEL
@@ -927,6 +952,12 @@ function showToast(msg, type='', ms=2400) {
   clearTimeout(t._tid)
   t._tid = setTimeout(() => t.className='toast', ms)
 }
+
+// ═══════════════════════════════════════════════════════════
+//  GUÍA
+// ═══════════════════════════════════════════════════════════
+function openGuide(){ document.getElementById('guide-modal').classList.add('active') }
+function closeGuide(){ document.getElementById('guide-modal').classList.remove('active'); localStorage.setItem('aud_guide_seen_v3','1') }
 
 // ═══════════════════════════════════════════════════════════
 //  TAB SWITCHING
@@ -985,6 +1016,7 @@ function updateAllUI() {
   renderSummary()
   updateGeoStatusBadge()
   renderParamsPanel()
+  updateGeoProgress()
 }
 
 function updateBadges() {
@@ -1269,6 +1301,32 @@ function focusConflict(iso) {
   if (geoFocusISO && r && r.lat!==null && geoMap) flyToISO(geoMap, r)
 }
 
+function navConflict(dir){
+  const list = getVisibleConflicts()
+  if (!list.length) return
+  let idx = list.findIndex(c=>c.iso===geoFocusISO)
+  idx = idx<0 ? 0 : (idx+dir+list.length)%list.length
+  // si no había foco y vamos hacia atrás, empezar desde el final
+  if (geoFocusISO===null && dir<0) idx = list.length-1
+  focusConflict(list[idx].iso)
+}
+function navNextPendiente(){
+  const list = getVisibleConflicts()
+  if (!list.length) return
+  const start = Math.max(0, list.findIndex(c=>c.iso===geoFocusISO))
+  for (let n=1;n<=list.length;n++){
+    const c = list[(start+n)%list.length]
+    if (getConflictStatus(c.iso)==='pendiente'){ focusConflict(c.iso); return }
+  }
+  showToast('No quedan pendientes visibles','warn')
+}
+function updateGeoProgress(){
+  const el=document.getElementById('geo-progress'); if(!el) return
+  const total=conflicts.filter(c=>!isExcludedVeh(c.veh)).length
+  const done=conflicts.filter(c=>!isExcludedVeh(c.veh) && getConflictStatus(c.iso)!=='pendiente').length
+  el.textContent = total ? `${done} / ${total} revisados` : ''
+}
+
 // ═══════════════════════════════════════════════════════════
 //  PROYECTO LIST RENDER
 // ═══════════════════════════════════════════════════════════
@@ -1351,7 +1409,8 @@ function renderSummary() {
   const all = getSummaryRows()
   const visible = getFilteredSummaryRows()
   const pend = all.filter(r=>r.status==='pendiente').length
-  document.getElementById('summary-info').innerHTML = `${all.length} alertas · <span style="font-weight:700">${pend} pendientes</span>`
+  const filtered = visible.length !== all.length ? ` · ${visible.length} visibles` : ''
+  document.getElementById('summary-info').innerHTML = `${all.length} alertas${filtered} · <span style="font-weight:700">${pend} pendientes</span>`
   const selBar = document.getElementById('sel-bar')
   if (selBar) { selBar.classList.toggle('hidden', selectedRows.size===0); const sc=document.getElementById('sel-count'); if(sc) sc.textContent=`${selectedRows.size} seleccionadas` }
 
@@ -1568,14 +1627,19 @@ function init() {
     }, 250)
   }
 
-  // Restore upload zone state if data loaded
-  if (routeData.length) {
-    const zone = document.getElementById('upload-zone')
-    zone.classList.add('loaded')
-    document.getElementById('upload-icon').textContent='✅'
-    document.getElementById('upload-text').textContent=`${routeData.length} ISOs cargadas`
-    document.getElementById('upload-sub').textContent='Haz click o arrastra para reemplazar'
-  }
+  // Atajos de teclado para auditar (solo en la pestaña de mapa geo, sin interferir con inputs)
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||'')) return
+    if (!document.getElementById('tab-geo').classList.contains('active')) return
+    if (e.key==='ArrowRight'){ e.preventDefault(); navConflict(1) }
+    else if (e.key==='ArrowLeft'){ e.preventDefault(); navConflict(-1) }
+    else if (e.key==='r'||e.key==='R'){ if(geoFocusISO) toggleResolveConflict(geoFocusISO) }
+    else if (e.key==='a'||e.key==='A'){ if(geoFocusISO) toggleFlagConflict(geoFocusISO) }
+    else if (e.key==='Escape'){ clearGeoFocus() }
+  })
+
+  // Mostrar la guía la primera vez
+  if (!localStorage.getItem('aud_guide_seen_v3')) setTimeout(openGuide, 500)
 }
 
 init()
