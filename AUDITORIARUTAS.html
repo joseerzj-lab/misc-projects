@@ -554,32 +554,22 @@ const VEH_COLORS = ['#2563EB','#7C3AED','#16A34A','#EA580C','#EC4899','#0891B2',
 // ═══════════════════════════════════════════════════════════
 //  PERSISTENCE
 // ═══════════════════════════════════════════════════════════
+// Solo se persisten los PARÁMETROS de configuración.
+// Los datos de auditoría (plan, conflictos, progreso) NO se guardan:
+// arrancan vacíos en cada sesión.
 function saveState() {
   try {
-    if (routeData.length) localStorage.setItem('aud_route_v2', LZString.compress(JSON.stringify(routeData)))
-    else localStorage.removeItem('aud_route_v2')
-    localStorage.setItem('aud_res_v2', JSON.stringify([...resolvedConflicts]))
-    localStorage.setItem('aud_flg_v2', JSON.stringify([...flaggedConflicts]))
     localStorage.setItem('aud_params_v3', JSON.stringify(params))
-    localStorage.setItem('aud_res_proy_v2', JSON.stringify([...resolvedProyectos]))
-    localStorage.setItem('aud_flg_proy_v2', JSON.stringify([...flaggedProyectos]))
-    if (conflicts.length) localStorage.setItem('aud_conf_v2', LZString.compress(JSON.stringify(conflicts)))
-    else localStorage.removeItem('aud_conf_v2')
+    // Limpiar claves de datos de auditoría de versiones previas
+    ;['aud_route_v2','aud_conf_v2','aud_res_v2','aud_flg_v2','aud_res_proy_v2','aud_flg_proy_v2','aud_excl_v2']
+      .forEach(k => localStorage.removeItem(k))
   } catch(e) {}
 }
 
 function loadState() {
   try {
-    const rd = localStorage.getItem('aud_route_v2')
-    if (rd) routeData = JSON.parse(LZString.decompress(rd) || '[]')
-    const cf = localStorage.getItem('aud_conf_v2')
-    if (cf) conflicts = JSON.parse(LZString.decompress(cf) || '[]')
-    resolvedConflicts = new Set(JSON.parse(localStorage.getItem('aud_res_v2') || '[]'))
-    flaggedConflicts  = new Set(JSON.parse(localStorage.getItem('aud_flg_v2') || '[]'))
     const p = localStorage.getItem('aud_params_v3')
     if (p) { try { params = Object.assign(params, JSON.parse(p)) } catch(e){} }
-    resolvedProyectos = new Set(JSON.parse(localStorage.getItem('aud_res_proy_v2') || '[]'))
-    flaggedProyectos  = new Set(JSON.parse(localStorage.getItem('aud_flg_proy_v2') || '[]'))
   } catch(e) {}
 }
 
