@@ -120,12 +120,16 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 .stat-card-val{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.02em;line-height:1.1}
 .stat-card-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--textFaint);margin-top:4px}
 
-/* Tables */
+/* Tables — monocromo (blanco y negro) */
 .dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px;font-family:var(--font-mono)}
-.dash-table th,.dash-table td{border-right:1px solid var(--borderSoft);border-bottom:1px solid var(--borderSoft);padding:0;position:relative}
-.dash-table thead tr th{background:#FAFAFA;padding:7px 10px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.02em;white-space:nowrap;color:var(--textSub);font-family:inherit;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)}
-.dash-table tbody tr:hover td{background:rgba(0,0,0,0.016)}
-.dash-table td{padding:5px 10px;vertical-align:middle}
+.dash-table th,.dash-table td{border-right:1px solid #E7E7E7;border-bottom:1px solid #E7E7E7;padding:0;position:relative}
+.dash-table thead tr th{background:#111;color:#fff;padding:8px 10px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.03em;white-space:nowrap;font-family:inherit;position:sticky;top:0;z-index:10}
+.dash-table tbody tr{transition:background var(--t-fast)}
+.dash-table tbody tr:hover td{background:#F4F4F4}
+.dash-table td{padding:6px 10px;vertical-align:middle;color:#222}
+.dash-table tbody tr.is-selected td{background:#ECECEC}
+.sev-mark{font-family:var(--font-mono);font-weight:700}
+.st-mark{font-weight:700;font-size:10px}
 
 /* Map tabs */
 .map-layout{display:grid;grid-template-columns:360px 1fr;height:100%;overflow:hidden}
@@ -201,6 +205,20 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 .export-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;gap:16px;transition:border-color var(--t-fast),background var(--t-fast)}
 .export-card:hover{border-color:rgba(37,99,235,0.3);background:var(--accentBg)}
 .export-card.disabled{opacity:0.4;pointer-events:none}
+
+/* Filtro de columna (popover) */
+.col-filter-btn{background:none;border:none;cursor:pointer;color:#bbb;font-size:10px;margin-left:4px;padding:0 2px}
+.col-filter-btn.active{color:#fff}
+.col-popover{position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-lg);width:220px;max-height:280px;display:flex;flex-direction:column;padding:8px;gap:6px}
+.col-popover .cp-list{overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.col-popover label{display:flex;align-items:center;gap:6px;font-size:11px;color:#222;font-family:inherit;cursor:pointer;padding:2px 4px;border-radius:3px}
+.col-popover label:hover{background:#F4F4F4}
+.cp-actions{display:flex;gap:6px;justify-content:space-between;border-top:1px solid var(--borderSoft);padding-top:6px}
+.row-check{width:14px;height:14px;cursor:pointer;accent-color:#111}
+.sel-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#111;color:#fff;font-size:11px}
+.sel-bar.hidden{display:none}
+@keyframes rowIn{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+.dash-table tbody tr{animation:rowIn 0.12s ease}
 
 /* Utilities */
 .hidden{display:none!important}
