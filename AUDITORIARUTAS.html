@@ -529,6 +529,30 @@ function haversine(c1, c2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
 }
 
+// Distancia mínima (km) de un punto al borde de un polígono [[lat,lng],...]
+function distPointToSegmentKm(p, a, b) {
+  // Proyección local: escalar lng por cos(lat) para aproximar metros
+  const latRef = (a[0]+b[0])/2 * Math.PI/180
+  const kx = 111.32 * Math.cos(latRef)   // km por grado lng
+  const ky = 110.57                       // km por grado lat
+  const px=(p[1])*kx, py=(p[0])*ky
+  const ax=a[1]*kx, ay=a[0]*ky, bx=b[1]*kx, by=b[0]*ky
+  const dx=bx-ax, dy=by-ay
+  const len2 = dx*dx+dy*dy
+  let t = len2 ? ((px-ax)*dx+(py-ay)*dy)/len2 : 0
+  t = Math.max(0, Math.min(1, t))
+  const cx=ax+t*dx, cy=ay+t*dy
+  return Math.hypot(px-cx, py-cy)
+}
+function distPointToPolygonKm(lat, lng, poly) {
+  let min = Infinity
+  for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
+    const d = distPointToSegmentKm([lat,lng], poly[j], poly[i])
+    if (d < min) min = d
+  }
+  return min
+}
+
 function getDisplayName(normKey) {
   const D = window.RM_COMUNAS_DATA
   if (D && D[normKey] && D[normKey].n) return D[normKey].n
@@ -749,12 +773,17 @@ function runGeoAnalysis() {
       const dist = haversine([r.lat, r.lng], cd.c)
       if (dist < 0.5) continue
     }
+    const cdDir = D[kDir]
+    let distBordeKm = Infinity
+    if (cdDir && cdDir.p) distBordeKm = distPointToPolygonKm(r.lat, r.lng, cdDir.p)
+    const severity = distBordeKm <= (params.borderKm||0.1) ? 'amarilla' : 'roja'
     conflicts.push({
       iso: r.iso, veh: r.veh, dir: r.dir,
       comunaDireccion: r.comuna,
       comunaReal: getDisplayName(kCoord),
       comunaRealKey: kCoord,
       lat: r.lat, lng: r.lng, parada: r.parada,
+      severity, distBordeKm: Math.round(distBordeKm*1000)/1000,
       status: 'pendiente',
     })
   }
@@ -1234,9 +1263,11 @@ function updateMapMarkers(map, markersArr, linesArr, data, confs, resolved, flag
     const isVehF = focusVeh ? r.veh===focusVeh : true
     if (focusVeh && !isVehF) return
 
-    const col = isF ? '#FFDA1A' : isConf ? (isRes?'#16A34A':'#DC2626') : getVehColor(r.veh)
+    const conf = isConf ? confs.find(x=>x.iso===r.iso) : null
+    const sevColor = conf && conf.severity==='amarilla' ? '#CA8A04' : '#DC2626'
+    const col = isF ? '#FFDA1A' : isConf ? (isRes ? '#16A34A' : sevColor) : getVehColor(r.veh)
     const sz = isF ? 22 : isConf ? 16 : 9
-    const cls = isF ? 'mk-focus' : (isConf&&!isRes ? 'mk-conflict' : '')
+    const cls = isF ? 'mk-focus' : (isConf && !isRes && (!conf || conf.severity==='roja') ? 'mk-conflict' : '')
     const label = isConf ? (isRes?'✓':'!') : ''
 
     const icon = L.divIcon({
