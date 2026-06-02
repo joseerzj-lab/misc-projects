@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoría de Rutas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="comunas_data.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif;font-size:12px;line-height:1.55;background:#FAFAF9;color:#18181B;-webkit-font-smoothing:antialiased}
+body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
+:root{
+  --bg:#FAFAF9;--bgCard:#FFFFFF;--bgCardAlt:rgba(0,0,0,0.026);--bgHover:rgba(0,0,0,0.042);
+  --text:#18181B;--textSub:#52525B;--textFaint:#A1A1AA;
+  --border:rgba(0,0,0,0.09);--borderSoft:rgba(0,0,0,0.06);--borderFocus:#2563EB;
+  --blue:#2563EB;--blueHover:#1D4ED8;--accentBg:rgba(37,99,235,0.06);
+  --red:#DC2626;--green:#16A34A;--orange:#EA580C;--yellow:#CA8A04;--purple:#7C3AED;
+  --pasteBlue:#EFF6FF;--pasteRed:#FEF2F2;--pasteGreen:#F0FDF4;--pasteOrange:#FFF7ED;
+  --pasteYellow:#FEFCE8;--pastePurple:#F5F3FF;--pasteGray:#F4F4F5;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);--shadow-sm:0 1px 4px rgba(0,0,0,0.05);
+  --shadow-md:0 2px 8px rgba(0,0,0,0.06);--shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+  --t-fast:0.12s ease;--t-normal:0.20s ease;--t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26)}
+
+/* Header */
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:44px;border-bottom:1px solid var(--borderSoft);gap:12px}
+.header-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.01em;white-space:nowrap}
+.header-brand .brand-tag{font-size:10px;font-weight:500;color:var(--textFaint);font-family:var(--font-mono);letter-spacing:0.02em}
+.tabs-container{display:flex;padding:0 8px}
+.tabs-wrapper{display:flex;align-items:flex-end}
+.tab-btn{display:flex;align-items:center;gap:5px;padding:7px 13px;border:none;border-bottom:2px solid transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;background:transparent;color:var(--textFaint);font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;margin-bottom:-1px;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast)}
+.tab-btn:hover{color:var(--textSub);background:var(--bgHover)}
+.tab-btn.active{color:var(--text);font-weight:600;border-bottom-color:var(--text);background:transparent}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 4px;border-radius:3px;font-size:9px;font-weight:700;font-family:var(--font-mono);background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border)}
+.tab-badge.alert{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.15)}
+.tab-badge.hidden{display:none}
+
+/* Layout */
+.main-content{flex:1;overflow:hidden;position:relative}
+.tab-pane{display:none;width:100%;height:100%;overflow-y:auto;flex-direction:column}
+.tab-pane.active{display:flex}
+.tab-pane.map-pane{overflow:hidden}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border:1px solid transparent;border-radius:var(--r-md);font-family:inherit;font-size:11px;font-weight:500;line-height:1;cursor:pointer;outline:none;white-space:nowrap;user-select:none;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast),transform 0.10s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98)}
+.btn:disabled{opacity:0.32;cursor:not-allowed}
+.btn-primary{background:#18181B;color:#FFFFFF;border-color:rgba(0,0,0,0.06)}
+.btn-primary:hover:not(:disabled){background:#27272A}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover)}
+.btn-danger{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.18)}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.12)}
+.btn-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.18)}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.12)}
+.btn-blue{background:var(--blue);color:#fff;border-color:rgba(0,0,0,0.10)}
+.btn-blue:hover:not(:disabled){background:var(--blueHover)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-lg{padding:8px 16px;font-size:12px;font-weight:600}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;flex-shrink:0}
+.toolbar-sep{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0}
+.stats-bar{display:flex;align-items:center;padding:4px 12px;border-bottom:1px solid var(--borderSoft);gap:8px;flex-wrap:wrap;background:var(--bgCardAlt);flex-shrink:0}
+
+/* Cards */
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px}
+.card-header{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* Upload zone */
+.upload-zone{border:1px dashed var(--border);border-radius:var(--r-lg);padding:32px 24px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--bgCardAlt);transition:background var(--t-normal),border-color var(--t-normal)}
+.upload-zone:hover,.upload-zone.drag{background:var(--accentBg);border-color:rgba(37,99,235,0.35)}
+.upload-zone.loaded{border-style:solid;border-color:rgba(22,163,74,0.30);background:var(--pasteGreen)}
+
+/* Inputs */
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:inherit;font-size:11px;line-height:1.4;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10)}
+.input::placeholder{color:var(--textFaint)}
+.search-wrap{position:relative;flex:1;max-width:220px}
+.search-wrap .input{padding-left:26px}
+
+/* Badges/Pills */
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:17px;padding:0 5px;border-radius:3px;font-family:var(--font-mono);font-size:10px;font-weight:700;background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border)}
+.badge.blue{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.15)}
+.badge.red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.15)}
+.badge.green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.15)}
+.badge.orange{background:var(--pasteOrange);color:var(--orange);border-color:rgba(234,88,12,0.15)}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:var(--r-xs);font-family:var(--font-mono);font-size:10px;font-weight:600;border:1px solid;white-space:nowrap;letter-spacing:0.02em}
+.pill-gray{background:var(--pasteGray);color:var(--textSub);border-color:var(--border)}
+.pill-blue{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.20)}
+.pill-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.20)}
+.pill-red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.20)}
+.pill-orange{background:var(--pasteOrange);color:var(--orange);border-color:rgba(234,88,12,0.20)}
+.pill-purple{background:var(--pastePurple);color:var(--purple);border-color:rgba(124,58,237,0.20)}
+
+/* Stat chips */
+.stat-chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border:1px solid var(--border);border-radius:var(--r-xs);background:var(--bgCard)}
+.stat-chip-val{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text)}
+.stat-chip-val.blue{color:var(--blue)}
+.stat-chip-val.green{color:var(--green)}
+.stat-chip-val.red{color:var(--red)}
+.stat-chip-val.orange{color:var(--orange)}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint)}
+.stat-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px}
+.stat-card-val{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.02em;line-height:1.1}
+.stat-card-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--textFaint);margin-top:4px}
+
+/* Tables */
+.dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px;font-family:var(--font-mono)}
+.dash-table th,.dash-table td{border-right:1px solid var(--borderSoft);border-bottom:1px solid var(--borderSoft);padding:0;position:relative}
+.dash-table thead tr th{background:#FAFAFA;padding:7px 10px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.02em;white-space:nowrap;color:var(--textSub);font-family:inherit;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)}
+.dash-table tbody tr:hover td{background:rgba(0,0,0,0.016)}
+.dash-table td{padding:5px 10px;vertical-align:middle}
+
+/* Map tabs */
+.map-layout{display:grid;grid-template-columns:360px 1fr;height:100%;overflow:hidden}
+.map-sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--bgCard)}
+.map-sidebar-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--bgCardAlt)}
+.map-sidebar-filters{padding:8px 12px;border-bottom:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bgCard)}
+.map-sidebar-list{flex:1;overflow-y:auto;padding:6px}
+.map-container{position:relative;background:#e8e8e8}
+.conflict-row{padding:10px 12px;border-radius:var(--r-md);margin-bottom:5px;cursor:pointer;border:1px solid var(--border);background:var(--bgCard);transition:background var(--t-fast),border-color var(--t-fast);border-left:3px solid var(--border)}
+.conflict-row:hover{background:var(--bgHover)}
+.conflict-row.focused{background:var(--accentBg);border-color:rgba(37,99,235,0.3);border-left-color:var(--blue)}
+.conflict-row.flagged{background:var(--pasteRed);border-color:rgba(220,38,38,0.2);border-left-color:var(--red)}
+.conflict-row.resolved{opacity:0.5;border-left-color:var(--green)}
+
+/* Filter pills row */
+.filter-pills{display:flex;gap:4px;flex-wrap:wrap}
+.filter-pill{padding:3px 9px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCardAlt);color:var(--textSub);font-size:10px;font-weight:500;cursor:pointer;transition:all var(--t-fast)}
+.filter-pill.active{background:var(--text);color:#fff;border-color:transparent}
+.filter-pill:hover:not(.active){background:var(--bgHover)}
+
+/* Route Plan */
+.veh-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:8px;overflow:hidden}
+.veh-card-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;border:none;width:100%;text-align:left;background:transparent;font-family:inherit;transition:background var(--t-fast)}
+.veh-card-header:hover{background:var(--bgHover)}
+.veh-card-body{display:none;border-top:1px solid var(--borderSoft);padding:8px 14px}
+.veh-card.open .veh-card-body{display:block}
+.commune-row{padding:6px 10px;border-radius:var(--r-sm);margin-bottom:3px;cursor:pointer;border:1px solid var(--borderSoft);background:var(--bgCardAlt);transition:background var(--t-fast)}
+.commune-row:hover{background:var(--bgHover)}
+.commune-row.open{background:var(--bgCard);border-color:var(--border)}
+.commune-isos{display:none;padding:4px 0 4px 10px;border-top:1px solid var(--borderSoft);margin-top:4px}
+.commune-row.open .commune-isos{display:block}
+.iso-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCard);font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--blue);cursor:pointer;margin:2px;transition:background var(--t-fast)}
+.iso-chip:hover{background:var(--pasteBlue)}
+.iso-chip.copied{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.2)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.22);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity var(--t-normal)}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-content{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-xl);width:100%;max-width:520px;padding:22px;position:relative;transform:scale(0.97) translateY(6px);transition:transform var(--t-slow);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-overlay.active .modal-content{transform:scale(1) translateY(0)}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#18181B;color:#F4F4F5;border:1px solid rgba(255,255,255,0.08);padding:8px 16px;border-radius:var(--r-md);font-size:11px;font-weight:600;letter-spacing:0.01em;box-shadow:var(--shadow-lg);z-index:2000;white-space:nowrap;pointer-events:none;transition:transform var(--t-slow)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.toast-ok{background:#14532D}
+.toast.toast-error{background:#7F1D1D}
+.toast.toast-warn{background:#78350F}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:10px;padding:40px;text-align:center;color:var(--textFaint)}
+.empty-icon{font-size:32px}
+.empty-title{font-size:13px;font-weight:600;color:var(--textSub)}
+
+/* Map markers */
+@keyframes pulse-red{0%{box-shadow:0 0 0 0 rgba(220,38,38,0.7)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+@keyframes pulse-focus{0%{box-shadow:0 0 0 0 rgba(37,99,235,0.7)}70%{box-shadow:0 0 0 10px rgba(37,99,235,0)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
+.mk-conflict{animation:pulse-red 2s infinite;border:2px solid #fff!important}
+.mk-focus{animation:pulse-focus 1.5s infinite;border:2.5px solid #fff!important}
+.commune-lbl{font-size:var(--clbl-sz,12px);font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.04em;text-shadow:1px 1px 4px rgba(0,0,0,0.8),-1px -1px 2px rgba(0,0,0,0.8);pointer-events:none}
+.leaflet-popup-content-wrapper{background:var(--bgCard)!important;border:1px solid var(--border)!important;border-radius:var(--r-lg)!important;box-shadow:var(--shadow-md)!important}
+.leaflet-popup-tip{background:var(--bgCard)!important}
+.leaflet-popup-content{font-family:inherit;font-size:11px;color:var(--text)!important;margin:10px 14px!important}
+
+/* Summary table */
+.summary-table-wrap{flex:1;overflow:auto}
+.summary-tr:hover td{background:var(--bgHover)}
+.summary-tr.flagged td{background:var(--pasteRed)}
+.summary-tr.resolved{opacity:0.5}
+.sort-btn{background:none;border:none;cursor:pointer;color:var(--textFaint);font-size:9px;padding:1px 3px;border-radius:2px}
+.sort-btn:hover,.sort-btn.active{color:var(--text)}
+
+/* Export tab */
+.export-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;gap:16px;transition:border-color var(--t-fast),background var(--t-fast)}
+.export-card:hover{border-color:rgba(37,99,235,0.3);background:var(--accentBg)}
+.export-card.disabled{opacity:0.4;pointer-events:none}
+
+/* Utilities */
+.hidden{display:none!important}
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}.flex-1{flex:1}
+.gap-xs{gap:4px}.gap-sm{gap:6px}.gap-md{gap:10px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--textFaint)}
+.divider{width:100%;height:1px;background:var(--borderSoft);margin:12px 0}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--borderSoft);border-top-color:var(--text);border-radius:50%;animation:spin 0.65s linear infinite}
+</style>
+</head>
+<body class="app-layout">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div class="header-brand">
+      <span>🔍</span>
+      <span>AUDITORÍA DE RUTAS</span>
+      <span class="brand-tag">v2.0</span>
+    </div>
+    <div class="flex items-center gap-sm">
+      <div id="geo-status" class="pill pill-gray hidden">Geo: cargando…</div>
+      <button class="btn btn-secondary btn-sm" onclick="handleClear()">Limpiar</button>
+    </div>
+  </div>
+  <div class="tabs-container">
+    <div class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="tab-plan" onclick="switchTab('tab-plan',this)">📥 Cargar Plan</button>
+      <button class="tab-btn" data-tab="tab-vehiculos" onclick="switchTab('tab-vehiculos',this)">📋 Route Plan <span class="tab-badge hidden" id="badge-vehiculos"></span></button>
+      <button class="tab-btn" data-tab="tab-geo" onclick="switchTab('tab-geo',this)">📍 Wrong Commune <span class="tab-badge hidden" id="badge-geo"></span></button>
+      <button class="tab-btn" data-tab="tab-proyectos" onclick="switchTab('tab-proyectos',this)">🚧 Proyectos <span class="tab-badge hidden" id="badge-proyectos"></span></button>
+      <button class="tab-btn" data-tab="tab-resumen" onclick="switchTab('tab-resumen',this)">📊 Summary <span class="tab-badge hidden" id="badge-resumen"></span></button>
+      <button class="tab-btn" data-tab="tab-export" onclick="switchTab('tab-export',this)">🚀 Exportar</button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main-content">
+
+  <!-- TAB: CARGAR PLAN -->
+  <div class="tab-pane active" id="tab-plan" style="padding:24px;overflow-y:auto;gap:20px">
+    <div>
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:4px">Cargar Plan de Rutas</h2>
+      <p style="font-size:11px;color:var(--textFaint)">XLSX o CSV con columnas: Título, Vehículo, Dirección — Lat/Lng opcionales para análisis geo</p>
+    </div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div style="font-size:28px" id="upload-icon">📂</div>
+      <div style="font-size:13px;font-weight:600;color:var(--textSub)" id="upload-text">Arrastra tu archivo aquí</div>
+      <div style="font-size:11px;color:var(--textFaint)" id="upload-sub">o haz click para buscar · XLSX, XLS, CSV</div>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" style="display:none" onchange="handleFileInput(event)">
+    <div id="plan-stats" class="hidden" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val blue" id="stat-isos">0</div>
+        <div class="stat-card-lbl">ISOs</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val" id="stat-vehs">0</div>
+        <div class="stat-card-lbl">Vehículos</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val green" id="stat-comunas">0</div>
+        <div class="stat-card-lbl">Comunas</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val orange" id="stat-gps">0</div>
+        <div class="stat-card-lbl">Con GPS</div>
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn btn-secondary btn-sm" onclick="runGeoAnalysis()">🔍 Analizar Geo</button>
+      </div>
+    </div>
+    <div id="plan-conflicts-info" class="hidden" style="padding:10px 14px;border-radius:var(--r-md);border:1px solid rgba(220,38,38,0.2);background:var(--pasteRed);font-size:11px;color:var(--red);font-weight:600"></div>
+  </div>
+
+  <!-- TAB: ROUTE PLAN -->
+  <div class="tab-pane" id="tab-vehiculos" style="overflow:hidden;flex-direction:column">
+    <div class="stats-bar" id="rp-stats-bar">
+      <span class="stat-chip"><span class="stat-chip-val blue" id="rp-total">0</span><span class="stat-chip-lbl">ISOs</span></span>
+      <span class="stat-chip"><span class="stat-chip-val" id="rp-vehs">0</span><span class="stat-chip-lbl">Vehículos</span></span>
+      <span class="stat-chip"><span class="stat-chip-val green" id="rp-comunas">0</span><span class="stat-chip-lbl">Comunas</span></span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="expandAllVehicles()">Expandir Todo</button>
+        <button class="btn btn-secondary btn-sm" onclick="collapseAllVehicles()">Colapsar Todo</button>
+        <div class="search-wrap" style="max-width:180px">
+          <svg style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" id="rp-search" placeholder="Buscar vehículo…" oninput="renderRoutePlan()" style="padding-left:26px;font-size:11px">
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px 16px" id="rp-list">
+      <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">Carga un plan primero</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: WRONG COMMUNE (MAP) -->
+  <div class="tab-pane map-pane" id="tab-geo">
+    <div class="map-layout">
+      <div class="map-sidebar">
+        <div class="map-sidebar-header">
+          <div style="flex:1">
+            <span class="stat-chip-val red num" id="geo-count">0</span>
+            <span class="stat-chip-lbl" style="margin-left:4px">Conflictos</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="exportConflictsXLSX()">↓ Excel</button>
+          <button class="btn btn-primary btn-sm" onclick="runGeoAnalysis()">Analizar</button>
+          <button class="btn btn-green btn-sm" onclick="resolveAllConflicts()">Todo ✓</button>
+          <button class="btn btn-danger btn-sm" onclick="flagAllConflicts()">Todo ⚠</button>
+        </div>
+        <div class="map-sidebar-filters">
+          <input class="input" id="geo-search" placeholder="Buscar ISO, veh…" oninput="renderConflictList()" style="font-size:11px">
+          <div class="filter-pills" id="geo-status-filter">
+            <button class="filter-pill active" data-filter="all" onclick="setGeoFilter('all',this)">Todos</button>
+            <button class="filter-pill" data-filter="pendiente" onclick="setGeoFilter('pendiente',this)">⏳ Pendiente</button>
+            <button class="filter-pill" data-filter="alerta" onclick="setGeoFilter('alerta',this)">⚠ Alerta</button>
+            <button class="filter-pill" data-filter="resuelto" onclick="setGeoFilter('resuelto',this)">✓ Resuelto</button>
+          </div>
+        </div>
+        <div class="map-sidebar-list" id="geo-list">
+          <div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">Carga un plan y ejecuta análisis</div></div>
+        </div>
+      </div>
+      <div class="map-container" id="map-geo-wrap">
+        <div id="map-geo" style="width:100%;height:100%"></div>
+        <div style="position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px">
+          <button onclick="toggleMapTheme('geo')" id="geo-tile-btn" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--bgCard);border:1px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">☀️</button>
+          <button id="geo-clear-focus" onclick="clearGeoFocus()" class="hidden" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--pasteRed);border:1px solid rgba(220,38,38,0.2);cursor:pointer;font-size:14px;font-weight:700;color:var(--red);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: PROYECTOS (MAP) -->
+  <div class="tab-pane map-pane" id="tab-proyectos">
+    <div class="map-layout">
+      <div class="map-sidebar">
+        <div class="map-sidebar-header">
+          <div style="flex:1">
+            <span class="stat-chip-val purple num" id="proy-count">0</span>
+            <span class="stat-chip-lbl" style="margin-left:4px">Proyectos</span>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="resolveAllProyectos()">Todo ✓</button>
+          <button class="btn btn-danger btn-sm" onclick="flagAllProyectos()">Todo ⚠</button>
+        </div>
+        <div class="map-sidebar-filters">
+          <input class="input" id="proy-search" placeholder="Buscar ISO, veh…" oninput="renderProyectoList()" style="font-size:11px">
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all" onclick="setProyFilter('all',this)">Todos</button>
+            <button class="filter-pill" data-filter="pendiente" onclick="setProyFilter('pendiente',this)">⏳ Pendiente</button>
+            <button class="filter-pill" data-filter="alerta" onclick="setProyFilter('alerta',this)">⚠ Alerta</button>
+            <button class="filter-pill" data-filter="resuelto" onclick="setProyFilter('resuelto',this)">✓ Resuelto</button>
+          </div>
+        </div>
+        <div class="map-sidebar-list" id="proy-list">
+          <div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-title">Sin proyectos detectados</div></div>
+        </div>
+      </div>
+      <div class="map-container" id="map-proy-wrap">
+        <div id="map-proy" style="width:100%;height:100%"></div>
+        <div style="position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px">
+          <button onclick="toggleMapTheme('proy')" id="proy-tile-btn" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--bgCard);border:1px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">☀️</button>
+          <button id="proy-clear-focus" onclick="clearProyFocus()" class="hidden" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--pasteRed);border:1px solid rgba(220,38,38,0.2);cursor:pointer;font-size:14px;font-weight:700;color:var(--red);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SUMMARY -->
+  <div class="tab-pane" id="tab-resumen" style="flex-direction:column;overflow:hidden">
+    <div class="toolbar" id="summary-toolbar">
+      <span style="font-size:11px;color:var(--textSub)" id="summary-info">0 alertas</span>
+      <div class="toolbar-sep"></div>
+      <div class="filter-pills">
+        <button class="filter-pill active" onclick="setSummaryFilter('all',this)">Todos</button>
+        <button class="filter-pill" onclick="setSummaryFilter('pendiente',this)">⏳ Pendiente</button>
+        <button class="filter-pill" onclick="setSummaryFilter('alerta',this)">⚠ Alerta</button>
+        <button class="filter-pill" onclick="setSummaryFilter('resuelto',this)">✓ Resuelto</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div style="position:relative">
+        <svg style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint)" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="input" id="summary-search" placeholder="Buscar…" oninput="renderSummary()" style="padding-left:26px;max-width:160px">
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-blue btn-sm" onclick="copySummaryToClipboard()">📋 Copiar</button>
+        <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Excel</button>
+      </div>
+    </div>
+    <div class="summary-table-wrap" id="summary-wrap">
+      <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: EXPORT -->
+  <div class="tab-pane" id="tab-export" style="overflow-y:auto;padding:24px;gap:16px">
+    <div>
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:4px">📤 Exportar Resultados</h2>
+      <p style="font-size:11px;color:var(--textFaint)">Genera reportes y exporta los datos de la auditoría</p>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Datos</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="export-card" id="exp-plan">
+        <span style="font-size:24px">📋</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">Plan Rutas Completo</div>
+          <div style="font-size:11px;color:var(--textFaint)" id="exp-plan-desc">Sin datos</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="exportFullPlan()">↓ Excel</button>
+      </div>
+      <div class="export-card" id="exp-conflicts">
+        <span style="font-size:24px">📍</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">Conflictos Geográficos</div>
+          <div style="font-size:11px;color:var(--textFaint)" id="exp-conf-desc">Sin conflictos</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="exportConflictsXLSX()">↓ Excel</button>
+      </div>
+      <div class="export-card" id="exp-summary">
+        <span style="font-size:24px">📊</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">Resumen de Alertas</div>
+          <div style="font-size:11px;color:var(--textFaint)" id="exp-sum-desc">Sin alertas</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-blue btn-sm" onclick="copySummaryToClipboard()">📋 Copiar</button>
+          <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Excel</button>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Sesión</p>
+    <div class="export-card" id="exp-session">
+      <span style="font-size:24px">💾</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700">Sesión Completa (JSON)</div>
+        <div style="font-size:11px;color:var(--textFaint)">ISOs, conflictos y progreso de revisión</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="exportSession()">↓ JSON</button>
+    </div>
+    <p style="font-size:10px;color:var(--textFaint);text-align:center;margin-top:8px">Los archivos se generan localmente — ningún dato se envía a servidores externos.</p>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GEO UTILS
+// ═══════════════════════════════════════════════════════════
+function normK(s) {
+  return (s || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Z0-9 ]/g, '').trim()
+}
+
+function pointInPolygon(lat, lng, poly) {
+  let inside = false
+  const n = poly.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1]
+    const xj = poly[j][0], yj = poly[j][1]
+    if ((yi > lng) !== (yj > lng) && lat < ((xj - xi) * (lng - yi)) / (yj - yi) + xi)
+      inside = !inside
+  }
+  return inside
+}
+
+function comunaFromCoords(lat, lng) {
+  const D = window.RM_COMUNAS_DATA
+  if (!D) return null
+  for (const key of Object.keys(D)) {
+    if (D[key].p && pointInPolygon(lat, lng, D[key].p)) return key
+  }
+  // Nearest centroid fallback
+  let best = null, md = 1e9
+  for (const k of Object.keys(D)) {
+    const c = D[k].c
+    if (!c) continue
+    const d = (lat - c[0]) ** 2 + (lng - c[1]) ** 2
+    if (d < md) { md = d; best = k }
+  }
+  return best
+}
+
+function haversine(c1, c2) {
+  const R = 6371
+  const dLat = (c2[0] - c1[0]) * Math.PI / 180
+  const dLon = (c2[1] - c1[1]) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+
+function getDisplayName(normKey) {
+  const D = window.RM_COMUNAS_DATA
+  if (D && D[normKey] && D[normKey].n) return D[normKey].n
+  if (!normKey) return '?'
+  return normKey.charAt(0) + normKey.slice(1).toLowerCase()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let routeData = []          // RouteRow[]
+let conflicts = []          // ComunaConflict[]
+let resolvedConflicts = new Set()
+let flaggedConflicts = new Set()
+let excludedVehicles = new Set()
+let resolvedProyectos = new Set()
+let flaggedProyectos = new Set()
+
+let geoFilter = 'all'
+let proyFilter = 'all'
+let summaryFilter = 'all'
+let summarySort = { col: null, dir: 1 }
+let geoFocusISO = null
+let proyFocusISO = null
+
+// Map state
+let geoMap = null, geoTile = null, geoMarkers = [], geoLines = []
+let proyMap = null, proyTile = null, proyMarkers = [], proyLines = []
+let geoDarkMap = true, proyDarkMap = true
+
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+const VEH_COLORS = ['#2563EB','#7C3AED','#16A34A','#EA580C','#EC4899','#0891B2','#D97706','#DC2626','#059669','#6366F1']
+
+// ═══════════════════════════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+function saveState() {
+  try {
+    if (routeData.length) localStorage.setItem('aud_route_v2', LZString.compress(JSON.stringify(routeData)))
+    else localStorage.removeItem('aud_route_v2')
+    localStorage.setItem('aud_res_v2', JSON.stringify([...resolvedConflicts]))
+    localStorage.setItem('aud_flg_v2', JSON.stringify([...flaggedConflicts]))
+    localStorage.setItem('aud_excl_v2', JSON.stringify([...excludedVehicles]))
+    localStorage.setItem('aud_res_proy_v2', JSON.stringify([...resolvedProyectos]))
+    localStorage.setItem('aud_flg_proy_v2', JSON.stringify([...flaggedProyectos]))
+    if (conflicts.length) localStorage.setItem('aud_conf_v2', LZString.compress(JSON.stringify(conflicts)))
+    else localStorage.removeItem('aud_conf_v2')
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const rd = localStorage.getItem('aud_route_v2')
+    if (rd) routeData = JSON.parse(LZString.decompress(rd) || '[]')
+    const cf = localStorage.getItem('aud_conf_v2')
+    if (cf) conflicts = JSON.parse(LZString.decompress(cf) || '[]')
+    resolvedConflicts = new Set(JSON.parse(localStorage.getItem('aud_res_v2') || '[]'))
+    flaggedConflicts  = new Set(JSON.parse(localStorage.getItem('aud_flg_v2') || '[]'))
+    excludedVehicles  = new Set(JSON.parse(localStorage.getItem('aud_excl_v2') || '[]'))
+    resolvedProyectos = new Set(JSON.parse(localStorage.getItem('aud_res_proy_v2') || '[]'))
+    flaggedProyectos  = new Set(JSON.parse(localStorage.getItem('aud_flg_proy_v2') || '[]'))
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILE PARSER
+// ═══════════════════════════════════════════════════════════
+function nm(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'') }
+function findCol(keys, ...cands) {
+  const exact = keys.find(k => cands.some(c => nm(k) === nm(c)))
+  if (exact) return exact
+  return keys.find(k => cands.some(c => nm(k).includes(nm(c))))
+}
+
+function parseRows(rows) {
+  if (!rows.length) return { rows: [], hasGeo: false, error: 'Archivo vacío' }
+  const keys = Object.keys(rows[0])
+  const cTit  = findCol(keys,'Título','Titulo','titulo','title','iso','titulos')
+  const cVeh  = findCol(keys,'Vehículo','Vehiculo','vehiculo','veh','vehicle','camion','truck')
+  const cDir  = findCol(keys,'Dirección','Direccion','direccion','dir','address','domicilio')
+  const cLat  = findCol(keys,'Latitud','Lat','latitude','lat','y','coord_y')
+  const cLng  = findCol(keys,'Longitud','Lng','Lon','longitude','lng','lon','x','coord_x')
+  const cPar  = findCol(keys,'Parada','Stop','stop','orden','order','secuencia','seq','numero','num','n')
+  const cCond = findCol(keys,'Conductor','conductor','driver')
+  if (!cTit) return { rows:[], hasGeo:false, error:`Sin columna Titulo/ISO. Columnas: ${keys.slice(0,8).join(' | ')}` }
+  if (!cVeh) return { rows:[], hasGeo:false, error:`Sin columna Vehículo. Columnas: ${keys.slice(0,8).join(' | ')}` }
+  if (!cDir) return { rows:[], hasGeo:false, error:`Sin columna Dirección. Columnas: ${keys.slice(0,8).join(' | ')}` }
+
+  const parsed = rows
+    .filter(r => {
+      const iso = (r[cTit]||'').trim().toUpperCase()
+      return iso && !['INICIO','FIN','INICIO DE RUTA','FIN DE RUTA'].includes(iso)
+    })
+    .map(r => {
+      const dir = (r[cDir]||'').trim()
+      const parts = dir.split(',').map(s => s.trim())
+      const n = parts.length
+      const lat = cLat ? parseFloat(r[cLat]) : NaN
+      const lng = cLng ? parseFloat(r[cLng]) : NaN
+      const isChile = n >= 1 && parts[n-1].trim().toUpperCase() === 'CHILE'
+      const comunaIdx = isChile ? (n>=3?n-3:0) : (n>=2?n-2:0)
+      const provIdx   = isChile ? (n>=2?n-2:0) : (n>=1?n-1:0)
+      return {
+        iso:       (r[cTit]||'').trim(),
+        veh:       (r[cVeh]||'').trim(),
+        dir,
+        comuna:    parts[comunaIdx] || 'Sin comuna',
+        provincia: parts[provIdx] || '',
+        lat:       isNaN(lat) ? null : lat,
+        lng:       isNaN(lng) ? null : lng,
+        parada:    cPar ? (parseInt(r[cPar])||0) : 0,
+        conductor: cCond ? (r[cCond]||'').trim() : '',
+      }
+    })
+  const hasGeo = parsed.some(r => r.lat !== null && r.lng !== null)
+  return { rows: parsed, hasGeo, error: null }
+}
+
+function handleFileInput(e) {
+  const f = e.target.files[0]
+  if (f) processFile(f)
+  e.target.value = ''
+}
+function handleDrop(e) {
+  e.preventDefault()
+  document.getElementById('upload-zone').classList.remove('drag')
+  const f = e.dataTransfer.files[0]
+  if (f) processFile(f)
+}
+
+function processFile(file) {
+  const icon = document.getElementById('upload-icon')
+  const text = document.getElementById('upload-text')
+  icon.textContent = '⏳'
+  text.textContent = 'Procesando…'
+
+  const reader = new FileReader()
+  reader.onload = e => {
+    try {
+      let rawRows
+      if (/\.xlsx?$/i.test(file.name)) {
+        const W = window.XLSX
+        if (!W) { showToast('XLSX no disponible','error'); return }
+        const wb = W.read(new Uint8Array(e.target.result), { type:'array' })
+        rawRows = W.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' })
+      } else {
+        const text = e.target.result
+        const lines = text.split(/\r?\n/).filter(Boolean)
+        if (lines.length < 2) { showToast('CSV vacío','error'); return }
+        const sep = (lines[0].match(/\t/g)||[]).length > (lines[0].match(/,/g)||[]).length ? '\t' : ','
+        const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g,''))
+        rawRows = lines.slice(1).map(line => {
+          const vals = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''))
+          const obj = {}
+          headers.forEach((h,i) => { obj[h] = vals[i]||'' })
+          return obj
+        })
+      }
+      const result = parseRows(rawRows)
+      if (result.error) { showToast(result.error, 'error'); icon.textContent='📂'; text.textContent='Arrastra tu archivo aquí'; return }
+
+      routeData = result.rows
+      conflicts = []
+      resolvedConflicts = new Set()
+      flaggedConflicts = new Set()
+      excludedVehicles = new Set()
+      resolvedProyectos = new Set()
+      flaggedProyectos = new Set()
+      saveState()
+      updateAllUI()
+
+      const zone = document.getElementById('upload-zone')
+      zone.classList.add('loaded')
+      icon.textContent = '✅'
+      text.textContent = `${routeData.length} ISOs cargadas${result.hasGeo?' · con GPS':''}`
+      document.getElementById('upload-sub').textContent = 'Haz click o arrastra para reemplazar'
+
+      showToast(`✓ ${routeData.length} ISOs cargadas`)
+      switchTab('tab-vehiculos', document.querySelector('[data-tab="tab-vehiculos"]'))
+
+      if (result.hasGeo && window.RM_COMUNAS_DATA) {
+        setTimeout(() => {
+          runGeoAnalysis()
+        }, 300)
+      }
+    } catch(err) {
+      showToast('Error al leer archivo: ' + err.message, 'error')
+      icon.textContent='📂'; text.textContent='Arrastra tu archivo aquí'
+    }
+  }
+  if (/\.xlsx?$/i.test(file.name)) reader.readAsArrayBuffer(file)
+  else reader.readAsText(file, 'UTF-8')
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GEO ANALYSIS
+// ═══════════════════════════════════════════════════════════
+function runGeoAnalysis() {
+  if (!routeData.length) { showToast('Carga un plan primero', 'warn'); return }
+  const D = window.RM_COMUNAS_DATA
+  if (!D || !Object.keys(D).length) { showToast('comunas_data.js no disponible', 'error'); return }
+
+  const pts = routeData.filter(r => r.lat !== null && r.lng !== null)
+  if (!pts.length) { showToast('Sin coordenadas GPS en el plan', 'warn'); return }
+
+  conflicts = []
+  for (const r of pts) {
+    const kDir   = normK(r.comuna)
+    const kCoord = comunaFromCoords(r.lat, r.lng)
+    if (!kDir || !kCoord) continue
+    if (kDir === kCoord) continue
+    if (kDir.includes(kCoord) || kCoord.includes(kDir)) continue
+    const cd = D[kDir]
+    if (cd && cd.c) {
+      const dist = haversine([r.lat, r.lng], cd.c)
+      if (dist < 0.5) continue
+    }
+    conflicts.push({
+      iso: r.iso, veh: r.veh, dir: r.dir,
+      comunaDireccion: r.comuna,
+      comunaReal: getDisplayName(kCoord),
+      comunaRealKey: kCoord,
+      lat: r.lat, lng: r.lng, parada: r.parada,
+      status: 'pendiente',
+    })
+  }
+
+  saveState()
+  updateAllUI()
+  showToast(conflicts.length ? `${conflicts.length} conflictos detectados` : '✓ Sin conflictos de comuna')
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════════════════════
+function toggleResolveConflict(iso) {
+  if (resolvedConflicts.has(iso)) { resolvedConflicts.delete(iso) }
+  else { resolvedConflicts.add(iso); flaggedConflicts.delete(iso) }
+  saveState(); updateAllUI()
+}
+function toggleFlagConflict(iso) {
+  if (flaggedConflicts.has(iso)) { flaggedConflicts.delete(iso) }
+  else { flaggedConflicts.add(iso); resolvedConflicts.delete(iso) }
+  saveState(); updateAllUI()
+}
+function resolveAllConflicts() {
+  const visible = getVisibleConflicts()
+  visible.forEach(c => { resolvedConflicts.add(c.iso); flaggedConflicts.delete(c.iso) })
+  saveState(); updateAllUI()
+  showToast(`✓ ${visible.length} resueltos`)
+}
+function flagAllConflicts() {
+  const visible = getVisibleConflicts()
+  visible.forEach(c => { flaggedConflicts.add(c.iso); resolvedConflicts.delete(c.iso) })
+  saveState(); updateAllUI()
+  showToast(`⚠ ${visible.length} alertados`)
+}
+function toggleResolveProyecto(iso) {
+  if (resolvedProyectos.has(iso)) { resolvedProyectos.delete(iso) }
+  else { resolvedProyectos.add(iso); flaggedProyectos.delete(iso) }
+  saveState(); updateAllUI()
+}
+function toggleFlagProyecto(iso) {
+  if (flaggedProyectos.has(iso)) { flaggedProyectos.delete(iso) }
+  else { flaggedProyectos.add(iso); resolvedProyectos.delete(iso) }
+  saveState(); updateAllUI()
+}
+function resolveAllProyectos() {
+  getProyectosData().forEach(r => { resolvedProyectos.add(r.iso); flaggedProyectos.delete(r.iso) })
+  saveState(); updateAllUI()
+}
+function flagAllProyectos() {
+  getProyectosData().forEach(r => { flaggedProyectos.add(r.iso); resolvedProyectos.delete(r.iso) })
+  saveState(); updateAllUI()
+}
+function handleClear() {
+  if (!confirm('¿Limpiar todos los datos?')) return
+  routeData=[]; conflicts=[]; resolvedConflicts=new Set(); flaggedConflicts=new Set()
+  excludedVehicles=new Set(); resolvedProyectos=new Set(); flaggedProyectos=new Set()
+  saveState()
+  const zone=document.getElementById('upload-zone'); zone.classList.remove('loaded')
+  document.getElementById('upload-icon').textContent='📂'
+  document.getElementById('upload-text').textContent='Arrastra tu archivo aquí'
+  document.getElementById('upload-sub').textContent='o haz click para buscar · XLSX, XLS, CSV'
+  updateAllUI()
+  switchTab('tab-plan', document.querySelector('[data-tab="tab-plan"]'))
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+function getProyectosData() {
+  const PROY_CONDUCTORS = ['francisco javier diaz zamora','proyecto_cocinas']
+  return routeData.filter(r => PROY_CONDUCTORS.includes((r.conductor||'').toLowerCase()))
+}
+function getVehColor(veh) {
+  const vehs = [...new Set(routeData.map(r=>r.veh))].sort()
+  return VEH_COLORS[vehs.indexOf(veh) % VEH_COLORS.length] || VEH_COLORS[0]
+}
+function getConflictStatus(iso) {
+  if (resolvedConflicts.has(iso)) return 'resuelto'
+  if (flaggedConflicts.has(iso)) return 'alerta'
+  return 'pendiente'
+}
+function getProyStatus(iso) {
+  if (resolvedProyectos.has(iso)) return 'resuelto'
+  if (flaggedProyectos.has(iso)) return 'alerta'
+  return 'pendiente'
+}
+function getVisibleConflicts() {
+  const q = (document.getElementById('geo-search')?.value||'').toLowerCase()
+  return conflicts.filter(c => {
+    if (excludedVehicles.has(c.veh)) return false
+    if (geoFilter !== 'all' && getConflictStatus(c.iso) !== geoFilter) return false
+    if (q) return c.iso.toLowerCase().includes(q) || c.veh.toLowerCase().includes(q) || c.comunaDireccion.toLowerCase().includes(q)
+    return true
+  })
+}
+function getSummaryRows() {
+  const rows = []
+  for (const c of conflicts) {
+    if (excludedVehicles.has(c.veh)) continue
+    rows.push({
+      iso: c.iso, veh: c.veh, dir: c.dir,
+      obs: 'Comuna Incorrecta',
+      detalle: `${c.comunaDireccion} → ${c.comunaReal}`,
+      tipo: 'geo',
+      status: getConflictStatus(c.iso),
+    })
+  }
+  return rows.sort((a,b) => {
+    const o = {alerta:0,pendiente:1,resuelto:2}
+    return (o[a.status]||0) - (o[b.status]||0)
+  })
+}
+function ts() {
+  const d=new Date(), p=n=>String(n).padStart(2,'0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`
+}
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+function showToast(msg, type='', ms=2400) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.className = 'toast show' + (type ? ' toast-'+type : '')
+  clearTimeout(t._tid)
+  t._tid = setTimeout(() => t.className='toast', ms)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  if (btn) btn.classList.add('active')
+
+  if (id === 'tab-geo') initGeoMap()
+  if (id === 'tab-proyectos') initProyMap()
+  if (id === 'tab-resumen') renderSummary()
+  if (id === 'tab-export') updateExportTab()
+}
+
+function setGeoFilter(f, btn) {
+  geoFilter = f
+  document.querySelectorAll('#geo-status-filter .filter-pill').forEach(b => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+  renderConflictList()
+}
+function setProyFilter(f, btn) {
+  proyFilter = f
+  document.querySelectorAll('#tab-proyectos .filter-pill').forEach(b => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+  renderProyectoList()
+}
+function setSummaryFilter(f, btn) {
+  summaryFilter = f
+  document.querySelectorAll('#summary-toolbar .filter-pill').forEach(b => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+  renderSummary()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UPDATE ALL UI
+// ═══════════════════════════════════════════════════════════
+function updateAllUI() {
+  updateBadges()
+  updatePlanTab()
+  renderRoutePlan()
+  renderConflictList()
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+  renderProyectoList()
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+  renderSummary()
+  updateExportTab()
+  updateGeoStatusBadge()
+}
+
+function updateBadges() {
+  const setBadge = (id, n) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (n) { el.textContent=n; el.classList.remove('hidden') }
+    else el.classList.add('hidden')
+  }
+  setBadge('badge-vehiculos', routeData.length || null)
+  const geoAlerts = conflicts.filter(c => !excludedVehicles.has(c.veh) && !resolvedConflicts.has(c.iso)).length
+  setBadge('badge-geo', geoAlerts || null)
+  if (geoAlerts) document.getElementById('badge-geo').classList.add('alert')
+  else document.getElementById('badge-geo').classList.remove('alert')
+  setBadge('badge-proyectos', getProyectosData().filter(r => !resolvedProyectos.has(r.iso)).length || null)
+  const summPend = getSummaryRows().filter(r => r.status !== 'resuelto').length
+  setBadge('badge-resumen', summPend || null)
+}
+
+function updatePlanTab() {
+  const statsEl = document.getElementById('plan-stats')
+  if (!routeData.length) { statsEl.classList.add('hidden'); return }
+  statsEl.classList.remove('hidden')
+  document.getElementById('stat-isos').textContent = routeData.length
+  document.getElementById('stat-vehs').textContent = new Set(routeData.map(r=>r.veh)).size
+  document.getElementById('stat-comunas').textContent = new Set(routeData.map(r=>r.comuna)).size
+  document.getElementById('stat-gps').textContent = routeData.filter(r=>r.lat!==null).length
+  const infoEl = document.getElementById('plan-conflicts-info')
+  if (conflicts.length) {
+    infoEl.classList.remove('hidden')
+    infoEl.textContent = `${conflicts.length} conflictos de comuna detectados · ${conflicts.filter(c=>!resolvedConflicts.has(c.iso)).length} pendientes`
+  } else infoEl.classList.add('hidden')
+}
+
+function updateGeoStatusBadge() {
+  const el = document.getElementById('geo-status')
+  const D = window.RM_COMUNAS_DATA
+  if (D && Object.keys(D).length) {
+    el.textContent = `Geo: ${Object.keys(D).length} comunas`
+    el.className = 'pill pill-green'
+    el.classList.remove('hidden')
+  } else {
+    el.textContent = 'Geo: sin datos'
+    el.className = 'pill pill-red'
+    el.classList.remove('hidden')
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ROUTE PLAN TAB
+// ═══════════════════════════════════════════════════════════
+function expandAllVehicles() {
+  document.querySelectorAll('#rp-list .veh-card').forEach(c => c.classList.add('open'))
+}
+function collapseAllVehicles() {
+  document.querySelectorAll('#rp-list .veh-card').forEach(c => c.classList.remove('open'))
+}
+
+function renderRoutePlan() {
+  const q = (document.getElementById('rp-search')?.value||'').toLowerCase()
+  const list = document.getElementById('rp-list')
+  if (!routeData.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">Carga un plan primero</div></div>'
+    return
+  }
+
+  // Build vehicle map
+  const vehMap = {}
+  for (const r of routeData) {
+    const v = r.veh || 'Sin vehículo'
+    const c = r.comuna || 'Sin comuna'
+    if (!vehMap[v]) vehMap[v] = {}
+    if (!vehMap[v][c]) vehMap[v][c] = []
+    vehMap[v][c].push(r)
+  }
+
+  const entries = Object.entries(vehMap)
+    .sort((a,b) => a[0].localeCompare(b[0],'es'))
+    .filter(([v]) => !q || v.toLowerCase().includes(q))
+
+  document.getElementById('rp-total').textContent = routeData.length
+  document.getElementById('rp-vehs').textContent = Object.keys(vehMap).length
+  document.getElementById('rp-comunas').textContent = new Set(routeData.map(r=>r.comuna)).size
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+
+  const confSet = new Set(conflicts.map(c=>c.iso))
+
+  list.innerHTML = entries.map(([veh, comunas]) => {
+    const totalISOs = Object.values(comunas).reduce((s,a)=>s+a.length,0)
+    const soloUna = Object.values(comunas).filter(a=>a.length===1).length
+    const vehConfs = conflicts.filter(c=>c.veh===veh && !resolvedConflicts.has(c.iso)).length
+    const color = getVehColor(veh)
+    const isExcl = excludedVehicles.has(veh)
+
+    const comunasHtml = Object.entries(comunas)
+      .sort((a,b)=>b[1].length-a[1].length)
+      .map(([com, isos]) => {
+        const hasConf = isos.some(i=>confSet.has(i.iso))
+        const isoChips = isos.map(i =>
+          `<span class="iso-chip" onclick="copyISO('${escH(i.iso)}',this)" title="${escH(i.dir)}">${escH(i.iso)}${i.parada?` <span style="color:var(--textFaint);font-size:9px">#${i.parada}</span>`:''}</span>`
+        ).join('')
+        return `<div class="commune-row" onclick="this.classList.toggle('open')">
+          <div class="flex items-center gap-sm" style="pointer-events:none">
+            <span style="font-size:9px;color:var(--textFaint)">▶</span>
+            ${hasConf?`<span class="pill pill-red" style="font-size:9px">!</span>`:''}
+            <span style="font-size:11px;font-weight:600;color:var(--textSub)">${escH(com)}</span>
+            <span style="margin-left:auto" class="badge ${isos.length===1?'orange':''}">${isos.length}</span>
+          </div>
+          <div class="commune-isos" onclick="event.stopPropagation()">${isoChips}</div>
+        </div>`
+      }).join('')
+
+    return `<div class="veh-card" style="opacity:${isExcl?0.45:1}">
+      <button class="veh-card-header" onclick="this.parentElement.classList.toggle('open')">
+        <div style="width:3px;height:20px;border-radius:99px;background:${color};flex-shrink:0"></div>
+        <span style="font-size:12px">🚛</span>
+        <span style="font-size:12px;font-weight:700;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(veh)}</span>
+        <div class="flex items-center gap-xs" style="flex-shrink:0">
+          <span class="badge blue">${totalISOs} ISO</span>
+          <span class="badge">${Object.keys(comunas).length} com.</span>
+          ${soloUna?`<span class="badge orange">! ${soloUna}</span>`:''}
+          ${vehConfs?`<span class="badge red">⚠ ${vehConfs}</span>`:''}
+          <button onclick="event.stopPropagation();toggleExclude('${escH(veh)}')" class="btn btn-sm ${isExcl?'btn-secondary':'btn-danger'}" style="font-size:9px;padding:2px 7px">${isExcl?'Incluir':'Excluir'}</button>
+        </div>
+      </button>
+      <div class="veh-card-body">${comunasHtml}</div>
+    </div>`
+  }).join('')
+}
+
+function copyISO(iso, el) {
+  navigator.clipboard.writeText(iso).catch(()=>{})
+  el.classList.add('copied')
+  setTimeout(()=>el.classList.remove('copied'),1300)
+}
+function toggleExclude(veh) {
+  if (excludedVehicles.has(veh)) excludedVehicles.delete(veh)
+  else excludedVehicles.add(veh)
+  saveState(); updateAllUI()
+  showToast(excludedVehicles.has(veh)?`✕ ${veh} excluido`:`✓ ${veh} incluido`)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP: INIT
+// ═══════════════════════════════════════════════════════════
+function drawComunaPolygons(map) {
+  const D = window.RM_COMUNAS_DATA
+  if (!D || !window.L) return
+  const L = window.L
+  Object.keys(D).forEach(k => {
+    const d = D[k]; if (!d || !d.p) return
+    L.polygon(d.p, { color:'#64748B', weight:1, opacity:0.4, fillColor:'#334155', fillOpacity:0.06, interactive:false }).addTo(map)
+    if (d.c) {
+      const icon = L.divIcon({
+        className:'',
+        html:`<div class="commune-lbl">${escH(d.n||k)}</div>`,
+        iconSize:[180,24], iconAnchor:[90,12]
+      })
+      L.marker(d.c, { icon, interactive:false, zIndexOffset:-100 }).addTo(map)
+    }
+  })
+}
+
+function initGeoMap() {
+  if (geoMap) { setTimeout(()=>geoMap.invalidateSize(),150); return }
+  const L = window.L; if (!L) return
+  const el = document.getElementById('map-geo'); if (!el) return
+  geoMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
+  geoTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(geoMap)
+  drawComunaPolygons(geoMap)
+  addMapZoomControl(geoMap)
+  addMapZoomLabel(geoMap, 'geo')
+  geoMap.on('zoom', () => updateComunaLabelSize(geoMap))
+  updateComunaLabelSize(geoMap)
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+}
+function initProyMap() {
+  if (proyMap) { setTimeout(()=>proyMap.invalidateSize(),150); return }
+  const L = window.L; if (!L) return
+  const el = document.getElementById('map-proy'); if (!el) return
+  proyMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
+  proyTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(proyMap)
+  drawComunaPolygons(proyMap)
+  addMapZoomControl(proyMap)
+  addMapZoomLabel(proyMap, 'proy')
+  proyMap.on('zoom', () => updateComunaLabelSize(proyMap))
+  updateComunaLabelSize(proyMap)
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+}
+function addMapZoomControl(map) {
+  window.L.control.zoom({ position:'bottomright' }).addTo(map)
+}
+function addMapZoomLabel(map, which) {
+  // commune label size updated on zoom via updateComunaLabelSize
+}
+function updateComunaLabelSize(map) {
+  const z = map.getZoom()
+  const sz = Math.max(Math.min(Math.round(10 * Math.pow(2, z-12)), 80), 6)
+  document.querySelectorAll('.commune-lbl').forEach(el => el.style.fontSize = sz+'px')
+}
+function toggleMapTheme(which) {
+  const L = window.L; if (!L) return
+  if (which==='geo') {
+    geoDarkMap = !geoDarkMap
+    if (geoTile) geoMap.removeLayer(geoTile)
+    geoTile = L.tileLayer(geoDarkMap?TILE_DARK:TILE_LIGHT, { attribution:'© CARTO', maxZoom:19 }).addTo(geoMap)
+    document.getElementById('geo-tile-btn').textContent = geoDarkMap?'☀️':'🌙'
+  } else {
+    proyDarkMap = !proyDarkMap
+    if (proyTile) proyMap.removeLayer(proyTile)
+    proyTile = L.tileLayer(proyDarkMap?TILE_DARK:TILE_LIGHT, { attribution:'© CARTO', maxZoom:19 }).addTo(proyMap)
+    document.getElementById('proy-tile-btn').textContent = proyDarkMap?'☀️':'🌙'
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP: MARKERS
+// ═══════════════════════════════════════════════════════════
+function updateMapMarkers(map, markersArr, linesArr, data, confs, resolved, flagged, focusISO, which) {
+  const L = window.L; if (!L || !map) return
+  markersArr.forEach(m => map.removeLayer(m)); markersArr.length=0
+  linesArr.forEach(l => map.removeLayer(l)); linesArr.length=0
+
+  const pts = data.filter(r => r.lat!==null && r.lng!==null)
+  if (!pts.length) return
+
+  const confSet = new Set(confs.map(c=>c.iso))
+  const focusVeh = focusISO ? (data.find(r=>r.iso===focusISO)||{}).veh : null
+
+  // Polylines per vehicle
+  const vPts = {}
+  pts.forEach(r => { if(!vPts[r.veh]) vPts[r.veh]=[]; vPts[r.veh].push([r.lat,r.lng]) })
+  Object.entries(vPts).forEach(([v,ps]) => {
+    if (ps.length < 2) return
+    const isF = focusVeh ? v===focusVeh : true
+    const line = L.polyline(ps, {
+      color: getVehColor(v), weight: isF?2.5:1.5,
+      opacity: focusVeh ? (isF?0.85:0.12) : 0.5
+    }).addTo(map)
+    linesArr.push(line)
+  })
+
+  // Markers
+  pts.forEach(r => {
+    const isConf = confSet.has(r.iso)
+    const isF = r.iso === focusISO
+    const isRes = resolved.has(r.iso)
+    const isFlg = flagged.has(r.iso)
+    const isVehF = focusVeh ? r.veh===focusVeh : true
+    if (focusVeh && !isVehF) return
+
+    const col = isF ? '#FFDA1A' : isConf ? (isRes?'#16A34A':'#DC2626') : getVehColor(r.veh)
+    const sz = isF ? 22 : isConf ? 16 : 9
+    const cls = isF ? 'mk-focus' : (isConf&&!isRes ? 'mk-conflict' : '')
+    const label = isConf ? (isRes?'✓':'!') : ''
+
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;cursor:pointer">${label}</div>`,
+      iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2]
+    })
+    const mk = L.marker([r.lat,r.lng], { icon, zIndexOffset: isF?1000:(isConf?500:0) })
+
+    if (isConf) {
+      const c = confs.find(x=>x.iso===r.iso)
+      if (c) {
+        const popContent = `<div style="font-size:11px;min-width:220px">
+          <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:4px">${escH(r.iso)}</div>
+          <div style="font-size:10px;color:var(--textFaint);margin-bottom:4px">${escH(r.veh)}</div>
+          <div style="color:var(--textSub);margin-bottom:8px;line-height:1.4">${escH(c.dir)}</div>
+          <div style="background:var(--pasteRed);border:1px solid rgba(220,38,38,0.15);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:10px">
+            <span style="font-weight:700;color:var(--textSub)">${escH(c.comunaDireccion)}</span>
+            <span style="color:var(--textFaint);margin:0 4px">→</span>
+            <span style="font-weight:700;color:var(--red)">${escH(c.comunaReal)}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="window.dispatchEvent(new CustomEvent('map-resolve',{detail:'${r.iso}'}))" style="flex:1;padding:5px 8px;background:var(--pasteGreen);color:var(--green);border:1px solid rgba(22,163,74,0.2);border-radius:var(--r-sm);cursor:pointer;font-size:10px;font-weight:600">${isRes?'↩ Reabrir':'✓ Resolver'}</button>
+            <button onclick="window.dispatchEvent(new CustomEvent('map-flag',{detail:'${r.iso}'}))" style="flex:1;padding:5px 8px;background:var(--pasteRed);color:var(--red);border:1px solid rgba(220,38,38,0.2);border-radius:var(--r-sm);cursor:pointer;font-size:10px;font-weight:600">${isFlg?'✕ Quitar':'⚠ Alertar'}</button>
+          </div>
+        </div>`
+        mk.bindPopup(popContent, { autoPan:false, maxWidth:300 })
+      }
+    }
+    mk.on('click', () => {
+      if (which==='geo') { geoFocusISO = r.iso===geoFocusISO?null:r.iso; renderConflictList(); updateMapMarkers(geoMap,geoMarkers,geoLines,routeData,conflicts,resolvedConflicts,flaggedConflicts,geoFocusISO,'geo'); flyToISO(geoMap,r) }
+      else { proyFocusISO = r.iso===proyFocusISO?null:r.iso; renderProyectoList(); updateMapMarkers(proyMap,proyMarkers,proyLines,getProyectosData(),[],resolvedProyectos,flaggedProyectos,proyFocusISO,'proy'); flyToISO(proyMap,r) }
+    })
+    mk.addTo(map)
+    markersArr.push(mk)
+    if (isF && isConf) setTimeout(()=>mk.openPopup(),60)
+  })
+
+  // Show clear focus button
+  const clearBtn = document.getElementById(which+'-clear-focus')
+  if (clearBtn) { if(focusISO) clearBtn.classList.remove('hidden'); else clearBtn.classList.add('hidden') }
+
+  // Fit bounds on first load
+  if (!focusISO && pts.length) {
+    const latLngs = pts.map(r=>[r.lat,r.lng])
+    try { map.flyToBounds(latLngs, { padding:[30,30], maxZoom:12, duration:0.7 }) } catch(e){}
+  }
+}
+
+function flyToISO(map, r) {
+  if (!map || r.lat===null) return
+  map.flyTo([r.lat, r.lng], Math.max(map.getZoom(), 14), { duration:0.6 })
+}
+
+function clearGeoFocus() { geoFocusISO=null; renderConflictList(); updateMapMarkers(geoMap,geoMarkers,geoLines,routeData,conflicts,resolvedConflicts,flaggedConflicts,null,'geo') }
+function clearProyFocus() { proyFocusISO=null; renderProyectoList(); updateMapMarkers(proyMap,proyMarkers,proyLines,getProyectosData(),[],resolvedProyectos,flaggedProyectos,null,'proy') }
+
+window.addEventListener('map-resolve', e => { toggleResolveConflict(e.detail) })
+window.addEventListener('map-flag',    e => { toggleFlagConflict(e.detail) })
+
+// ═══════════════════════════════════════════════════════════
+//  CONFLICT LIST RENDER
+// ═══════════════════════════════════════════════════════════
+function renderConflictList() {
+  const list = document.getElementById('geo-list')
+  document.getElementById('geo-count').textContent = conflicts.length
+  const visible = getVisibleConflicts()
+  if (!conflicts.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">Carga un plan y ejecuta análisis</div></div>'
+    return
+  }
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+  list.innerHTML = visible.map(c => {
+    const st = getConflictStatus(c.iso)
+    const isRes = st==='resuelto', isFlg = st==='alerta', isF = c.iso===geoFocusISO
+    return `<div class="conflict-row ${isF?'focused':''} ${isFlg?'flagged':''} ${isRes?'resolved':''}"
+      onclick="focusConflict('${escH(c.iso)}')">
+      <div class="flex items-center gap-sm" style="margin-bottom:5px">
+        <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--blue)">${escH(c.iso)}</span>
+        ${isRes?'<span class="pill pill-green">✓</span>':isFlg?'<span class="pill pill-red">⚠</span>':''}
+        <span style="margin-left:auto;font-size:10px;color:var(--textFaint)">${escH(c.veh)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--textSub);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(c.dir)}">${escH(c.dir)}</div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-xs">
+          <span style="font-size:10px;font-weight:600;color:var(--textSub)">${escH(c.comunaDireccion)}</span>
+          <span style="color:var(--textFaint);font-size:9px">→</span>
+          <span style="font-size:10px;font-weight:700;color:var(--red)">${escH(c.comunaReal)}</span>
+        </div>
+        <div class="flex gap-xs" onclick="event.stopPropagation()">
+          <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="toggleResolveConflict('${escH(c.iso)}')">${isRes?'↩':'✓'}</button>
+          <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="toggleFlagConflict('${escH(c.iso)}')">${isFlg?'✕':'⚠'}</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function focusConflict(iso) {
+  geoFocusISO = geoFocusISO===iso ? null : iso
+  renderConflictList()
+  const r = routeData.find(x=>x.iso===iso)
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+  if (geoFocusISO && r && r.lat!==null && geoMap) flyToISO(geoMap, r)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROYECTO LIST RENDER
+// ═══════════════════════════════════════════════════════════
+function renderProyectoList() {
+  const list = document.getElementById('proy-list')
+  const data = getProyectosData()
+  document.getElementById('proy-count').textContent = data.length
+  const q = (document.getElementById('proy-search')?.value||'').toLowerCase()
+  const visible = data.filter(r => {
+    if (proyFilter !== 'all' && getProyStatus(r.iso) !== proyFilter) return false
+    if (q) return r.iso.toLowerCase().includes(q) || r.veh.toLowerCase().includes(q)
+    return true
+  })
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-title">Sin proyectos — verificar columna Conductor</div></div>'
+    return
+  }
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+  list.innerHTML = visible.map(r => {
+    const st = getProyStatus(r.iso)
+    const isRes = st==='resuelto', isFlg = st==='alerta', isF = r.iso===proyFocusISO
+    return `<div class="conflict-row ${isF?'focused':''} ${isFlg?'flagged':''} ${isRes?'resolved':''}"
+      onclick="focusProyecto('${escH(r.iso)}')">
+      <div class="flex items-center gap-sm" style="margin-bottom:5px">
+        <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--purple)">${escH(r.iso)}</span>
+        ${isRes?'<span class="pill pill-green">✓</span>':isFlg?'<span class="pill pill-red">⚠</span>':''}
+        <span style="margin-left:auto;font-size:10px;color:var(--textFaint)">${escH(r.veh)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--textSub);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.dir)}">${escH(r.dir)}</div>
+      <div class="flex justify-between items-center">
+        <span style="font-size:10px;color:var(--textFaint)">${escH(r.conductor||'')}</span>
+        <div class="flex gap-xs" onclick="event.stopPropagation()">
+          <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="toggleResolveProyecto('${escH(r.iso)}')">${isRes?'↩':'✓'}</button>
+          <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="toggleFlagProyecto('${escH(r.iso)}')">${isFlg?'✕':'⚠'}</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function focusProyecto(iso) {
+  proyFocusISO = proyFocusISO===iso ? null : iso
+  renderProyectoList()
+  const r = routeData.find(x=>x.iso===iso)
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+  if (proyFocusISO && r && r.lat!==null && proyMap) flyToISO(proyMap, r)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUMMARY TABLE
+// ═══════════════════════════════════════════════════════════
+function renderSummary() {
+  const wrap = document.getElementById('summary-wrap')
+  const rows = getSummaryRows()
+  const q = (document.getElementById('summary-search')?.value||'').toLowerCase()
+  const pend = rows.filter(r=>r.status==='pendiente').length
+  document.getElementById('summary-info').innerHTML = `${rows.length} alertas · <span style="color:var(--orange);font-weight:700">${pend} pendientes</span>`
+
+  let visible = rows.filter(r => {
+    if (summaryFilter !== 'all' && r.status !== summaryFilter) return false
+    if (q) return r.iso.toLowerCase().includes(q)||r.veh.toLowerCase().includes(q)||(r.dir||'').toLowerCase().includes(q)
+    return true
+  })
+
+  if (summarySort.col) {
+    visible = [...visible].sort((a,b) => {
+      const va = String(a[summarySort.col]||'').toLowerCase()
+      const vb = String(b[summarySort.col]||'').toLowerCase()
+      return va<vb ? -summarySort.dir : va>vb ? summarySort.dir : 0
+    })
+  }
+
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>'
+    return
+  }
+  if (!visible.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+
+  const COLS = [
+    {key:'iso',label:'ISO',w:'110px'},
+    {key:'veh',label:'Vehículo',w:'160px'},
+    {key:'dir',label:'Dirección',w:''},
+    {key:'obs',label:'Tipo',w:'120px'},
+    {key:'detalle',label:'Detalle',w:'200px'},
+    {key:'status',label:'Estado',w:'160px'},
+  ]
+
+  wrap.innerHTML = `<table class="dash-table" style="table-layout:fixed;width:100%">
+    <thead><tr>
+      <th style="width:36px;text-align:center">#</th>
+      ${COLS.map(c=>`<th style="${c.w?'width:'+c.w:''};cursor:pointer" onclick="sortSummary('${c.key}')">
+        <span>${c.label}</span>
+        ${summarySort.col===c.key?`<span class="sort-btn active">${summarySort.dir>0?'↑':'↓'}</span>`:'<span class="sort-btn">↕</span>'}
+      </th>`).join('')}
+    </tr></thead>
+    <tbody>
+    ${visible.map((r,i) => {
+      const isRes=r.status==='resuelto', isFlg=r.status==='alerta'
+      const stEl = isRes
+        ? `<span style="color:var(--green);font-weight:700;font-size:10px">✓ Resuelto</span>`
+        : isFlg ? `<span style="color:var(--red);font-weight:700;font-size:10px">⚠ Alerta</span>`
+        : `<span style="color:var(--orange);font-weight:600;font-size:10px">⏳ Pendiente</span>`
+      return `<tr class="summary-tr ${isFlg?'flagged':''} ${isRes?'resolved':''}" style="border-left:3px solid ${isFlg?'var(--red)':isRes?'var(--green)':'transparent'}">
+        <td style="text-align:center;color:var(--textFaint);font-size:10px;font-family:var(--font-mono)">${i+1}</td>
+        <td><span style="font-family:var(--font-mono);font-weight:700;color:var(--blue);font-size:11px;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Click para copiar">${escH(r.iso)}</span></td>
+        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.veh)}">${escH(r.veh)}</td>
+        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.dir)}">${escH(r.dir||'—')}</td>
+        <td><span class="badge blue" style="font-size:9px">${escH(r.obs)}</span></td>
+        <td style="color:var(--textSub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.detalle)}">${escH(r.detalle)}</td>
+        <td>
+          <div class="flex items-center gap-xs">
+            ${stEl}
+            <span style="margin-left:auto;display:flex;gap:3px">
+              <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${isRes?'↩':'✓'}</button>
+              <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${isFlg?'✕':'⚠'}</button>
+            </span>
+          </div>
+        </td>
+      </tr>`
+    }).join('')}
+    </tbody>
+  </table>`
+}
+
+function sortSummary(col) {
+  if (summarySort.col===col) summarySort.dir = -summarySort.dir
+  else { summarySort.col=col; summarySort.dir=1 }
+  renderSummary()
+}
+function summaryResolve(iso, tipo) {
+  const isRes = resolvedConflicts.has(iso)
+  if (tipo==='geo') {
+    if (isRes) resolvedConflicts.delete(iso)
+    else { resolvedConflicts.add(iso); flaggedConflicts.delete(iso) }
+  }
+  saveState(); updateAllUI()
+}
+function summaryFlag(iso, tipo) {
+  const isFlg = flaggedConflicts.has(iso)
+  if (tipo==='geo') {
+    if (isFlg) flaggedConflicts.delete(iso)
+    else { flaggedConflicts.add(iso); resolvedConflicts.delete(iso) }
+  }
+  saveState(); updateAllUI()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXPORT TAB
+// ═══════════════════════════════════════════════════════════
+function updateExportTab() {
+  document.getElementById('exp-plan-desc').textContent = routeData.length ? `${routeData.length} ISOs · ${new Set(routeData.map(r=>r.veh)).size} vehículos` : 'Sin datos'
+  document.getElementById('exp-conf-desc').textContent = conflicts.length ? `${conflicts.length} conflictos detectados` : 'Sin conflictos'
+  const sr = getSummaryRows()
+  document.getElementById('exp-sum-desc').textContent = sr.length ? `${sr.length} alertas · ${sr.filter(r=>r.status==='pendiente').length} pendientes` : 'Sin alertas'
+}
+
+function getW() {
+  const W = window.XLSX
+  if (!W) { showToast('XLSX no disponible','error'); return null }
+  return W
+}
+function exportFullPlan() {
+  if (!routeData.length) { showToast('Sin datos','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Comuna','Provincia','Lat','Lng','Parada','Conductor'],
+    ...routeData.map(r=>[r.iso,r.veh,r.dir,r.comuna,r.provincia,r.lat??'',r.lng??'',r.parada,r.conductor])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:22},{wch:18},{wch:10},{wch:10},{wch:8},{wch:30}]
+  W.utils.book_append_sheet(wb, ws, 'Plan Rutas')
+  W.writeFile(wb, `plan_rutas_${ts()}.xlsx`)
+  showToast('✓ Exportado')
+}
+function exportConflictsXLSX() {
+  if (!conflicts.length) { showToast('Sin conflictos','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Comuna Dir.','Comuna Real','Lat','Lng','Estado'],
+    ...conflicts.map(c=>[c.iso,c.veh,c.dir,c.comunaDireccion,c.comunaReal,c.lat,c.lng,getConflictStatus(c.iso)])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:22},{wch:22},{wch:10},{wch:10},{wch:12}]
+  W.utils.book_append_sheet(wb, ws, 'Conflictos')
+  W.writeFile(wb, `conflictos_geo_${ts()}.xlsx`)
+  showToast('✓ Exportado')
+}
+function exportSummaryXLSX() {
+  const rows = getSummaryRows()
+  if (!rows.length) { showToast('Sin alertas','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Observación','Detalle','Estado'],
+    ...rows.map(r=>[r.iso,r.veh,r.dir,r.obs,r.detalle,r.status])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:20},{wch:55},{wch:14}]
+  W.utils.book_append_sheet(wb, ws, 'Alertas')
+  W.writeFile(wb, `resumen_alertas_${ts()}.xlsx`)
+  showToast('✓ Exportado')
+}
+function exportSession() {
+  if (!routeData.length) { showToast('Sin datos','warn'); return }
+  const snap = {
+    meta: { version:'2.0', exportedAt:new Date().toISOString(), totalISOs:routeData.length, totalConflicts:conflicts.length },
+    routeData, conflicts,
+    resolvedConflicts:[...resolvedConflicts], flaggedConflicts:[...flaggedConflicts],
+    resolvedProyectos:[...resolvedProyectos], flaggedProyectos:[...flaggedProyectos],
+  }
+  const blob = new Blob([JSON.stringify(snap,null,2)], { type:'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href=url; a.download=`sesion_auditoria_${ts()}.json`; a.click()
+  URL.revokeObjectURL(url)
+  showToast('✓ Sesión exportada')
+}
+function copySummaryToClipboard() {
+  const rows = getSummaryRows()
+  if (!rows.length) return
+  const hS='border:1px solid #ddd;padding:5px 8px;font-weight:700;background:#18181B;color:#fff;font-family:inherit;font-size:11px;'
+  const tS='border:1px solid #ddd;padding:4px 8px;font-family:inherit;font-size:11px;'
+  let rich=`<table style="border-collapse:collapse"><tr>${['ISO','Vehículo','Dirección','Tipo','Detalle','Estado'].map(h=>`<th style="${hS}">${h}</th>`).join('')}</tr>`
+  let plain='ISO\tVehículo\tDirección\tTipo\tDetalle\tEstado\n'
+  rows.forEach(r => {
+    const e=r.status==='resuelto'?'Resuelto':r.status==='alerta'?'Alerta':'Pendiente'
+    rich+=`<tr>${[r.iso,r.veh,r.dir||'',r.obs,r.detalle,e].map(v=>`<td style="${tS}">${escH(String(v))}</td>`).join('')}</tr>`
+    plain+=`${r.iso}\t${r.veh}\t${r.dir||''}\t${r.obs}\t${r.detalle}\t${e}\n`
+  })
+  rich+='</table>'
+  try {
+    navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([rich],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})])
+    showToast('✓ Copiado al portapapeles')
+  } catch { navigator.clipboard.writeText(plain); showToast('✓ Copiado (texto)') }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  loadState()
+  updateAllUI()
+  updateGeoStatusBadge()
+
+  // Drag & drop on body
+  document.body.addEventListener('dragover', e => e.preventDefault())
+  document.body.addEventListener('drop', e => {
+    e.preventDefault()
+    const f = e.dataTransfer.files[0]
+    if (f && (f.name.match(/\.xlsx?$|\.csv$/i))) processFile(f)
+  })
+
+  // Wait for comunas_data.js if not yet loaded
+  if (!window.RM_COMUNAS_DATA || !Object.keys(window.RM_COMUNAS_DATA).length) {
+    let attempts = 0
+    const check = setInterval(() => {
+      attempts++
+      if (window.RM_COMUNAS_DATA && Object.keys(window.RM_COMUNAS_DATA).length) {
+        clearInterval(check)
+        updateGeoStatusBadge()
+      } else if (attempts >= 40) clearInterval(check)
+    }, 250)
+  }
+
+  // Restore upload zone state if data loaded
+  if (routeData.length) {
+    const zone = document.getElementById('upload-zone')
+    zone.classList.add('loaded')
+    document.getElementById('upload-icon').textContent='✅'
+    document.getElementById('upload-text').textContent=`${routeData.length} ISOs cargadas`
+    document.getElementById('upload-sub').textContent='Haz click o arrastra para reemplazar'
+  }
+}
+
+init()
+</script>
+</body>
+</html>
