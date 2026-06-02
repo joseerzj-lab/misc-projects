@@ -350,23 +350,21 @@ function classify(days){
   if(days <= Y) return 'yellow';
   return 'red';
 }
-/* Interpolación suave verde→amarillo→rojo para el número grande */
-function scaleColor(days){
+/* Interpolación suave verde→amarillo→rojo según los días */
+function scaleRGB(days){
   const stops = [[0,[22,163,74]],[7,[202,138,4]],[20,[220,38,38]]];
   const x = Math.max(0, Math.min(20, days));
   for(let i=0;i<stops.length-1;i++){
     const [a,ca]=stops[i],[b,cb]=stops[i+1];
     if(x>=a && x<=b){
       const t=(x-a)/(b-a||1);
-      const c=ca.map((v,j)=>Math.round(v+(cb[j]-v)*t));
-      return `rgb(${c[0]},${c[1]},${c[2]})`;
+      return ca.map((v,j)=>Math.round(v+(cb[j]-v)*t));
     }
   }
-  return 'rgb(220,38,38)';
+  return [220,38,38];
 }
-function hexFor(status){
-  return status==='green'?'16A34A':status==='yellow'?'CA8A04':'DC2626';
-}
+function scaleColor(days){ const c=scaleRGB(days); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+function scaleHex(days){ return scaleRGB(days).map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase(); }
 
 /* ── Parseo del textarea / archivo ── */
 function parsePasted(text){
@@ -505,15 +503,14 @@ function exportXlsx(){
   const sorted = [...RESULTS].sort((a,b)=>{
     const da=a.days==null?Infinity:a.days, db=b.days==null?Infinity:b.days; return db-da;
   });
-  const header = ['CT','Fecha de entrega','Leadtime (días)','Estado'];
+  const header = ['CT','Fecha de entrega','Leadtime (días)'];
   const aoa = [header, ...sorted.map(r=>[
     r.ct,
     r.date ? fmtDate(r.date) : 'Sin fecha',
-    r.days==null ? '' : r.days,
-    statusLabel(r)
+    r.days==null ? '' : r.days
   ])];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{wch:28},{wch:18},{wch:16},{wch:14}];
+  ws['!cols'] = [{wch:28},{wch:18},{wch:16}];
 
   const thin = {style:'thin', color:{rgb:'E4E4E7'}};
   const border = {top:thin,bottom:thin,left:thin,right:thin};
@@ -523,20 +520,18 @@ function exportXlsx(){
     ws[ref].s = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'18181B'}},
       alignment:{horizontal:'center',vertical:'center'}, border };
   });
-  // Filas con formato condicional por color en Leadtime y Estado
+  // Filas: Leadtime con relleno en gradiente verde→amarillo→rojo según los días
   sorted.forEach((r,i)=>{
     const row=i+1;
-    const hex = hexFor(r.status);
+    const hex = (r.days==null || r.days<0) ? 'DC2626' : scaleHex(r.days);
     const fill = {fgColor:{rgb:hex}};
     const whiteBold = {bold:true,color:{rgb:'FFFFFF'}};
     // CT
     setStyle(ws,row,0,{ alignment:{horizontal:'left',vertical:'center'}, border });
     // Fecha
     setStyle(ws,row,1,{ alignment:{horizontal:'center',vertical:'center'}, font:{color:{rgb:'52525B'}}, border });
-    // Leadtime (celda coloreada)
+    // Leadtime (celda con gradiente)
     setStyle(ws,row,2,{ fill, font:whiteBold, alignment:{horizontal:'center',vertical:'center'}, border });
-    // Estado (celda coloreada)
-    setStyle(ws,row,3,{ fill, font:whiteBold, alignment:{horizontal:'center',vertical:'center'}, border });
   });
 
   const wb = XLSX.utils.book_new();
