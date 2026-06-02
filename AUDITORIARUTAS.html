@@ -738,6 +738,7 @@ function runGeoAnalysis() {
 
   conflicts = []
   for (const r of pts) {
+    if (isExcludedVeh(r.veh) || isProjectVeh(r.veh)) continue
     const kDir   = normK(r.comuna)
     const kCoord = comunaFromCoords(r.lat, r.lng)
     if (!kDir || !kCoord) continue
@@ -823,8 +824,7 @@ function handleClear() {
 //  HELPERS
 // ═══════════════════════════════════════════════════════════
 function getProyectosData() {
-  const PROY_CONDUCTORS = ['francisco javier diaz zamora','proyecto_cocinas']
-  return routeData.filter(r => PROY_CONDUCTORS.includes((r.conductor||'').toLowerCase()))
+  return routeData.filter(r => isProjectVeh(r.veh))
 }
 function getVehColor(veh) {
   const vehs = [...new Set(routeData.map(r=>r.veh))].sort()
