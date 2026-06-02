@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora Leadtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- xlsx-js-style: fork de SheetJS API-compatible que SÍ escribe estilos de celda (fills) para el formato condicional del export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
+<!-- html2canvas: captura el tablero de semáforos a PNG -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#FAFAF9; --bgCard:#FFFFFF; --bgCardAlt:rgba(0,0,0,0.026); --bgHover:rgba(0,0,0,0.042);
+  --text:#18181B; --textSub:#52525B; --textFaint:#A1A1AA;
+  --border:rgba(0,0,0,0.09); --borderSoft:rgba(0,0,0,0.06); --borderFocus:#2563EB;
+  --blue:#2563EB; --blueHover:#1D4ED8; --accentBg:rgba(37,99,235,0.06);
+  --red:#DC2626; --green:#16A34A; --orange:#EA580C; --yellow:#CA8A04;
+  --pasteBlue:#EFF6FF; --pasteRed:#FEF2F2; --pasteGreen:#F0FDF4; --pasteOrange:#FFF7ED; --pasteYellow:#FEFCE8; --pasteGray:#F4F4F5;
+  --font-base:'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --r-xs:2px; --r-sm:4px; --r-md:6px; --r-lg:8px; --r-xl:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04); --shadow-sm:0 1px 4px rgba(0,0,0,0.05); --shadow-md:0 2px 8px rgba(0,0,0,0.06); --shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+  --t-fast:0.12s ease; --t-normal:0.20s ease; --t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:var(--font-base);font-size:12px;line-height:1.55;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26);}
+
+h1{font-size:17px;font-weight:700;letter-spacing:-0.01em;}
+h2{font-size:14px;font-weight:700;letter-spacing:-0.01em;}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--textFaint);}
+.field-label{display:block;font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--textFaint);margin-bottom:5px;}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+.text-sm{font-size:11px;color:var(--textSub);}
+
+/* Header */
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:46px;flex-shrink:0;gap:12px;}
+.header-brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;}
+.header-brand .brand-tag{font-size:10px;font-weight:500;color:var(--textFaint);font-family:var(--font-mono);letter-spacing:0.02em;}
+.header-brand .mini-tl{display:flex;flex-direction:row;gap:3px;align-items:center;}
+.header-brand .mini-tl i{width:9px;height:9px;border-radius:50%;display:block;}
+.header-right{display:flex;align-items:center;gap:8px;}
+.today-chip{font-size:10px;color:var(--textSub);font-family:var(--font-mono);background:var(--bgCardAlt);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px 8px;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border:1px solid transparent;border-radius:var(--r-md);font-family:var(--font-base);font-size:11px;font-weight:500;line-height:1;cursor:pointer;outline:none;white-space:nowrap;user-select:none;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast),transform .10s ease;}
+.btn:hover:not(:disabled){transform:translateY(-1px);}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98);}
+.btn:disabled{opacity:0.32;cursor:not-allowed;}
+.btn:focus-visible{outline:2px solid var(--borderFocus);outline-offset:2px;}
+.btn-primary{background:#18181B;color:#fff;border-color:rgba(0,0,0,0.06);}
+.btn-primary:hover:not(:disabled){background:#27272A;}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border);}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover);}
+.btn-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.18);}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.12);}
+.btn-sm{padding:3px 8px;font-size:10px;}
+
+/* Layout */
+.main{flex:1;overflow:hidden;display:grid;grid-template-columns:320px 1fr;min-height:0;}
+.panel-left{border-right:1px solid var(--border);background:var(--bgCard);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;}
+.panel-right{overflow:hidden;display:flex;flex-direction:column;min-width:0;}
+
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-base);font-size:11px;line-height:1.4;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10);}
+.input::placeholder{color:var(--textFaint);}
+textarea.input{resize:vertical;min-height:150px;font-family:var(--font-mono);font-size:11px;line-height:1.5;}
+
+.upload-zone{border:1px dashed var(--border);border-radius:var(--r-lg);padding:14px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--bgCardAlt);transition:background var(--t-normal),border-color var(--t-normal);}
+.upload-zone:hover,.upload-zone.drag{background:var(--accentBg);border-color:rgba(37,99,235,0.35);}
+.upload-zone.loaded{border-style:solid;border-color:rgba(22,163,74,0.30);background:var(--pasteGreen);}
+.upload-icon{font-size:20px;line-height:1;color:var(--textFaint);}
+.upload-txt{font-size:10px;color:var(--textSub);}
+.upload-ok{font-size:10px;font-weight:700;color:var(--green);letter-spacing:0.05em;text-transform:uppercase;}
+
+.divider{width:100%;height:1px;background:var(--borderSoft);}
+
+/* Threshold config */
+.thresholds{display:flex;gap:8px;}
+.thr-field{flex:1;}
+.thr-field input{text-align:center;font-family:var(--font-mono);font-weight:700;font-size:13px;}
+
+/* Stats bar */
+.stats-bar{display:flex;align-items:center;padding:8px 14px;border-bottom:1px solid var(--borderSoft);gap:6px;flex-wrap:wrap;background:var(--bgCardAlt);flex-shrink:0;}
+.stat-chip{display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:var(--r-xs);background:var(--bgCard);}
+.stat-chip-val{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--text);}
+.stat-chip-val.green{color:var(--green);}
+.stat-chip-val.yellow{color:var(--yellow);}
+.stat-chip-val.red{color:var(--red);}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint);}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;padding:6px 14px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;flex-shrink:0;}
+.toolbar-sep{width:1px;height:16px;background:var(--border);margin:0 2px;}
+.search-wrap{position:relative;flex:1;max-width:240px;}
+.search-wrap svg{position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint);}
+.search-wrap .input{padding-left:26px;padding-top:4px;padding-bottom:4px;}
+.filter-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:var(--r-xs);font-size:10px;font-weight:600;color:var(--textFaint);cursor:pointer;user-select:none;background:var(--bgCard);transition:all var(--t-fast);}
+.filter-chip .dot{width:8px;height:8px;border-radius:50%;}
+.filter-chip.active{color:var(--text);border-color:var(--text);}
+.filter-chip[data-f="green"].active{background:var(--pasteGreen);border-color:rgba(22,163,74,0.4);color:var(--green);}
+.filter-chip[data-f="yellow"].active{background:var(--pasteYellow);border-color:rgba(202,138,4,0.4);color:var(--yellow);}
+.filter-chip[data-f="red"].active{background:var(--pasteRed);border-color:rgba(220,38,38,0.4);color:var(--red);}
+
+/* Cards grid */
+.grid-scroll{flex:1;overflow-y:auto;padding:16px;min-height:0;}
+.ct-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(208px,1fr));gap:12px;}
+.ct-card{display:flex;gap:13px;align-items:center;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:13px;transition:border-color var(--t-fast),box-shadow var(--t-fast);}
+.ct-card:hover{box-shadow:var(--shadow-sm);}
+.ct-info{min-width:0;flex:1;}
+.ct-name{font-size:13px;font-weight:700;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ct-date{font-size:10px;color:var(--textFaint);font-family:var(--font-mono);margin-top:1px;}
+.ct-days{display:flex;align-items:baseline;gap:4px;margin-top:7px;}
+.ct-days-num{font-family:var(--font-mono);font-size:25px;font-weight:800;line-height:1;letter-spacing:-0.02em;}
+.ct-days-lbl{font-size:10px;color:var(--textFaint);text-transform:uppercase;letter-spacing:0.05em;}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:var(--r-xs);font-family:var(--font-mono);font-size:9px;font-weight:700;border:1px solid;letter-spacing:0.04em;text-transform:uppercase;margin-top:7px;}
+.pill-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.20);}
+.pill-yellow{background:var(--pasteYellow);color:var(--yellow);border-color:rgba(202,138,4,0.20);}
+.pill-red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.20);}
+
+/* Lista vertical de CTs en columnas de 15 */
+.lt-cols{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:center;}
+.lt-list{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;width:340px;}
+.lt-row{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--borderSoft);transition:background var(--t-fast);}
+.lt-row:last-child{border-bottom:none;}
+.lt-row:hover{background:var(--bgHover);}
+.lt-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;background:var(--textFaint);}
+.lt-dot.s-green{background:#16A34A;}
+.lt-dot.s-yellow{background:#CA8A04;}
+.lt-dot.s-red{background:#DC2626;}
+.lt-name{flex:1;min-width:0;font-size:12px;font-weight:600;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lt-date{font-size:10px;font-family:var(--font-mono);color:var(--textFaint);width:74px;text-align:right;flex-shrink:0;}
+.lt-days{display:flex;align-items:baseline;gap:3px;width:60px;justify-content:flex-end;flex-shrink:0;}
+.lt-days-num{font-family:var(--font-mono);font-size:15px;font-weight:800;line-height:1;letter-spacing:-0.02em;}
+.lt-days-lbl{font-size:9px;color:var(--textFaint);text-transform:uppercase;letter-spacing:0.03em;}
+
+/* Traffic light */
+.tl{width:36px;height:84px;background:#1F1F23;border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:5px;align-items:center;flex-shrink:0;border:1px solid rgba(0,0,0,0.3);box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);}
+.lamp{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.06);transition:box-shadow var(--t-normal),background var(--t-normal);}
+.tl.s-red .lamp.red{background:var(--red);box-shadow:0 0 9px 1px rgba(220,38,38,0.7),inset 0 1px 1px rgba(255,255,255,0.4);}
+.tl.s-yellow .lamp.yellow{background:#EAB308;box-shadow:0 0 9px 1px rgba(234,179,8,0.7),inset 0 1px 1px rgba(255,255,255,0.4);}
+.tl.s-green .lamp.green{background:#22C55E;box-shadow:0 0 9px 1px rgba(34,197,94,0.7),inset 0 1px 1px rgba(255,255,255,0.4);}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:260px;gap:12px;padding:40px;text-align:center;}
+.empty-tl{transform:scale(1.3);margin-bottom:6px;}
+.empty-title{font-size:14px;font-weight:600;color:var(--textSub);}
+.empty-body{font-size:11px;color:var(--textFaint);max-width:300px;line-height:1.6;}
+
+/* Guide */
+.guide{border-top:1px solid var(--border);}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:9px 0;cursor:pointer;user-select:none;}
+.guide-title{font-size:11px;font-weight:600;color:var(--textSub);}
+.guide-toggle{font-family:var(--font-mono);font-size:14px;color:var(--textFaint);line-height:1;}
+.guide:not(.open) .guide-toggle::before{content:"+";}
+.guide.open .guide-toggle::before{content:"\2212";}
+.guide-body{display:none;padding:0 0 10px 0;}
+.guide.open .guide-body{display:block;}
+.guide-step{display:flex;gap:9px;align-items:flex-start;font-size:11px;line-height:1.6;color:var(--textSub);margin-bottom:6px;}
+.guide-step-num{flex-shrink:0;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--textFaint);margin-top:1px;min-width:14px;}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#18181B;color:#F4F4F5;border:1px solid rgba(255,255,255,0.08);padding:8px 16px;border-radius:var(--r-md);font-size:11px;font-weight:600;box-shadow:var(--shadow-lg);z-index:2000;white-space:nowrap;pointer-events:none;transition:transform var(--t-slow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.toast-ok{background:#14532D;}
+.toast.toast-error{background:#7F1D1D;}
+.toast.toast-warn{background:#78350F;}
+
+@media (max-width:760px){
+  .main{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
+  .panel-left{border-right:none;border-bottom:1px solid var(--border);max-height:46vh;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-brand">
+    <span class="mini-tl"><i style="background:#22C55E"></i><i style="background:#EAB308"></i><i style="background:#DC2626"></i></span>
+    Calculadora Leadtime
+    <span class="brand-tag">v1 · días por CT</span>
+  </div>
+  <div class="header-right">
+    <span class="today-chip" id="todayChip">Hoy: —</span>
+    <button class="btn btn-secondary" id="btnImage" disabled>Exportar imagen</button>
+    <button class="btn btn-green" id="btnExport" disabled>Exportar Excel</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- ───────── Panel izquierdo: entrada ───────── -->
+  <aside class="panel-left">
+    <div>
+      <label class="field-label">Pegar tabla (CT y Fecha)</label>
+      <textarea class="input" id="pasteBox" placeholder="Pega aquí desde Excel. Una columna de CT (ubicación) y una de Fecha posible de entrega.&#10;&#10;Ejemplo:&#10;CT Tultitlán&#9;05/06/2026&#10;CT Cuautitlán&#9;14/06/2026&#10;CT Vallejo&#9;28/06/2026"></textarea>
+    </div>
+
+    <div class="upload-zone" id="dropZone">
+      <span class="upload-icon" id="upIcon">⬆</span>
+      <span class="upload-txt" id="upTxt">o arrastra / elige un .xlsx · .csv</span>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <label class="field-label">Umbrales del semáforo (días)</label>
+      <div class="thresholds">
+        <div class="thr-field">
+          <span class="text-sm" style="color:var(--green);font-weight:600;">Verde ≤</span>
+          <input class="input" id="thrGreen" type="number" min="0" value="3">
+        </div>
+        <div class="thr-field">
+          <span class="text-sm" style="color:var(--yellow);font-weight:600;">Amarillo ≤</span>
+          <input class="input" id="thrYellow" type="number" min="1" value="9">
+        </div>
+        <div class="thr-field">
+          <span class="text-sm" style="color:var(--red);font-weight:600;">Rojo &gt;</span>
+          <input class="input" id="thrRedShow" type="number" value="9" disabled>
+        </div>
+      </div>
+      <span class="text-sm" style="display:block;margin-top:6px;color:var(--textFaint);">Verde 1-3 → amarillo hasta 10 → rojo de 10 en adelante (editable).</span>
+    </div>
+
+    <button class="btn btn-primary" id="btnCalc" style="padding:9px;font-weight:600;font-size:12px;">Calcular leadtime</button>
+    <button class="btn btn-secondary btn-sm" id="btnClear">Limpiar</button>
+
+    <div class="guide" id="guide">
+      <div class="guide-head" id="guideHead">
+        <span class="guide-title">Cómo funciona</span>
+        <span class="guide-toggle"></span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-step"><span class="guide-step-num">1</span><span>Pega o carga una tabla con el <b>CT</b> y la <b>fecha posible de entrega</b>. Acepta cualquier orden de columnas.</span></div>
+        <div class="guide-step"><span class="guide-step-num">2</span><span>El leadtime se calcula como los <b>días desde hoy</b> hasta esa fecha.</span></div>
+        <div class="guide-step"><span class="guide-step-num">3</span><span>Cada CT muestra un <b>semáforo</b>: verde (cercano), amarillo (intermedio), rojo (lejano o vencido).</span></div>
+        <div class="guide-step"><span class="guide-step-num">4</span><span>Exporta a Excel con el leadtime en <b>formato condicional</b> por color.</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ───────── Panel derecho: resultados ───────── -->
+  <section class="panel-right">
+    <div class="toolbar" id="toolbar" style="display:none;">
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="input" id="searchBox" placeholder="Buscar CT...">
+      </div>
+      <div class="toolbar-sep"></div>
+      <span class="filter-chip active" data-f="all">Todos</span>
+      <span class="filter-chip" data-f="green"><span class="dot" style="background:#22C55E"></span>Verde</span>
+      <span class="filter-chip" data-f="yellow"><span class="dot" style="background:#EAB308"></span>Amarillo</span>
+      <span class="filter-chip" data-f="red"><span class="dot" style="background:#DC2626"></span>Rojo</span>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-secondary btn-sm" id="btnSort">Orden: ▼ más lejano</button>
+    </div>
+
+    <div class="grid-scroll" id="gridScroll">
+      <div class="empty-state" id="emptyState">
+        <div class="tl s-yellow empty-tl"><span class="lamp red"></span><span class="lamp yellow"></span><span class="lamp green"></span></div>
+        <div class="empty-title">Sin datos todavía</div>
+        <div class="empty-body">Pega tu tabla de CTs con sus fechas de entrega en el panel izquierdo y presiona <b>Calcular leadtime</b> para ver el tablero de semáforos.</div>
+      </div>
+      <div class="ct-grid" id="ctGrid" style="display:none;"></div>
+    </div>
+  </section>
+</div>
+
+<div class="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let RESULTS = [];          // {ct, date, days, status, color}
+let sortDesc = true;
+let activeFilter = 'all';
+
+const MS_DAY = 86400000;
+const todayMidnight = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+
+/* ── Toast ── */
+function showToast(msg, type='', ms=2400){
+  const t = document.querySelector('.toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' toast-'+type : '');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(()=> t.className='toast', ms);
+}
+
+/* ── Fecha de hoy en header ── */
+(function(){
+  const d = todayMidnight();
+  $('todayChip').textContent = 'Hoy: ' + fmtDate(d);
+})();
+
+function fmtDate(d){
+  if(!(d instanceof Date) || isNaN(d)) return '—';
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
+
+/* ── Parseo de fechas (DD/MM/YYYY, YYYY-MM-DD, serial Excel) ── */
+function parseDate(raw){
+  if(raw==null) return null;
+  if(raw instanceof Date) return isNaN(raw)?null:stripTime(raw);
+  let s = String(raw).trim();
+  if(!s) return null;
+
+  // Serial de Excel (número puro razonable: ~años 1990-2070)
+  if(/^\d{4,5}(\.\d+)?$/.test(s)){
+    const n = parseFloat(s);
+    if(n>32000 && n<80000){
+      const d = new Date(Math.round((n-25569)*MS_DAY)); // 25569 = 1970-01-01 en serial Excel
+      return stripTime(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    }
+  }
+  // ISO YYYY-MM-DD
+  let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if(m) return safeDate(+m[1], +m[2], +m[3]);
+  // DD/MM/YYYY o DD-MM-YYYY (formato MX, día primero)
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if(m){
+    let [_,d1,mo,y] = m; y=+y; if(y<100) y+=2000;
+    return safeDate(y, +mo, +d1);
+  }
+  // Último intento: Date nativo
+  const nat = new Date(s);
+  return isNaN(nat) ? null : stripTime(nat);
+}
+function safeDate(y,mo,d){
+  const dt = new Date(y, mo-1, d);
+  return isNaN(dt) ? null : stripTime(dt);
+}
+function stripTime(d){ d.setHours(0,0,0,0); return d; }
+
+/* ── Estado y color por días ── */
+function classify(days){
+  const g = parseInt($('thrGreen').value,10);
+  const y = parseInt($('thrYellow').value,10);
+  const G = isNaN(g)?3:g, Y = isNaN(y)?9:y;
+  if(days < 0) return 'red';        // fecha ya vencida = crítico
+  if(days <= G) return 'green';
+  if(days <= Y) return 'yellow';
+  return 'red';
+}
+/* Interpolación suave verde→amarillo→rojo para el número grande */
+function scaleColor(days){
+  const stops = [[0,[22,163,74]],[7,[202,138,4]],[20,[220,38,38]]];
+  const x = Math.max(0, Math.min(20, days));
+  for(let i=0;i<stops.length-1;i++){
+    const [a,ca]=stops[i],[b,cb]=stops[i+1];
+    if(x>=a && x<=b){
+      const t=(x-a)/(b-a||1);
+      const c=ca.map((v,j)=>Math.round(v+(cb[j]-v)*t));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+  }
+  return 'rgb(220,38,38)';
+}
+function hexFor(status){
+  return status==='green'?'16A34A':status==='yellow'?'CA8A04':'DC2626';
+}
+
+/* ── Parseo del textarea / archivo ── */
+function parsePasted(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/\s+$/,'')).filter(l=>l.trim()!=='');
+  const rows = [];
+  for(const line of lines){
+    let cells = line.includes('\t') ? line.split('\t')
+              : line.includes(';')  ? line.split(';')
+              : line.includes(',')  ? line.split(',')
+              : line.split(/\s{2,}/);
+    cells = cells.map(c=>c.trim());
+    rows.push(cells);
+  }
+  return rowsToRecords(rows);
+}
+/* De filas crudas → {ct, fechaRaw}. Detecta encabezado y qué columna es fecha. */
+function rowsToRecords(rows){
+  if(!rows.length) return [];
+  // Quitar encabezado si la primera fila no tiene fecha parseable en ninguna celda
+  let start = 0;
+  const firstHasDate = rows[0].some(c=>parseDate(c));
+  if(!firstHasDate && rows.length>1) start = 1;
+  const recs = [];
+  for(let i=start;i<rows.length;i++){
+    const cells = rows[i];
+    if(!cells.length) continue;
+    // celda de fecha = primera que parsea como fecha
+    let dateIdx = cells.findIndex(c=>parseDate(c));
+    if(dateIdx===-1) continue;
+    // CT = primera celda que NO es la fecha (preferir índice 0)
+    let ctIdx = cells.findIndex((c,j)=>j!==dateIdx && c!=='');
+    if(ctIdx===-1) ctIdx = dateIdx===0?1:0;
+    const ct = (cells[ctIdx]||'').trim();
+    if(!ct) continue;
+    recs.push({ ct, date: parseDate(cells[dateIdx]) });
+  }
+  return recs;
+}
+
+/* ── Carga de archivo ── */
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+      const rows = aoa.map(r=>r.map(c=>c)).filter(r=>r.some(c=>String(c).trim()!==''));
+      const recs = rowsToRecords(rows);
+      if(!recs.length){ showToast('No se detectaron filas válidas','error'); return; }
+      $('dropZone').classList.add('loaded');
+      $('upIcon').textContent='✓'; $('upTxt').innerHTML='<span class="upload-ok">'+file.name+'</span>';
+      compute(recs);
+    }catch(err){ console.error(err); showToast('Error al leer el archivo','error'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── Cálculo principal ── */
+function compute(recs){
+  const today = todayMidnight();
+  RESULTS = recs.map(r=>{
+    const days = r.date ? Math.round((r.date - today)/MS_DAY) : null;
+    const status = days==null ? 'red' : classify(days);
+    return { ct:r.ct, date:r.date, days, status };
+  });
+  render();
+  if(RESULTS.length){
+    showToast(RESULTS.length+' CTs calculados','ok');
+    try{ localStorage.setItem('leadtime_input_v1', $('pasteBox').value); }catch(e){}
+  }
+}
+
+/* ── Render ── */
+function trafficLightHTML(status){
+  return `<div class="tl s-${status}"><span class="lamp red"></span><span class="lamp yellow"></span><span class="lamp green"></span></div>`;
+}
+function statusLabel(r){
+  if(r.days==null) return 'Sin fecha';
+  if(r.days<0) return 'Vencido';
+  return r.status==='green'?'En rango':r.status==='yellow'?'Atención':'Crítico';
+}
+function cardHTML(r){
+  const col = (r.days==null || r.days<0) ? 'var(--red)' : scaleColor(r.days);
+  const daysTxt = r.days==null ? '—' : r.days;
+  const sub = r.days==null ? 'sin fecha' : 'días';
+  return `<div class="lt-row">
+      <span class="lt-dot s-${r.status}"></span>
+      <span class="lt-name" title="${escapeHtml(r.ct)}">${escapeHtml(r.ct)}</span>
+      <span class="lt-date">${fmtDate(r.date)}</span>
+      <span class="lt-days"><span class="lt-days-num" style="color:${col}">${daysTxt}</span><span class="lt-days-lbl">${sub}</span></span>
+    </div>`;
+}
+function getView(){
+  const q = $('searchBox').value.trim().toLowerCase();
+  let view = RESULTS.filter(r=>{
+    if(activeFilter!=='all' && r.status!==activeFilter) return false;
+    if(q && !r.ct.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  view.sort((a,b)=>{
+    const da = a.days==null?Infinity:a.days, db = b.days==null?Infinity:b.days;
+    return sortDesc ? db-da : da-db;
+  });
+  return view;
+}
+function chunk(arr,n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
+
+function render(){
+  const has = RESULTS.length>0;
+  $('toolbar').style.display = has?'flex':'none';
+  $('emptyState').style.display = has?'none':'flex';
+  $('ctGrid').style.display = has?'block':'none';
+  $('btnExport').disabled = !has;
+  $('btnImage').disabled = !has;
+  if(!has) return;
+
+  // filtrar + buscar + ordenar
+  const view = getView();
+  const grid = $('ctGrid');
+  if(!view.length){
+    grid.className = '';
+    grid.innerHTML = `<div class="empty-state"><div class="empty-title">Sin coincidencias</div><div class="empty-body">Ningún CT cumple el filtro o la búsqueda actual.</div></div>`;
+    return;
+  }
+  grid.className = 'lt-cols';
+  grid.innerHTML = chunk(view,15).map(g=>`<div class="lt-list">${g.map(cardHTML).join('')}</div>`).join('');
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ── Export con formato condicional (xlsx-js-style) ── */
+function exportXlsx(){
+  if(!RESULTS.length) return;
+  const sorted = [...RESULTS].sort((a,b)=>{
+    const da=a.days==null?Infinity:a.days, db=b.days==null?Infinity:b.days; return db-da;
+  });
+  const header = ['CT','Fecha de entrega','Leadtime (días)','Estado'];
+  const aoa = [header, ...sorted.map(r=>[
+    r.ct,
+    r.date ? fmtDate(r.date) : 'Sin fecha',
+    r.days==null ? '' : r.days,
+    statusLabel(r)
+  ])];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:28},{wch:18},{wch:16},{wch:14}];
+
+  const thin = {style:'thin', color:{rgb:'E4E4E7'}};
+  const border = {top:thin,bottom:thin,left:thin,right:thin};
+  // Encabezado
+  header.forEach((_,c)=>{
+    const ref = XLSX.utils.encode_cell({r:0,c});
+    ws[ref].s = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'18181B'}},
+      alignment:{horizontal:'center',vertical:'center'}, border };
+  });
+  // Filas con formato condicional por color en Leadtime y Estado
+  sorted.forEach((r,i)=>{
+    const row=i+1;
+    const hex = hexFor(r.status);
+    const fill = {fgColor:{rgb:hex}};
+    const whiteBold = {bold:true,color:{rgb:'FFFFFF'}};
+    // CT
+    setStyle(ws,row,0,{ alignment:{horizontal:'left',vertical:'center'}, border });
+    // Fecha
+    setStyle(ws,row,1,{ alignment:{horizontal:'center',vertical:'center'}, font:{color:{rgb:'52525B'}}, border });
+    // Leadtime (celda coloreada)
+    setStyle(ws,row,2,{ fill, font:whiteBold, alignment:{horizontal:'center',vertical:'center'}, border });
+    // Estado (celda coloreada)
+    setStyle(ws,row,3,{ fill, font:whiteBold, alignment:{horizontal:'center',vertical:'center'}, border });
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Leadtime');
+  const d = todayMidnight();
+  const fname = `Leadtime_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast('Exportado: '+fname,'ok');
+}
+function setStyle(ws,r,c,s){
+  const ref = XLSX.utils.encode_cell({r,c});
+  if(!ws[ref]) ws[ref] = {t:'s',v:''};
+  ws[ref].s = s;
+}
+
+/* ── Export del tablero como imagen PNG (html2canvas) ── */
+function exportImage(){
+  if(!RESULTS.length || typeof html2canvas==='undefined'){
+    if(typeof html2canvas==='undefined') showToast('No se pudo cargar el generador de imagen','error');
+    return;
+  }
+  const view = getView();
+  const dotColor = s => s==='green'?'#16A34A':s==='yellow'?'#CA8A04':'#DC2626';
+  const listRow = (r,last) => {
+    const col = (r.days==null || r.days<0) ? '#DC2626' : scaleColor(r.days);
+    const daysTxt = r.days==null ? '—' : r.days;
+    const sub = r.days==null ? 'sin fecha' : 'días';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px;${last?'':'border-bottom:1px solid rgba(0,0,0,0.06);'}">
+        <span style="width:11px;height:11px;border-radius:50%;background:${dotColor(r.status)};flex-shrink:0;"></span>
+        <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#18181B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.ct)}</span>
+        <span style="font-size:10px;font-family:var(--font-mono);color:#A1A1AA;width:74px;text-align:right;flex-shrink:0;">${fmtDate(r.date)}</span>
+        <span style="display:flex;align-items:baseline;gap:3px;width:58px;justify-content:flex-end;flex-shrink:0;">
+          <span style="font-size:15px;font-weight:800;font-family:var(--font-mono);color:${col};line-height:1;">${daysTxt}</span>
+          <span style="font-size:9px;color:#A1A1AA;text-transform:uppercase;letter-spacing:0.03em;">${sub}</span>
+        </span>
+      </div>`;
+  };
+
+  const groups = chunk(view,15);
+  const colW = 340;
+  const width = 56 + groups.length*colW + (groups.length-1)*12;
+  const cols = groups.map(g=>
+    `<div style="background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:8px;overflow:hidden;width:${colW}px;">
+      ${g.map((r,i)=>listRow(r, i===g.length-1)).join('')}
+    </div>`).join('');
+
+  const board = document.createElement('div');
+  board.style.cssText = `position:fixed;left:-99999px;top:0;width:${width}px;padding:28px;background:#FAFAF9;font-family:var(--font-base);`;
+  board.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <span style="font-size:19px;font-weight:700;letter-spacing:-0.01em;color:#18181B;">Leadtime por CT</span>
+      <span style="font-size:12px;font-family:var(--font-mono);color:#52525B;">Hoy: ${fmtDate(todayMidnight())}</span>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-start;">${cols}</div>`;
+  document.body.appendChild(board);
+
+  html2canvas(board, {scale:2, backgroundColor:'#FAFAF9', logging:false, useCORS:true}).then(canvas=>{
+    document.body.removeChild(board);
+    canvas.toBlob(blob=>{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const d = todayMidnight();
+      a.href = url;
+      a.download = `Leadtime_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.png`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      showToast('Imagen exportada','ok');
+    }, 'image/png');
+  }).catch(err=>{
+    if(board.parentNode) document.body.removeChild(board);
+    console.error(err); showToast('Error al generar la imagen','error');
+  });
+}
+
+/* ── Eventos ── */
+$('btnCalc').addEventListener('click', ()=>{
+  const txt = $('pasteBox').value;
+  if(!txt.trim()){ showToast('Pega una tabla primero','warn'); return; }
+  const recs = parsePasted(txt);
+  if(!recs.length){ showToast('No se detectaron filas con fecha válida','error'); return; }
+  compute(recs);
+});
+$('btnClear').addEventListener('click', ()=>{
+  $('pasteBox').value=''; RESULTS=[];
+  $('dropZone').classList.remove('loaded'); $('upIcon').textContent='⬆';
+  $('upTxt').textContent='o arrastra / elige un .xlsx · .csv';
+  $('fileInput').value='';
+  render();
+  try{ localStorage.removeItem('leadtime_input_v1'); }catch(e){}
+});
+$('btnExport').addEventListener('click', exportXlsx);
+$('btnImage').addEventListener('click', exportImage);
+$('searchBox').addEventListener('input', render);
+$('btnSort').addEventListener('click', e=>{
+  sortDesc=!sortDesc;
+  e.target.textContent = sortDesc ? 'Orden: ▼ más lejano' : 'Orden: ▲ más cercano';
+  render();
+});
+document.querySelectorAll('.filter-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.f;
+    render();
+  });
+});
+// Recalcular al cambiar umbrales si ya hay datos
+['thrGreen','thrYellow'].forEach(id=>$(id).addEventListener('change', ()=>{
+  $('thrRedShow').value = $('thrYellow').value;
+  if(RESULTS.length){
+    RESULTS = RESULTS.map(r=>({...r, status: r.days==null?'red':classify(r.days)}));
+    render();
+  }
+}));
+
+// Guide accordion
+$('guideHead').addEventListener('click', ()=> $('guide').classList.toggle('open'));
+
+// File input + drag&drop
+const dz = $('dropZone');
+dz.addEventListener('click', ()=>$('fileInput').click());
+$('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.remove('drag');}));
+dz.addEventListener('drop', e=>{ if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+// Restaurar última entrada
+try{
+  const saved = localStorage.getItem('leadtime_input_v1');
+  if(saved){ $('pasteBox').value = saved; }
+}catch(e){}
+</script>
+</body>
+</html>
