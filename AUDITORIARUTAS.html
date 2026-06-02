@@ -997,7 +997,8 @@ function drawComunaPolygons(map, which) {
     comunaBorderLayers[which].push(poly)
     if (d.c) {
       const icon = L.divIcon({ className:'', html:`<div class="commune-lbl">${escH(d.n||k)}</div>`, iconSize:[180,24], iconAnchor:[90,12] })
-      L.marker(d.c, { icon, interactive:false, zIndexOffset:-100 }).addTo(map)
+      const lbl = L.marker(d.c, { icon, interactive:false, zIndexOffset:-100 }).addTo(map)
+      comunaBorderLayers[which].push(lbl)
     }
   })
 }
