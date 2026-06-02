@@ -520,9 +520,20 @@ let routeData = []          // RouteRow[]
 let conflicts = []          // ComunaConflict[]
 let resolvedConflicts = new Set()
 let flaggedConflicts = new Set()
-let excludedVehicles = new Set()
 let resolvedProyectos = new Set()
 let flaggedProyectos = new Set()
+
+// Parámetros configurables (persistidos en aud_params_v3)
+let params = {
+  excludedVehicles: ['VPV01','VPV02','VPV03','VPV04'],
+  projectVehicles:  ['VPR01','VPR02'],
+  borderKm: 0.1,
+  borderWeight: 2.2,
+  borderOpacity: 0.75,
+}
+function vehSet(arr){ return new Set((arr||[]).map(v => (v||'').trim().toUpperCase())) }
+function isExcludedVeh(veh){ return vehSet(params.excludedVehicles).has((veh||'').toUpperCase()) }
+function isProjectVeh(veh){ return vehSet(params.projectVehicles).has((veh||'').toUpperCase()) }
 
 let geoFilter = 'all'
 let proyFilter = 'all'
@@ -549,7 +560,7 @@ function saveState() {
     else localStorage.removeItem('aud_route_v2')
     localStorage.setItem('aud_res_v2', JSON.stringify([...resolvedConflicts]))
     localStorage.setItem('aud_flg_v2', JSON.stringify([...flaggedConflicts]))
-    localStorage.setItem('aud_excl_v2', JSON.stringify([...excludedVehicles]))
+    localStorage.setItem('aud_params_v3', JSON.stringify(params))
     localStorage.setItem('aud_res_proy_v2', JSON.stringify([...resolvedProyectos]))
     localStorage.setItem('aud_flg_proy_v2', JSON.stringify([...flaggedProyectos]))
     if (conflicts.length) localStorage.setItem('aud_conf_v2', LZString.compress(JSON.stringify(conflicts)))
@@ -565,7 +576,8 @@ function loadState() {
     if (cf) conflicts = JSON.parse(LZString.decompress(cf) || '[]')
     resolvedConflicts = new Set(JSON.parse(localStorage.getItem('aud_res_v2') || '[]'))
     flaggedConflicts  = new Set(JSON.parse(localStorage.getItem('aud_flg_v2') || '[]'))
-    excludedVehicles  = new Set(JSON.parse(localStorage.getItem('aud_excl_v2') || '[]'))
+    const p = localStorage.getItem('aud_params_v3')
+    if (p) { try { params = Object.assign(params, JSON.parse(p)) } catch(e){} }
     resolvedProyectos = new Set(JSON.parse(localStorage.getItem('aud_res_proy_v2') || '[]'))
     flaggedProyectos  = new Set(JSON.parse(localStorage.getItem('aud_flg_proy_v2') || '[]'))
   } catch(e) {}
@@ -672,7 +684,6 @@ function processFile(file) {
       conflicts = []
       resolvedConflicts = new Set()
       flaggedConflicts = new Set()
-      excludedVehicles = new Set()
       resolvedProyectos = new Set()
       flaggedProyectos = new Set()
       saveState()
@@ -785,7 +796,7 @@ function flagAllProyectos() {
 function handleClear() {
   if (!confirm('¿Limpiar todos los datos?')) return
   routeData=[]; conflicts=[]; resolvedConflicts=new Set(); flaggedConflicts=new Set()
-  excludedVehicles=new Set(); resolvedProyectos=new Set(); flaggedProyectos=new Set()
+  resolvedProyectos=new Set(); flaggedProyectos=new Set()
   saveState()
   const zone=document.getElementById('upload-zone'); zone.classList.remove('loaded')
   document.getElementById('upload-icon').textContent='📂'
@@ -819,7 +830,7 @@ function getProyStatus(iso) {
 function getVisibleConflicts() {
   const q = (document.getElementById('geo-search')?.value||'').toLowerCase()
   return conflicts.filter(c => {
-    if (excludedVehicles.has(c.veh)) return false
+    if (isExcludedVeh(c.veh)) return false
     if (geoFilter !== 'all' && getConflictStatus(c.iso) !== geoFilter) return false
     if (q) return c.iso.toLowerCase().includes(q) || c.veh.toLowerCase().includes(q) || c.comunaDireccion.toLowerCase().includes(q)
     return true
@@ -828,7 +839,7 @@ function getVisibleConflicts() {
 function getSummaryRows() {
   const rows = []
   for (const c of conflicts) {
-    if (excludedVehicles.has(c.veh)) continue
+    if (isExcludedVeh(c.veh)) continue
     rows.push({
       iso: c.iso, veh: c.veh, dir: c.dir,
       obs: 'Comuna Incorrecta',
@@ -917,7 +928,7 @@ function updateBadges() {
     else el.classList.add('hidden')
   }
   setBadge('badge-vehiculos', routeData.length || null)
-  const geoAlerts = conflicts.filter(c => !excludedVehicles.has(c.veh) && !resolvedConflicts.has(c.iso)).length
+  const geoAlerts = conflicts.filter(c => !isExcludedVeh(c.veh) && !resolvedConflicts.has(c.iso)).length
   setBadge('badge-geo', geoAlerts || null)
   if (geoAlerts) document.getElementById('badge-geo').classList.add('alert')
   else document.getElementById('badge-geo').classList.remove('alert')
@@ -1003,7 +1014,7 @@ function renderRoutePlan() {
     const soloUna = Object.values(comunas).filter(a=>a.length===1).length
     const vehConfs = conflicts.filter(c=>c.veh===veh && !resolvedConflicts.has(c.iso)).length
     const color = getVehColor(veh)
-    const isExcl = excludedVehicles.has(veh)
+    const isExcl = isExcludedVeh(veh)
 
     const comunasHtml = Object.entries(comunas)
       .sort((a,b)=>b[1].length-a[1].length)
@@ -1047,10 +1058,12 @@ function copyISO(iso, el) {
   setTimeout(()=>el.classList.remove('copied'),1300)
 }
 function toggleExclude(veh) {
-  if (excludedVehicles.has(veh)) excludedVehicles.delete(veh)
-  else excludedVehicles.add(veh)
+  const key = (veh||'').trim().toUpperCase()
+  const arr = params.excludedVehicles.map(v => (v||'').trim().toUpperCase())
+  if (arr.includes(key)) params.excludedVehicles = params.excludedVehicles.filter(v => (v||'').trim().toUpperCase() !== key)
+  else params.excludedVehicles = [...params.excludedVehicles, veh]
   saveState(); updateAllUI()
-  showToast(excludedVehicles.has(veh)?`✕ ${veh} excluido`:`✓ ${veh} incluido`)
+  showToast(isExcludedVeh(veh)?`✕ ${veh} excluido`:`✓ ${veh} incluido`)
 }
 
 // ═══════════════════════════════════════════════════════════
