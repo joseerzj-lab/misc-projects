@@ -871,8 +871,6 @@ function wireParamsPanel() {
   const w = document.getElementById('param-border-weight')
   if (w) w.addEventListener('change', () => { params.borderWeight = parseFloat(w.value)||2.2; saveState(); redrawComunaBorders() })
 }
-// Stub — full implementation in Task 6
-function redrawComunaBorders(){}
 
 // ═══════════════════════════════════════════════════════════
 //  TOAST
@@ -987,21 +985,28 @@ function copyISO(iso, el) {
 // ═══════════════════════════════════════════════════════════
 //  MAP: INIT
 // ═══════════════════════════════════════════════════════════
-function drawComunaPolygons(map) {
+let comunaBorderLayers = { geo: [], proy: [] }
+function drawComunaPolygons(map, which) {
   const D = window.RM_COMUNAS_DATA
   if (!D || !window.L) return
   const L = window.L
+  comunaBorderLayers[which] = []
   Object.keys(D).forEach(k => {
     const d = D[k]; if (!d || !d.p) return
-    L.polygon(d.p, { color:'#64748B', weight:1, opacity:0.4, fillColor:'#334155', fillOpacity:0.06, interactive:false }).addTo(map)
+    const poly = L.polygon(d.p, { color:'#334155', weight:params.borderWeight, opacity:params.borderOpacity, fillColor:'#334155', fillOpacity:0.05, interactive:false }).addTo(map)
+    comunaBorderLayers[which].push(poly)
     if (d.c) {
-      const icon = L.divIcon({
-        className:'',
-        html:`<div class="commune-lbl">${escH(d.n||k)}</div>`,
-        iconSize:[180,24], iconAnchor:[90,12]
-      })
+      const icon = L.divIcon({ className:'', html:`<div class="commune-lbl">${escH(d.n||k)}</div>`, iconSize:[180,24], iconAnchor:[90,12] })
       L.marker(d.c, { icon, interactive:false, zIndexOffset:-100 }).addTo(map)
     }
+  })
+}
+function redrawComunaBorders() {
+  ['geo','proy'].forEach(which => {
+    const map = which==='geo' ? geoMap : proyMap
+    if (!map) return
+    comunaBorderLayers[which].forEach(l => map.removeLayer(l))
+    drawComunaPolygons(map, which)
   })
 }
 
@@ -1011,7 +1016,7 @@ function initGeoMap() {
   const el = document.getElementById('map-geo'); if (!el) return
   geoMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
   geoTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(geoMap)
-  drawComunaPolygons(geoMap)
+  drawComunaPolygons(geoMap, 'geo')
   addMapZoomControl(geoMap)
   addMapZoomLabel(geoMap, 'geo')
   geoMap.on('zoom', () => updateComunaLabelSize(geoMap))
@@ -1024,7 +1029,7 @@ function initProyMap() {
   const el = document.getElementById('map-proy'); if (!el) return
   proyMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
   proyTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(proyMap)
-  drawComunaPolygons(proyMap)
+  drawComunaPolygons(proyMap, 'proy')
   addMapZoomControl(proyMap)
   addMapZoomLabel(proyMap, 'proy')
   proyMap.on('zoom', () => updateComunaLabelSize(proyMap))
