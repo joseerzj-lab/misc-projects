@@ -128,8 +128,9 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
 .dash-table tbody tr:hover td{background:#F4F4F4}
 .dash-table td{padding:6px 10px;vertical-align:middle;color:#222}
 .dash-table tbody tr.is-selected td{background:#ECECEC}
-.sev-mark{font-family:var(--font-mono);font-weight:700}
-.st-mark{font-weight:700;font-size:10px}
+.dash-table tbody tr.row-resolved td{opacity:0.45;text-decoration:line-through}
+.dash-table tbody tr.row-flagged td:first-child{box-shadow:inset 3px 0 0 #111}
+.dash-table tbody tr.row-flagged td{font-weight:600}
 
 /* Map tabs */
 .map-layout{display:grid;grid-template-columns:360px 1fr;height:100%;overflow:hidden}
@@ -409,23 +410,13 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
   <!-- TAB: SUMMARY -->
   <div class="tab-pane" id="tab-resumen" style="flex-direction:column;overflow:hidden">
     <div class="toolbar" id="summary-toolbar">
-      <span style="font-size:11px;color:var(--textSub)" id="summary-info">0 alertas</span>
-      <div class="toolbar-sep"></div>
-      <div class="filter-pills" id="summary-status-pills">
-        <button class="filter-pill active" onclick="setSummaryFilter('all',this)">Todos</button>
-        <button class="filter-pill" onclick="setSummaryFilter('pendiente',this)">⏳ Pendiente</button>
-        <button class="filter-pill" onclick="setSummaryFilter('alerta',this)">⚠ Alerta</button>
-        <button class="filter-pill" onclick="setSummaryFilter('resuelto',this)">✓ Resuelto</button>
-      </div>
-      <div class="toolbar-sep"></div>
-      <div class="filter-pills" id="summary-sev-pills">
-        <button class="filter-pill active" onclick="setSeverityFilter('all',this)">Severidad: todas</button>
-        <button class="filter-pill" onclick="setSeverityFilter('roja',this)">🔴 Rojas</button>
-        <button class="filter-pill" onclick="setSeverityFilter('amarilla',this)">🟡 Amarillas</button>
-      </div>
+      <span style="font-size:11px;color:var(--textSub)" id="summary-info">0 en total</span>
       <div class="toolbar-sep"></div>
       <select class="input" id="summary-veh" onchange="setVehFilter(this.value)" style="max-width:160px"><option value="all">Todos los vehículos</option></select>
-      <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Limpiar filtros</button>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--textSub);cursor:pointer">
+        <input type="checkbox" class="row-check" id="hide-reviewed" onchange="setHideReviewed(this.checked)">Ocultar revisadas
+      </label>
+      <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Limpiar</button>
       <div style="position:relative">
         <input class="input" id="summary-search" placeholder="Buscar…" oninput="renderSummary()" style="max-width:160px">
       </div>
@@ -437,7 +428,7 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
     <div class="sel-bar hidden" id="sel-bar">
       <span id="sel-count">0 seleccionadas</span>
       <button class="btn btn-sm" style="background:#fff;color:#111" onclick="clearSelection()">Quitar selección</button>
-      <span style="margin-left:auto;font-size:10px;opacity:0.8">La exportación/copia usa la selección; si no hay, usa lo filtrado.</span>
+      <span style="margin-left:auto;font-size:10px;opacity:0.8">Exportar/copiar usa la selección; si no hay, usa lo visible.</span>
     </div>
     <div class="summary-table-wrap" id="summary-wrap">
       <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>
@@ -458,9 +449,9 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
     <ol style="font-size:12px;line-height:1.7;padding-left:18px;display:flex;flex-direction:column;gap:6px">
       <li><b>Carga el plan</b> (XLSX/CSV) en la pestaña Cargar Plan. Revisa los Parámetros (vehículos excluidos y de proyecto).</li>
       <li>Ve a <b>Auditoría Geo</b>: el mapa muestra cada entrega. <b>🔴 = comuna equivocada lejos</b>, <b>🟡 = cerca del borde</b> (probable caso límite).</li>
-      <li>Navega con <b>‹ ›</b> o <b>← →</b>. Para cada conflicto decide: <b>✓ Resolver</b> (sin problema) o <b>⚠ Alerta</b> (error real). Atajos: R / A / Esc.</li>
+      <li>Navega con <b>‹ ›</b> o <b>← →</b>. Para cada punto decide: <b>✓ descartar</b> (sin problema) o <b>⚠ marcar error</b>. Atajos: R / A / Esc.</li>
       <li>Revisa <b>Proyectos</b> (vehículos VPR01/VPR02) igual que los geo.</li>
-      <li>En <b>Resumen</b> filtra (estado, severidad, vehículo o por columna), <b>selecciona las filas</b> que quieras y <b>Exporta</b> solo esas.</li>
+      <li>En <b>Resumen</b> filtra por vehículo o columna, oculta las revisadas, <b>selecciona</b> las filas y <b>Exporta</b> solo esas.</li>
     </ol>
     <div style="margin-top:14px;text-align:right"><button class="btn btn-primary btn-sm" onclick="closeGuide()">Entendido</button></div>
   </div>
@@ -570,9 +561,8 @@ function isProjectVeh(veh){ return vehSet(params.projectVehicles).has((veh||'').
 
 let geoFilter = 'all'
 let proyFilter = 'all'
-let summaryFilter = 'all'
-let severityFilter = 'all'      // all | roja | amarilla
 let vehFilter = 'all'           // 'all' o nombre de vehículo
+let hideReviewed = false        // ocultar filas ya revisadas (no pendientes)
 let summaryColFilters = {}      // { colKey: Set(valoresPermitidos) }
 let selectedRows = new Set()    // claves rowKey seleccionadas
 let openColPopover = null
@@ -886,7 +876,7 @@ function getSummaryRows() {
   for (const r of getProyectosData()) {
     rows.push({
       iso:r.iso, veh:r.veh, dir:r.dir,
-      obs:'Proyecto', detalle:r.conductor||'',
+      obs:'Proyecto', detalle:`Proyecto${r.conductor?' · '+r.conductor:''}`,
       severity:'', tipo:'proy',
       status:getProyStatus(r.iso),
     })
@@ -985,19 +975,12 @@ function setProyFilter(f, btn) {
   if (btn) btn.classList.add('active')
   renderProyectoList()
 }
-function setSummaryFilter(f, btn) {
-  summaryFilter = f
-  document.querySelectorAll('#summary-status-pills .filter-pill').forEach(b => b.classList.remove('active'))
-  if (btn) btn.classList.add('active')
-  renderSummary()
-}
-function setSeverityFilter(f, btn){ severityFilter=f; document.querySelectorAll('#summary-sev-pills .filter-pill').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active'); renderSummary() }
 function setVehFilter(v){ vehFilter=v; renderSummary() }
+function setHideReviewed(v){ hideReviewed=v; renderSummary() }
 function clearAllFilters(){
-  summaryFilter='all'; severityFilter='all'; vehFilter='all'; summaryColFilters={}
+  vehFilter='all'; hideReviewed=false; summaryColFilters={}
   const s=document.getElementById('summary-search'); if(s)s.value=''
-  document.querySelectorAll('#summary-status-pills .filter-pill').forEach((b,i)=>b.classList.toggle('active',i===0))
-  document.querySelectorAll('#summary-sev-pills .filter-pill').forEach((b,i)=>b.classList.toggle('active',i===0))
+  const hr=document.getElementById('hide-reviewed'); if(hr)hr.checked=false
   const v=document.getElementById('summary-veh'); if(v)v.value='all'
   renderSummary()
 }
@@ -1384,14 +1367,13 @@ function focusProyecto(iso) {
 function getFilteredSummaryRows() {
   const q = (document.getElementById('summary-search')?.value||'').toLowerCase()
   return getSummaryRows().filter(r => {
-    if (summaryFilter!=='all' && r.status!==summaryFilter) return false
-    if (severityFilter!=='all' && r.severity!==severityFilter) return false
+    if (hideReviewed && r.status!=='pendiente') return false
     if (vehFilter!=='all' && r.veh!==vehFilter) return false
     for (const col of Object.keys(summaryColFilters)) {
       const allowed = summaryColFilters[col]
       if (allowed && allowed.size && !allowed.has(String(r[col]??''))) return false
     }
-    if (q) return r.iso.toLowerCase().includes(q)||r.veh.toLowerCase().includes(q)||(r.dir||'').toLowerCase().includes(q)
+    if (q) return r.iso.toLowerCase().includes(q)||r.veh.toLowerCase().includes(q)||(r.dir||'').toLowerCase().includes(q)||(r.detalle||'').toLowerCase().includes(q)
     return true
   })
 }
@@ -1410,50 +1392,42 @@ function renderSummary() {
   const visible = getFilteredSummaryRows()
   const pend = all.filter(r=>r.status==='pendiente').length
   const filtered = visible.length !== all.length ? ` · ${visible.length} visibles` : ''
-  document.getElementById('summary-info').innerHTML = `${all.length} alertas${filtered} · <span style="font-weight:700">${pend} pendientes</span>`
+  document.getElementById('summary-info').innerHTML = `${all.length} en total${filtered} · <span style="font-weight:700">${pend} pendientes</span>`
   const selBar = document.getElementById('sel-bar')
   if (selBar) { selBar.classList.toggle('hidden', selectedRows.size===0); const sc=document.getElementById('sel-count'); if(sc) sc.textContent=`${selectedRows.size} seleccionadas` }
 
-  if (!all.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>'; return }
+  if (!all.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Carga un plan y revisa el mapa para ver los hallazgos aquí</div></div>'; return }
   if (!visible.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-title">Sin resultados con los filtros actuales</div></div>'; return }
 
   const COLS = [
-    {key:'iso',label:'ISO'},{key:'veh',label:'Vehículo'},{key:'dir',label:'Dirección'},
-    {key:'obs',label:'Tipo'},{key:'detalle',label:'Detalle'},{key:'severity',label:'Severidad'},{key:'status',label:'Estado'},
+    {key:'iso',label:'ISO'},{key:'veh',label:'Vehículo'},{key:'dir',label:'Dirección'},{key:'detalle',label:'Corrección'},
   ]
   const visKeys = visible.map(rowKey)
   const allSelected = visKeys.length && visKeys.every(k=>selectedRows.has(k))
 
   wrap.innerHTML = `<table class="dash-table" style="table-layout:auto;width:100%">
     <thead><tr>
-      <th style="width:30px;text-align:center"><input type="checkbox" class="row-check" ${allSelected?'checked':''} onclick="toggleSelectAll(this.checked)"></th>
-      <th style="width:30px;text-align:center">#</th>
+      <th style="width:30px;text-align:center"><input type="checkbox" class="row-check" ${allSelected?'checked':''} onclick="toggleSelectAll(this.checked)" title="Seleccionar todo"></th>
       ${COLS.map(c=>{
         const active = summaryColFilters[c.key] && summaryColFilters[c.key].size
         return `<th>${c.label}<button class="col-filter-btn ${active?'active':''}" onclick="toggleColPopover(event,'${c.key}')">▼</button></th>`
       }).join('')}
+      <th style="width:78px;text-align:center">Revisar</th>
     </tr></thead>
     <tbody>
-    ${visible.map((r,i)=>{
+    ${visible.map(r=>{
       const k = rowKey(r)
       const sel = selectedRows.has(k)
-      const stTxt = r.status==='resuelto'?'✓ Resuelto':r.status==='alerta'?'⚠ Alerta':'⏳ Pendiente'
-      const sevTxt = r.severity==='roja'?'● Lejos':r.severity==='amarilla'?'○ Borde':'—'
-      return `<tr class="${sel?'is-selected':''}">
+      const rowCls = r.status==='resuelto' ? 'row-resolved' : r.status==='alerta' ? 'row-flagged' : ''
+      return `<tr class="${sel?'is-selected':''} ${rowCls}">
         <td style="text-align:center"><input type="checkbox" class="row-check" ${sel?'checked':''} onclick="toggleRowSel('${escH(k)}')"></td>
-        <td style="text-align:center;color:#999">${i+1}</td>
-        <td><span style="font-weight:700;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Copiar">${escH(r.iso)}</span></td>
+        <td><span style="font-weight:700;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Clic para copiar">${escH(r.iso)}</span></td>
         <td>${escH(r.veh)}</td>
         <td title="${escH(r.dir)}">${escH(r.dir||'—')}</td>
-        <td>${escH(r.obs)}</td>
         <td title="${escH(r.detalle)}">${escH(r.detalle||'—')}</td>
-        <td class="sev-mark">${sevTxt}</td>
-        <td>
-          <span class="st-mark">${stTxt}</span>
-          <span style="margin-left:8px;display:inline-flex;gap:3px">
-            <button class="btn btn-sm btn-secondary" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${r.status==='resuelto'?'↩':'✓'}</button>
-            <button class="btn btn-sm btn-secondary" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${r.status==='alerta'?'✕':'⚠'}</button>
-          </span>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-sm btn-secondary" title="Descartar (revisado, sin problema)" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${r.status==='resuelto'?'↩':'✓'}</button>
+          <button class="btn btn-sm btn-secondary" title="Marcar como error" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${r.status==='alerta'?'✕':'⚠'}</button>
         </td>
       </tr>`
     }).join('')}
@@ -1553,13 +1527,13 @@ function exportSummaryXLSX() {
   const W = getW(); if (!W) return
   const wb = W.utils.book_new()
   const ws = W.utils.aoa_to_sheet([
-    ['ISO','Vehículo','Dirección','Tipo','Detalle','Severidad','Estado'],
-    ...rows.map(r=>[r.iso,r.veh,r.dir,r.obs,r.detalle, r.severity==='roja'?'Lejos':r.severity==='amarilla'?'Borde':'', r.status])
+    ['ISO','Vehículo','Dirección','Corrección'],
+    ...rows.map(r=>[r.iso,r.veh,r.dir,r.detalle])
   ])
-  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:18},{wch:40},{wch:10},{wch:12}]
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:40}]
   ws['!freeze']={xSplit:0,ySplit:1}
-  W.utils.book_append_sheet(wb, ws, 'Alertas')
-  W.writeFile(wb, `resumen_alertas_${ts()}.xlsx`)
+  W.utils.book_append_sheet(wb, ws, 'Hallazgos')
+  W.writeFile(wb, `auditoria_${ts()}.xlsx`)
   showToast(`✓ Exportadas ${rows.length} filas`)
 }
 function exportSession() {
@@ -1582,13 +1556,11 @@ function copySummaryToClipboard() {
   if (!rows.length) { showToast('Sin filas','warn'); return }
   const hS='border:1px solid #ccc;padding:5px 8px;font-weight:700;background:#111;color:#fff;font-size:11px;'
   const tS='border:1px solid #ccc;padding:4px 8px;font-size:11px;'
-  const head=['ISO','Vehículo','Dirección','Tipo','Detalle','Severidad','Estado']
+  const head=['ISO','Vehículo','Dirección','Corrección']
   let rich=`<table style="border-collapse:collapse"><tr>${head.map(h=>`<th style="${hS}">${h}</th>`).join('')}</tr>`
   let plain=head.join('\t')+'\n'
   rows.forEach(r=>{
-    const sev=r.severity==='roja'?'Lejos':r.severity==='amarilla'?'Borde':''
-    const e=r.status==='resuelto'?'Resuelto':r.status==='alerta'?'Alerta':'Pendiente'
-    const cells=[r.iso,r.veh,r.dir||'',r.obs,r.detalle,sev,e]
+    const cells=[r.iso,r.veh,r.dir||'',r.detalle]
     rich+=`<tr>${cells.map(v=>`<td style="${tS}">${escH(String(v))}</td>`).join('')}</tr>`
     plain+=cells.join('\t')+'\n'
   })
