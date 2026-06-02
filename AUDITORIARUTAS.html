@@ -236,11 +236,9 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
   <div class="tabs-container">
     <div class="tabs-wrapper">
       <button class="tab-btn active" data-tab="tab-plan" onclick="switchTab('tab-plan',this)">📥 Cargar Plan</button>
-      <button class="tab-btn" data-tab="tab-vehiculos" onclick="switchTab('tab-vehiculos',this)">📋 Route Plan <span class="tab-badge hidden" id="badge-vehiculos"></span></button>
       <button class="tab-btn" data-tab="tab-geo" onclick="switchTab('tab-geo',this)">📍 Wrong Commune <span class="tab-badge hidden" id="badge-geo"></span></button>
       <button class="tab-btn" data-tab="tab-proyectos" onclick="switchTab('tab-proyectos',this)">🚧 Proyectos <span class="tab-badge hidden" id="badge-proyectos"></span></button>
       <button class="tab-btn" data-tab="tab-resumen" onclick="switchTab('tab-resumen',this)">📊 Summary <span class="tab-badge hidden" id="badge-resumen"></span></button>
-      <button class="tab-btn" data-tab="tab-export" onclick="switchTab('tab-export',this)">🚀 Exportar</button>
     </div>
   </div>
 </header>
@@ -308,26 +306,6 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
         </div>
       </div>
     </details>
-  </div>
-
-  <!-- TAB: ROUTE PLAN -->
-  <div class="tab-pane" id="tab-vehiculos" style="overflow:hidden;flex-direction:column">
-    <div class="stats-bar" id="rp-stats-bar">
-      <span class="stat-chip"><span class="stat-chip-val blue" id="rp-total">0</span><span class="stat-chip-lbl">ISOs</span></span>
-      <span class="stat-chip"><span class="stat-chip-val" id="rp-vehs">0</span><span class="stat-chip-lbl">Vehículos</span></span>
-      <span class="stat-chip"><span class="stat-chip-val green" id="rp-comunas">0</span><span class="stat-chip-lbl">Comunas</span></span>
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button class="btn btn-secondary btn-sm" onclick="expandAllVehicles()">Expandir Todo</button>
-        <button class="btn btn-secondary btn-sm" onclick="collapseAllVehicles()">Colapsar Todo</button>
-        <div class="search-wrap" style="max-width:180px">
-          <svg style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--textFaint)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input class="input" id="rp-search" placeholder="Buscar vehículo…" oninput="renderRoutePlan()" style="padding-left:26px;font-size:11px">
-        </div>
-      </div>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:12px 16px" id="rp-list">
-      <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">Carga un plan primero</div></div>
-    </div>
   </div>
 
   <!-- TAB: WRONG COMMUNE (MAP) -->
@@ -428,55 +406,6 @@ body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
     </div>
   </div>
 
-  <!-- TAB: EXPORT -->
-  <div class="tab-pane" id="tab-export" style="overflow-y:auto;padding:24px;gap:16px">
-    <div>
-      <h2 style="font-size:15px;font-weight:700;margin-bottom:4px">📤 Exportar Resultados</h2>
-      <p style="font-size:11px;color:var(--textFaint)">Genera reportes y exporta los datos de la auditoría</p>
-    </div>
-    <div class="divider"></div>
-    <p class="section-label">Datos</p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="export-card" id="exp-plan">
-        <span style="font-size:24px">📋</span>
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700">Plan Rutas Completo</div>
-          <div style="font-size:11px;color:var(--textFaint)" id="exp-plan-desc">Sin datos</div>
-        </div>
-        <button class="btn btn-green btn-sm" onclick="exportFullPlan()">↓ Excel</button>
-      </div>
-      <div class="export-card" id="exp-conflicts">
-        <span style="font-size:24px">📍</span>
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700">Conflictos Geográficos</div>
-          <div style="font-size:11px;color:var(--textFaint)" id="exp-conf-desc">Sin conflictos</div>
-        </div>
-        <button class="btn btn-green btn-sm" onclick="exportConflictsXLSX()">↓ Excel</button>
-      </div>
-      <div class="export-card" id="exp-summary">
-        <span style="font-size:24px">📊</span>
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700">Resumen de Alertas</div>
-          <div style="font-size:11px;color:var(--textFaint)" id="exp-sum-desc">Sin alertas</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-blue btn-sm" onclick="copySummaryToClipboard()">📋 Copiar</button>
-          <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Excel</button>
-        </div>
-      </div>
-    </div>
-    <div class="divider"></div>
-    <p class="section-label">Sesión</p>
-    <div class="export-card" id="exp-session">
-      <span style="font-size:24px">💾</span>
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700">Sesión Completa (JSON)</div>
-        <div style="font-size:11px;color:var(--textFaint)">ISOs, conflictos y progreso de revisión</div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="exportSession()">↓ JSON</button>
-    </div>
-    <p style="font-size:10px;color:var(--textFaint);text-align:center;margin-top:8px">Los archivos se generan localmente — ningún dato se envía a servidores externos.</p>
-  </div>
 
 </main>
 
@@ -733,7 +662,6 @@ function processFile(file) {
       document.getElementById('upload-sub').textContent = 'Haz click o arrastra para reemplazar'
 
       showToast(`✓ ${routeData.length} ISOs cargadas`)
-      switchTab('tab-vehiculos', document.querySelector('[data-tab="tab-vehiculos"]'))
 
       if (result.hasGeo && window.RM_COMUNAS_DATA) {
         setTimeout(() => {
@@ -969,7 +897,6 @@ function switchTab(id, btn) {
   if (id === 'tab-geo') initGeoMap()
   if (id === 'tab-proyectos') initProyMap()
   if (id === 'tab-resumen') renderSummary()
-  if (id === 'tab-export') updateExportTab()
 }
 
 function setGeoFilter(f, btn) {
@@ -997,13 +924,11 @@ function setSummaryFilter(f, btn) {
 function updateAllUI() {
   updateBadges()
   updatePlanTab()
-  renderRoutePlan()
   renderConflictList()
   updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
   renderProyectoList()
   updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
   renderSummary()
-  updateExportTab()
   updateGeoStatusBadge()
   renderParamsPanel()
 }
@@ -1015,7 +940,6 @@ function updateBadges() {
     if (n) { el.textContent=n; el.classList.remove('hidden') }
     else el.classList.add('hidden')
   }
-  setBadge('badge-vehiculos', routeData.length || null)
   const geoAlerts = conflicts.filter(c => !isExcludedVeh(c.veh) && !resolvedConflicts.has(c.iso)).length
   setBadge('badge-geo', geoAlerts || null)
   if (geoAlerts) document.getElementById('badge-geo').classList.add('alert')
@@ -1054,104 +978,10 @@ function updateGeoStatusBadge() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ROUTE PLAN TAB
-// ═══════════════════════════════════════════════════════════
-function expandAllVehicles() {
-  document.querySelectorAll('#rp-list .veh-card').forEach(c => c.classList.add('open'))
-}
-function collapseAllVehicles() {
-  document.querySelectorAll('#rp-list .veh-card').forEach(c => c.classList.remove('open'))
-}
-
-function renderRoutePlan() {
-  const q = (document.getElementById('rp-search')?.value||'').toLowerCase()
-  const list = document.getElementById('rp-list')
-  if (!routeData.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">Carga un plan primero</div></div>'
-    return
-  }
-
-  // Build vehicle map
-  const vehMap = {}
-  for (const r of routeData) {
-    const v = r.veh || 'Sin vehículo'
-    const c = r.comuna || 'Sin comuna'
-    if (!vehMap[v]) vehMap[v] = {}
-    if (!vehMap[v][c]) vehMap[v][c] = []
-    vehMap[v][c].push(r)
-  }
-
-  const entries = Object.entries(vehMap)
-    .sort((a,b) => a[0].localeCompare(b[0],'es'))
-    .filter(([v]) => !q || v.toLowerCase().includes(q))
-
-  document.getElementById('rp-total').textContent = routeData.length
-  document.getElementById('rp-vehs').textContent = Object.keys(vehMap).length
-  document.getElementById('rp-comunas').textContent = new Set(routeData.map(r=>r.comuna)).size
-
-  if (!entries.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
-    return
-  }
-
-  const confSet = new Set(conflicts.map(c=>c.iso))
-
-  list.innerHTML = entries.map(([veh, comunas]) => {
-    const totalISOs = Object.values(comunas).reduce((s,a)=>s+a.length,0)
-    const soloUna = Object.values(comunas).filter(a=>a.length===1).length
-    const vehConfs = conflicts.filter(c=>c.veh===veh && !resolvedConflicts.has(c.iso)).length
-    const color = getVehColor(veh)
-    const isExcl = isExcludedVeh(veh)
-
-    const comunasHtml = Object.entries(comunas)
-      .sort((a,b)=>b[1].length-a[1].length)
-      .map(([com, isos]) => {
-        const hasConf = isos.some(i=>confSet.has(i.iso))
-        const isoChips = isos.map(i =>
-          `<span class="iso-chip" onclick="copyISO('${escH(i.iso)}',this)" title="${escH(i.dir)}">${escH(i.iso)}${i.parada?` <span style="color:var(--textFaint);font-size:9px">#${i.parada}</span>`:''}</span>`
-        ).join('')
-        return `<div class="commune-row" onclick="this.classList.toggle('open')">
-          <div class="flex items-center gap-sm" style="pointer-events:none">
-            <span style="font-size:9px;color:var(--textFaint)">▶</span>
-            ${hasConf?`<span class="pill pill-red" style="font-size:9px">!</span>`:''}
-            <span style="font-size:11px;font-weight:600;color:var(--textSub)">${escH(com)}</span>
-            <span style="margin-left:auto" class="badge ${isos.length===1?'orange':''}">${isos.length}</span>
-          </div>
-          <div class="commune-isos" onclick="event.stopPropagation()">${isoChips}</div>
-        </div>`
-      }).join('')
-
-    return `<div class="veh-card" style="opacity:${isExcl?0.45:1}">
-      <button class="veh-card-header" onclick="this.parentElement.classList.toggle('open')">
-        <div style="width:3px;height:20px;border-radius:99px;background:${color};flex-shrink:0"></div>
-        <span style="font-size:12px">🚛</span>
-        <span style="font-size:12px;font-weight:700;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(veh)}</span>
-        <div class="flex items-center gap-xs" style="flex-shrink:0">
-          <span class="badge blue">${totalISOs} ISO</span>
-          <span class="badge">${Object.keys(comunas).length} com.</span>
-          ${soloUna?`<span class="badge orange">! ${soloUna}</span>`:''}
-          ${vehConfs?`<span class="badge red">⚠ ${vehConfs}</span>`:''}
-          <button onclick="event.stopPropagation();toggleExclude('${escH(veh)}')" class="btn btn-sm ${isExcl?'btn-secondary':'btn-danger'}" style="font-size:9px;padding:2px 7px">${isExcl?'Incluir':'Excluir'}</button>
-        </div>
-      </button>
-      <div class="veh-card-body">${comunasHtml}</div>
-    </div>`
-  }).join('')
-}
-
 function copyISO(iso, el) {
   navigator.clipboard.writeText(iso).catch(()=>{})
   el.classList.add('copied')
   setTimeout(()=>el.classList.remove('copied'),1300)
-}
-function toggleExclude(veh) {
-  const key = (veh||'').trim().toUpperCase()
-  const arr = params.excludedVehicles.map(v => (v||'').trim().toUpperCase())
-  if (arr.includes(key)) params.excludedVehicles = params.excludedVehicles.filter(v => (v||'').trim().toUpperCase() !== key)
-  else params.excludedVehicles = [...params.excludedVehicles, veh]
-  saveState(); updateAllUI()
-  showToast(isExcludedVeh(veh)?`✕ ${veh} excluido`:`✓ ${veh} incluido`)
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1527,16 +1357,6 @@ function summaryFlag(iso, tipo) {
     else { flaggedConflicts.add(iso); resolvedConflicts.delete(iso) }
   }
   saveState(); updateAllUI()
-}
-
-// ═══════════════════════════════════════════════════════════
-//  EXPORT TAB
-// ═══════════════════════════════════════════════════════════
-function updateExportTab() {
-  document.getElementById('exp-plan-desc').textContent = routeData.length ? `${routeData.length} ISOs · ${new Set(routeData.map(r=>r.veh)).size} vehículos` : 'Sin datos'
-  document.getElementById('exp-conf-desc').textContent = conflicts.length ? `${conflicts.length} conflictos detectados` : 'Sin conflictos'
-  const sr = getSummaryRows()
-  document.getElementById('exp-sum-desc').textContent = sr.length ? `${sr.length} alertas · ${sr.filter(r=>r.status==='pendiente').length} pendientes` : 'Sin alertas'
 }
 
 function getW() {
