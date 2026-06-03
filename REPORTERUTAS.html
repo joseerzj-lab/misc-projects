@@ -320,10 +320,7 @@ function ReporteRutas(){
   const[selection,setSelection]=React.useState({start:null,end:null});
   const[isDragging,setIsDragging]=React.useState(false);
   const[chartRegion,setChartRegion]=React.useState('');
-  const[chartGroupBy,setChartGroupBy]=React.useState('patente');
   const[summaryRegion,setSummaryRegion]=React.useState('ALL');
-  const[planData,setPlanData]=React.useState(null);
-  const[convData,setConvData]=React.useState(null);
   const tableRef=React.useRef(null);const chartRef=React.useRef(null);const summaryRef=React.useRef(null);
 
   // ── Consultar ISOs (GeoSort) state ──
@@ -344,7 +341,6 @@ function ReporteRutas(){
     if(!isoInput.trim()||!rawRows.length)return;
     const isos=isoInput.split(/[\n\r,;\t ]+/).map(s=>s.trim()).filter(Boolean);
     const ecommRows=rawRows.filter(r=>(getKey(r,'Commerce')||'').trim().toUpperCase().startsWith('I'));
-    const isoToVeh={};if(planData){const convMap={};if(convData)convData.rows.forEach(r=>{const ini=(getKey(r,'VEH INICIAL')||getKey(r,'Veh Inicial')||'').trim();const fin=(getKey(r,'VEH FINAL')||getKey(r,'Veh Final')||'').trim();if(ini&&fin)convMap[ini]=fin});planData.rows.forEach(r=>{const tit=(getKey(r,'Título')||getKey(r,'Titulo')||'').trim().toLowerCase();let veh=(getKey(r,'Vehículo')||getKey(r,'Vehiculo')||'').trim();if(tit&&veh)isoToVeh[tit]=convMap[veh]||veh})}
     const res=[];
     isos.forEach(iso=>{
       const isoLower=iso.toLowerCase();
@@ -359,7 +355,7 @@ function ReporteRutas(){
           const key=`${est}|${pat}`;
           if(seen.has(key))return;
           seen.add(key);
-          res.push({iso,found:true,patente:pat,vehiculo:isoToVeh[isoLower]||pat,estado:est,comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||'',direccion:getKey(row,'Direccion')||getKey(row,'Dirección')||'',_multipleStates:hasMultipleStates});
+          res.push({iso,found:true,patente:pat,vehiculo:pat,estado:est,comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||'',direccion:getKey(row,'Direccion')||getKey(row,'Dirección')||'',_multipleStates:hasMultipleStates});
         });
       }else{
         res.push({iso,found:false,patente:'',vehiculo:'',estado:'',comentario:'',motivo:'',imageUrl:'',direccion:'',_multipleStates:false});
@@ -516,18 +512,15 @@ function ReporteRutas(){
     else if(!data.regions[chartRegion])return[];
     else regionsToUse=[chartRegion];
     if(!regionsToUse.length)return[];
-    const isoToVeh={};if(chartGroupBy==='vehiculo'&&planData){const convMap={};if(convData)convData.rows.forEach(r=>{const ini=(getKey(r,'VEH INICIAL')||getKey(r,'Veh Inicial')||'').trim();const fin=(getKey(r,'VEH FINAL')||getKey(r,'Veh Final')||'').trim();if(ini&&fin)convMap[ini]=fin});planData.rows.forEach(r=>{const tit=(getKey(r,'Título')||getKey(r,'Titulo')||'').trim().toLowerCase();let veh=(getKey(r,'Vehículo')||getKey(r,'Vehiculo')||'').trim();if(tit&&veh)isoToVeh[tit]=convMap[veh]||veh});}
     const aggregated={};
-    regionsToUse.forEach(region=>{if(!data.regions[region])return;const rd=data.regions[region];const pats=Object.keys(rd.patentes);pats.forEach(pat=>{const pd=rd.patentes[pat];const orders=Array.from(pd.orders);if(chartGroupBy==='vehiculo'){orders.forEach(ord=>{const veh=isoToVeh[ord.toLowerCase()]||pat;const groupKey=`${veh} (${pat})`;if(!aggregated[groupKey])aggregated[groupKey]={patente:groupKey,terminados:0,planificados:0,pendientes:0,enRuta:0,total:0};aggregated[groupKey].total+=1;const states=pd.poStates[ord];if(states){states.forEach(e=>{const elow=e.toLowerCase();if(elow.includes('terminado'))aggregated[groupKey].terminados+=1;else if(elow.includes('planificado'))aggregated[groupKey].planificados+=1;else if(elow.includes('en ruta')||elow.includes('enruta'))aggregated[groupKey].enRuta+=1;else if(elow.includes('pendiente'))aggregated[groupKey].pendientes+=1;else aggregated[groupKey][e]=(aggregated[groupKey][e]||0)+1;})}});}else{if(!aggregated[pat])aggregated[pat]={patente:pat,terminados:0,planificados:0,pendientes:0,enRuta:0,total:0};aggregated[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const elow=e.toLowerCase();if(elow.includes('terminado'))aggregated[pat].terminados+=v;else if(elow.includes('planificado'))aggregated[pat].planificados+=v;else if(elow.includes('en ruta')||elow.includes('enruta'))aggregated[pat].enRuta+=v;else if(elow.includes('pendiente'))aggregated[pat].pendientes+=v;else aggregated[pat][e]=(aggregated[pat][e]||0)+v;});}});});
+    regionsToUse.forEach(region=>{if(!data.regions[region])return;const rd=data.regions[region];const pats=Object.keys(rd.patentes);pats.forEach(pat=>{const pd=rd.patentes[pat];if(!aggregated[pat])aggregated[pat]={patente:pat,terminados:0,planificados:0,pendientes:0,enRuta:0,total:0};aggregated[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const elow=e.toLowerCase();if(elow.includes('terminado'))aggregated[pat].terminados+=v;else if(elow.includes('planificado'))aggregated[pat].planificados+=v;else if(elow.includes('en ruta')||elow.includes('enruta'))aggregated[pat].enRuta+=v;else if(elow.includes('pendiente'))aggregated[pat].pendientes+=v;else aggregated[pat][e]=(aggregated[pat][e]||0)+v;});});});
     return Object.values(aggregated).map(obj=>{obj.Terminado=obj.terminados;obj.Planificado=obj.planificados;obj.Pendiente=obj.pendientes;obj['En Ruta']=obj.enRuta;obj.totalNum=obj.total;obj.dummy=0.05;const val=obj.total>0?(obj.terminados/obj.total)*100:0;if(obj.terminados===0)obj.pctCompletado=0;else if(obj.planificados===0&&obj.enRuta===0)obj.pctCompletado=100;else obj.pctCompletado=Math.round(val);return obj}).sort((a,b)=>b.totalNum-a.totalNum).slice(0,80);
-  },[data,chartRegion,chartGroupBy,planData,convData,allRegions]);
+  },[data,chartRegion,allRegions]);
 
   const parseGenericCSV=(file,callback)=>{const reader=new FileReader();reader.onload=ev=>{const text=ev.target?.result;const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return;const sep=detectSep(lines[0]);const headers=parseRow(lines[0],sep);const rows=lines.slice(1).map(line=>{const vals=parseRow(line,sep);const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj});callback({fileName:file.name,rows})};reader.readAsText(file,'UTF-8')};
   const parseGenericXLSX=(file,callback)=>{const reader=new FileReader();reader.onload=ev=>{try{const data=new Uint8Array(ev.target.result);const workbook=window.XLSX.read(data,{type:'array'});const ws=workbook.Sheets[workbook.SheetNames[0]];const rows=window.XLSX.utils.sheet_to_json(ws,{defval:''});callback({fileName:file.name,rows})}catch(e){console.error(e);flash('❌ Error leyendo archivo')}};reader.readAsArrayBuffer(file)};
   const parseFile=(file,cb)=>{if(file.name.toLowerCase().endsWith('.csv'))parseGenericCSV(file,cb);else parseGenericXLSX(file,cb)};
   const handleFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setFileName(d.fileName);processCSVData(d.rows);flash('✓ Reporte procesado')});e.target.value=''};
-  const handlePlanFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setPlanData(d);flash('✓ Planificación cargada')});e.target.value=''};
-  const handleConvFile=e=>{const file=e.target.files?.[0];if(!file)return;parseFile(file,d=>{setConvData(d);flash('✓ Conversión cargada')});e.target.value=''};
 
   const toggleRegion=r=>setExpanded(p=>{const n=new Set(p);n.has(r)?n.delete(r):n.add(r);return n});
   const toggleAll=()=>{if(!data)return;setExpanded(p=>p.size>=allRegions.length?new Set():new Set(allRegions))};
@@ -568,24 +561,6 @@ function ReporteRutas(){
         </div>}
       </label>
     </Card>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:24}}>
-      <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
-        <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
-          <div style={{fontSize:24}}></div>
-          <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Planificación</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
-          <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handlePlanFile}/>
-          {planData&&<Badge variant="blue" style={{marginTop:8}}>✓ {planData.fileName}</Badge>}
-        </label>
-      </Card>
-      <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.border}`}}>
-        <label style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:32,cursor:'pointer',background:TC.bgCardAlt}}>
-          <div style={{fontSize:24}}></div>
-          <div style={{textAlign:'center'}}><div style={{fontSize:12,fontWeight:800,color:TC.text}}>Archivo Conversión</div><div style={{fontSize:10,opacity:0.5,marginTop:4}}>(Opcional) Excel (XLSX)</div></div>
-          <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={handleConvFile}/>
-          {convData&&<Badge variant="blue" style={{marginTop:8}}>✓ {convData.fileName}</Badge>}
-        </label>
-      </Card>
-    </div>
   </div>
 </div>}
 
@@ -657,11 +632,6 @@ function ReporteRutas(){
     {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
     <div style={{display:'flex',gap:8,alignItems:'center',position:'sticky',top:0,zIndex:20,padding:'7px 12px',borderRadius:10,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.9)',flexWrap:'wrap'}}>
       <DropdownMenu options={[{label:'Región Metropolitana (RM)',onClick:()=>setChartRegion('RM'),Icon:<Badge variant="blue" style={{fontSize:9}}>RM</Badge>},{label:'Resto de Regiones (RX)',onClick:()=>setChartRegion('RX'),Icon:<Badge variant="purple" style={{fontSize:9}}>RX</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setChartRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:chartRegion===r?'#a855f7':'rgba(0,0,0,0.1)'}}/>}))]}><span style={{fontSize:10,fontWeight:700,color:TC.text}}>Región: {chartRegion==='RM'?'RM':chartRegion==='RX'?'RX':chartRegion||'Seleccionar...'}</span></DropdownMenu>
-      <div style={{height:24,width:1,background:'rgba(0,0,0,0.08)',margin:'0 8px'}}/>
-      <div style={{display:'flex',padding:4,borderRadius:8,background:'rgba(0,0,0,0.04)',gap:4}}>
-        <button onClick={()=>setChartGroupBy('patente')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartGroupBy==='patente'?'#fff':'transparent',boxShadow:chartGroupBy==='patente'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartGroupBy==='patente'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Patente</button>
-        <button onClick={()=>setChartGroupBy('vehiculo')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartGroupBy==='vehiculo'?'#fff':'transparent',boxShadow:chartGroupBy==='vehiculo'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartGroupBy==='vehiculo'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Vehículo</button>
-      </div>
       <div style={{height:24,width:1,background:'rgba(0,0,0,0.08)',margin:'0 8px'}}/>
       <div style={{display:'flex',padding:4,borderRadius:8,background:'rgba(0,0,0,0.04)',gap:4}}>
         <button onClick={()=>setChartLayout('vertical')} style={{padding:'4px 12px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',background:chartLayout==='vertical'?'#fff':'transparent',boxShadow:chartLayout==='vertical'?'0 1px 3px rgba(0,0,0,0.1)':'none',color:chartLayout==='vertical'?'#2563eb':TC.textMuted,fontFamily:T.fontFamily}}>Bars Verticales</button>
