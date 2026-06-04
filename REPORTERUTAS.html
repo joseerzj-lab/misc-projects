@@ -303,19 +303,65 @@ function KPICard({title,value,color,progress}){
   </div>
 }
 
+function MultiRegionDropdown({allRegions,selected,onChange}){
+  const[open,setOpen]=React.useState(false);
+  const[pos,setPos]=React.useState({top:0,left:0});
+  const btnRef=React.useRef(null);
+  const panelRef=React.useRef(null);
+  const rmR=React.useMemo(()=>allRegions.filter(r=>r.toLowerCase().includes('metropolitana')),[allRegions]);
+  const rxR=React.useMemo(()=>allRegions.filter(r=>!r.toLowerCase().includes('metropolitana')),[allRegions]);
+  const isAll=selected.size===0;
+  const isRM=!isAll&&rmR.length>0&&selected.size===rmR.length&&rmR.every(r=>selected.has(r));
+  const isRX=!isAll&&rxR.length>0&&selected.size===rxR.length&&rxR.every(r=>selected.has(r));
+  const label=isAll?'Todas las regiones':isRM?'RM':isRX?'RX':selected.size===1?[...selected][0]:`${selected.size} regiones`;
+  const isChecked=r=>selected.size===0||selected.has(r);
+  const toggle=r=>onChange(prev=>{
+    const base=prev.size===0?new Set(allRegions):new Set(prev);
+    if(base.has(r)){base.delete(r);if(base.size===0)return new Set();}
+    else{base.add(r);if(base.size===allRegions.length)return new Set();}
+    return base;
+  });
+  const handleOpen=()=>{
+    if(btnRef.current){const rect=btnRef.current.getBoundingClientRect();setPos({top:rect.bottom+4,left:rect.left})}
+    setOpen(o=>!o);
+  };
+  React.useEffect(()=>{
+    const h=e=>{if(panelRef.current&&!panelRef.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target))setOpen(false)};
+    document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
+  },[]);
+  const qBtn=(lbl,active,fn)=><button key={lbl} onClick={fn} style={{padding:'3px 10px',borderRadius:R.pill,border:`1px solid ${active?'#2563eb':TC.border}`,background:active?'rgba(37,99,235,0.1)':'transparent',fontSize:T.xs,fontWeight:700,cursor:'pointer',color:active?'#2563eb':TC.textSub,fontFamily:T.fontFamily}}>{lbl}</button>;
+  return <div style={{display:'inline-block'}}>
+    <button ref={btnRef} onClick={handleOpen} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:R.md,border:`1px solid ${TC.border}`,background:'rgba(0,0,0,0.03)',fontSize:T.sm,fontWeight:700,cursor:'pointer',color:TC.textSub,fontFamily:T.fontFamily}}>
+      Región: <span style={{color:TC.text}}>{label}</span><ChevronDown size={12}/>
+    </button>
+    {open&&ReactDOM.createPortal(
+      <div ref={panelRef} style={{position:'fixed',top:pos.top,left:pos.left,zIndex:9990,width:270,background:'#fff',border:`1px solid ${TC.border}`,borderRadius:R.lg,boxShadow:'0 8px 30px rgba(0,0,0,0.15)',overflow:'hidden'}}>
+        <div style={{padding:'8px 12px',borderBottom:`1px solid ${TC.borderSoft}`,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {qBtn('Todas',isAll,()=>onChange(new Set()))}
+          {rmR.length>0&&qBtn('RM',isRM,()=>onChange(new Set(rmR)))}
+          {rxR.length>0&&qBtn('RX',isRX,()=>onChange(new Set(rxR)))}
+        </div>
+        <div style={{maxHeight:260,overflowY:'auto',padding:'4px 0'}}>
+          {allRegions.map(r=>{const active=isChecked(r);return <button key={r} onClick={()=>toggle(r)} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 14px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:T.sm,fontWeight:600,color:TC.text,fontFamily:T.fontFamily,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${active?'#2563eb':TC.border}`,background:active?'#2563eb':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.1s'}}>
+              {active&&<span style={{color:'#fff',fontSize:9,lineHeight:1,fontWeight:900}}>✓</span>}
+            </div>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r}</span>
+          </button>})}
+        </div>
+      </div>,
+      document.body
+    )}
+  </div>
+}
+
 function TabDashboard({data,rawRows,allRegions,onFlash}){
   const dashRef=React.useRef(null);
-  const[dashRegion,setDashRegion]=React.useState('ALL');
-  const[criticalRegion,setCriticalRegion]=React.useState('RM');
+  const[selectedDashRegions,setSelectedDashRegions]=React.useState(new Set());
   const[imgModal,setImgModal]=React.useState({open:false,images:[],index:0});
   const[exporting,setExporting]=React.useState(false);
 
-  const filteredRegions=React.useMemo(()=>{
-    if(dashRegion==='ALL')return allRegions;
-    if(dashRegion==='RM')return allRegions.filter(r=>r.toLowerCase().includes('metropolitana'));
-    if(dashRegion==='RX')return allRegions.filter(r=>!r.toLowerCase().includes('metropolitana'));
-    return allRegions.filter(r=>r===dashRegion);
-  },[dashRegion,allRegions]);
+  const filteredRegions=React.useMemo(()=>selectedDashRegions.size===0?allRegions:allRegions.filter(r=>selectedDashRegions.has(r)),[selectedDashRegions,allRegions]);
 
   const kpis=React.useMemo(()=>{
     if(!data)return{total:0,terminados:0,enRuta:0,pendientes:0,avance:0};
@@ -326,33 +372,42 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
 
   const criticalPatentes=React.useMemo(()=>{
     if(!data)return[];
-    let critRegions;
-    if(criticalRegion==='ALL')critRegions=allRegions;
-    else if(criticalRegion==='RM')critRegions=allRegions.filter(r=>r.toLowerCase().includes('metropolitana'));
-    else if(criticalRegion==='RX')critRegions=allRegions.filter(r=>!r.toLowerCase().includes('metropolitana'));
-    else critRegions=allRegions.filter(r=>r===criticalRegion);
     const patMap={};
-    critRegions.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!patMap[pat])patMap[pat]={patente:pat,total:0,terminados:0,pendientes:0};patMap[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))patMap[pat].terminados+=v;if(el.includes('pendiente'))patMap[pat].pendientes+=v;})})});
+    filteredRegions.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!patMap[pat])patMap[pat]={patente:pat,total:0,terminados:0,pendientes:0};patMap[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))patMap[pat].terminados+=v;if(el.includes('pendiente'))patMap[pat].pendientes+=v;})})});
     const pats=Object.values(patMap).filter(p=>p.total>0);
     pats.forEach(p=>{p.avance=p.total>0?Math.round((p.terminados/p.total)*100):0});
     pats.sort((a,b)=>a.avance-b.avance);
     return pats.slice(0,10);
-  },[data,allRegions,criticalRegion]);
+  },[data,filteredRegions]);
 
   const motivosData=React.useMemo(()=>{
     if(!rawRows.length)return[];
     const motMap={};
-    rawRows.forEach(row=>{const commerce=(getKey(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;const estado=(getKey(row,'Estado')||'').toLowerCase();if(!estado.includes('pendiente'))return;const motivo=((getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim())||'Sin motivo';motMap[motivo]=(motMap[motivo]||0)+1;});
-    const total=Object.values(motMap).reduce((a,b)=>a+b,0);
-    return Object.entries(motMap).map(([tipo,cantidad])=>({tipo,cantidad,pct:total>0?Math.round((cantidad/total)*100):0})).sort((a,b)=>b.cantidad-a.cantidad);
-  },[rawRows]);
+    rawRows.forEach(row=>{
+      const commerce=(getKey(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
+      const region=(getKey(row,'Region')||'Sin Región').trim();
+      if(selectedDashRegions.size>0&&!selectedDashRegions.has(region))return;
+      const estado=(getKey(row,'Estado')||'').toLowerCase();if(!estado.includes('pendiente'))return;
+      const po=(getKey(row,'ParentOrder')||'').trim();if(!po)return;
+      const motivo=((getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim())||'Sin motivo';
+      if(!motMap[motivo])motMap[motivo]=new Set();
+      motMap[motivo].add(po);
+    });
+    const total=Object.values(motMap).reduce((a,s)=>a+s.size,0);
+    return Object.entries(motMap).map(([tipo,poSet])=>({tipo,cantidad:poSet.size,pct:total>0?Math.round((poSet.size/total)*100):0})).sort((a,b)=>b.cantidad-a.cantidad);
+  },[rawRows,selectedDashRegions]);
 
   const excepcionesData=React.useMemo(()=>{
     if(!data||!data.incidenciasByPatente)return[];
     const rows=[];
-    Object.entries(data.incidenciasByPatente).forEach(([pat,inc])=>{const motiMap={};inc.eventos.forEach(ev=>{const k=ev.motivo||'Sin motivo';if(!motiMap[k])motiMap[k]={ordenes:0,fotos:[]};motiMap[k].ordenes++;motiMap[k].fotos.push(...ev.fotos)});Object.entries(motiMap).forEach(([motivo,md])=>{rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos})})});
+    Object.entries(data.incidenciasByPatente).forEach(([pat,inc])=>{
+      if(selectedDashRegions.size>0&&!selectedDashRegions.has(inc.region))return;
+      const motiMap={};
+      inc.eventos.forEach(ev=>{const k=ev.motivo||'Sin motivo';if(!motiMap[k])motiMap[k]={ordenes:0,fotos:[]};motiMap[k].ordenes++;motiMap[k].fotos.push(...ev.fotos)});
+      Object.entries(motiMap).forEach(([motivo,md])=>{rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos})});
+    });
     return rows.sort((a,b)=>b.ordenes-a.ordenes);
-  },[data]);
+  },[data,selectedDashRegions]);
 
   const sectorizadoData=React.useMemo(()=>{
     if(!data)return[];
@@ -360,6 +415,28 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
     rawRows.forEach(row=>{const region=(getKey(row,'Region')||'Sin Región').trim();const emp=(getKey(row,'Empresa')||getKey(row,'Transportista')||'').trim();if(!regionEmpMap[region])regionEmpMap[region]=new Set();if(emp)regionEmpMap[region].add(emp)});
     return filteredRegions.map(r=>{const rd=data.regions[r];if(!rd)return null;let terminados=0,enRuta=0;Object.keys(rd.estados).forEach(e=>{const v=rd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))terminados+=v;if(el.includes('en ruta')||el.includes('enruta'))enRuta+=v});const total=rd.orders.size;const avance=total>0?Math.round((terminados/total)*100):0;return{region:r,patentes:Object.keys(rd.patentes).length,empresas:regionEmpMap[r]?regionEmpMap[r].size:0,terminados,enRuta,total,avance}}).filter(Boolean);
   },[data,filteredRegions,rawRows]);
+
+  const sectorizadoPatenteData=React.useMemo(()=>{
+    if(!data||!rawRows.length)return[];
+    const result={};
+    rawRows.forEach(row=>{
+      const commerce=(getKey(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
+      const region=(getKey(row,'Region')||'Sin Región').trim();
+      if(selectedDashRegions.size>0&&!selectedDashRegions.has(region))return;
+      const patente=(getKey(row,'Patente')||'').trim();if(!patente)return;
+      const estado=(getKey(row,'Estado')||'Sin Estado').trim();
+      const gestion=(getKey(row,'Gestión')||getKey(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
+      const po=(getKey(row,'ParentOrder')||'').trim();
+      const key=`${region}||${patente}||${gestion}`;
+      if(!result[key])result[key]={region,patente,gestion,orders:new Set(),terminados:new Set(),enRuta:new Set(),pendientes:new Set()};
+      result[key].orders.add(po);
+      const el=estado.toLowerCase();
+      if(el.includes('terminado'))result[key].terminados.add(po);
+      else if(el.includes('en ruta')||el.includes('enruta'))result[key].enRuta.add(po);
+      else if(el.includes('pendiente'))result[key].pendientes.add(po);
+    });
+    return Object.values(result).map(r=>({region:r.region,patente:r.patente,gestion:r.gestion,total:r.orders.size,terminados:r.terminados.size,enRuta:r.enRuta.size,pendientes:r.pendientes.size,avance:r.orders.size>0?Math.round((r.terminados.size/r.orders.size)*100):0})).sort((a,b)=>a.region.localeCompare(b.region)||a.patente.localeCompare(b.patente)||a.gestion.localeCompare(b.gestion));
+  },[data,rawRows,selectedDashRegions]);
 
   const exportPDF=async()=>{
     const el=dashRef.current;if(!el){onFlash('❌ Elemento no encontrado');return}
@@ -369,19 +446,10 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
       const jpdf=window.jspdf;if(!jpdf){onFlash('❌ jsPDF no cargado');setExporting(false);return}
       const{jsPDF}=jpdf;const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
       const pdfW=pdf.internal.pageSize.getWidth();const pdfH=pdf.internal.pageSize.getHeight();
-      const ratio=pdfW/canvas.width;
-      let sliceY=0;let page=0;
-      while(sliceY<canvas.height){
-        if(page>0)pdf.addPage();
-        const sliceH=Math.min(pdfH/ratio,canvas.height-sliceY);
-        const sc=document.createElement('canvas');sc.width=canvas.width;sc.height=Math.ceil(sliceH);
-        const ctx=sc.getContext('2d');ctx.drawImage(canvas,0,sliceY,canvas.width,Math.ceil(sliceH),0,0,canvas.width,Math.ceil(sliceH));
-        pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pdfW,sliceH*ratio);
-        sliceY+=sliceH;page++;
-      }
+      const ratio=pdfW/canvas.width;let sliceY=0;let page=0;
+      while(sliceY<canvas.height){if(page>0)pdf.addPage();const sliceH=Math.min(pdfH/ratio,canvas.height-sliceY);const sc=document.createElement('canvas');sc.width=canvas.width;sc.height=Math.ceil(sliceH);const ctx=sc.getContext('2d');ctx.drawImage(canvas,0,sliceY,canvas.width,Math.ceil(sliceH),0,0,canvas.width,Math.ceil(sliceH));pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pdfW,sliceH*ratio);sliceY+=sliceH;page++;}
       const fecha=new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
-      pdf.save(`Dashboard_Rutas_${fecha}.pdf`);
-      onFlash('✓ PDF descargado');
+      pdf.save(`Dashboard_Rutas_${fecha}.pdf`);onFlash('✓ PDF descargado');
     }catch(e){onFlash('❌ Error al generar PDF');console.error(e)}
     finally{setExporting(false)}
   };
@@ -390,11 +458,11 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
 
   if(!data)return <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:16,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div></div>;
 
+  const dashBadgeLabel=selectedDashRegions.size===0?'Global':selectedDashRegions.size===1?[...selectedDashRegions][0]:`${selectedDashRegions.size} regiones`;
+
   return <div style={{position:'absolute',inset:0,overflow:'auto',padding:'12px 24px',background:TC.bg}}>
     <div data-html2canvas-ignore style={{display:'flex',gap:8,alignItems:'center',marginBottom:16,position:'sticky',top:0,zIndex:20,padding:'7px 12px',borderRadius:10,border:'1px solid rgba(0,0,0,0.05)',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(246,248,250,0.9)'}}>
-      <DropdownMenu options={[{label:'Todas las Regiones',onClick:()=>setDashRegion('ALL'),Icon:<Badge variant="blue" style={{fontSize:9}}>ALL</Badge>},{label:'Región Metropolitana (RM)',onClick:()=>setDashRegion('RM'),Icon:<Badge variant="blue" style={{fontSize:9}}>RM</Badge>},{label:'Resto de Regiones (RX)',onClick:()=>setDashRegion('RX'),Icon:<Badge variant="purple" style={{fontSize:9}}>RX</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setDashRegion(r),Icon:<div style={{width:12,height:12,borderRadius:99,background:dashRegion===r?'#3b82f6':'rgba(0,0,0,0.1)'}}/>}))]}>
-        <span style={{fontSize:10,fontWeight:700,color:TC.text}}>Región: {dashRegion==='ALL'?'Todas':dashRegion==='RM'?'RM':dashRegion==='RX'?'RX':dashRegion}</span>
-      </DropdownMenu>
+      <MultiRegionDropdown allRegions={allRegions} selected={selectedDashRegions} onChange={setSelectedDashRegions}/>
       <div style={{flex:1}}/>
       <Btn onClick={exportPDF} disabled={exporting} variant="primary" style={{fontSize:10,gap:6}}><FileDown size={13}/>{exporting?'Generando...':'Descargar PDF'}</Btn>
     </div>
@@ -402,7 +470,7 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
     <div ref={dashRef} id="dashboard-content" style={{maxWidth:1100,margin:'0 auto',display:'flex',flexDirection:'column',gap:20,background:'#fff',padding:28,borderRadius:14,border:`1px solid ${TC.borderSoft}`,boxShadow:'0 8px 32px rgba(0,0,0,0.05)'}}>
       <div style={{paddingBottom:16,borderBottom:`1px solid ${TC.borderSoft}`,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
         <div><div style={{fontSize:22,fontWeight:900,color:TC.text,letterSpacing:'-0.03em'}}>Dashboard de Control</div><div style={{fontSize:11,color:TC.textMuted,marginTop:4}}>{new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
-        <Badge variant="blue" style={{fontSize:10,padding:'4px 12px'}}>{dashRegion==='ALL'?'Global':dashRegion==='RM'?'Región Metropolitana':dashRegion==='RX'?'Resto de Regiones':dashRegion}</Badge>
+        <Badge variant="blue" style={{fontSize:10,padding:'4px 12px'}}>{dashBadgeLabel}</Badge>
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
@@ -414,14 +482,9 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
         <div style={{background:'rgba(0,0,0,0.01)',borderRadius:R.lg,border:`1px solid ${TC.borderSoft}`,padding:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${TC.borderSoft}`}}>
-            <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:TC.textMuted}}>Top 10 Patentes Críticas</span>
-            <DropdownMenu options={[{label:'Región Metropolitana (RM)',onClick:()=>setCriticalRegion('RM'),Icon:<Badge variant="blue" style={{fontSize:8}}>RM</Badge>},{label:'Resto de Regiones (RX)',onClick:()=>setCriticalRegion('RX'),Icon:<Badge variant="purple" style={{fontSize:8}}>RX</Badge>},{label:'Todas las Regiones',onClick:()=>setCriticalRegion('ALL'),Icon:<Badge variant="muted" style={{fontSize:8}}>ALL</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setCriticalRegion(r),Icon:<div style={{width:10,height:10,borderRadius:99,background:criticalRegion===r?'#3b82f6':'rgba(0,0,0,0.1)'}}/>}))]}>
-              <span style={{fontSize:9,fontWeight:700,color:TC.textSub}}>{criticalRegion==='RM'?'RM':criticalRegion==='RX'?'RX':criticalRegion==='ALL'?'Todas':criticalRegion}</span>
-            </DropdownMenu>
-          </div>
+          {ST('Top 10 Patentes Críticas')}
           {criticalPatentes.length===0
-            ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos para la región seleccionada</div>
+            ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos para la selección actual</div>
             :<table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
               <thead><tr>{['Patente','Total','Entregados','Pendientes','Avance'].map(h=><th key={h} style={{textAlign:h==='Patente'?'left':'right',padding:'6px 8px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`}}>{h}</th>)}</tr></thead>
               <tbody>{criticalPatentes.map((p,i)=>{const g=termGradient(p.avance);return <tr key={p.patente} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'7px 8px',fontWeight:800,color:TC.text}}>{p.patente}</td><td style={{padding:'7px 8px',textAlign:'right',color:TC.textMuted}}>{p.total}</td><td style={{padding:'7px 8px',textAlign:'right',color:'#22c55e',fontWeight:700}}>{p.terminados}</td><td style={{padding:'7px 8px',textAlign:'right',color:'#ef4444',fontWeight:700}}>{p.pendientes}</td><td style={{padding:'7px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,background:g.bg,padding:'2px 8px',borderRadius:99,fontSize:10}}>{p.avance}%</span></td></tr>})}</tbody>
@@ -432,7 +495,13 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
           {motivosData.length===0
             ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos de motivos de no entrega</div>
             :<div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {motivosData.slice(0,10).map(m=><div key={m.tipo} style={{display:'flex',flexDirection:'column',gap:3}}><div style={{display:'flex',justifyContent:'space-between',fontSize:10,fontWeight:700}}><span style={{color:TC.text,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={m.tipo}>{m.tipo}</span><span style={{color:TC.textMuted,flexShrink:0,marginLeft:8}}>{m.cantidad} · {m.pct}%</span></div><div style={{width:'100%',height:4,background:'rgba(0,0,0,0.05)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:'#ef4444',borderRadius:99,width:`${m.pct}%`,opacity:0.7}}/></div></div>)}
+              {motivosData.slice(0,10).map(m=><div key={m.tipo} style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,fontWeight:700}}>
+                  <span style={{color:TC.text,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={m.tipo}>{m.tipo}</span>
+                  <span style={{color:TC.textMuted,flexShrink:0,marginLeft:8}}>{m.cantidad} ISOs · {m.pct}%</span>
+                </div>
+                <div style={{width:'100%',height:4,background:'rgba(0,0,0,0.05)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:'#ef4444',borderRadius:99,width:`${m.pct}%`,opacity:0.7}}/></div>
+              </div>)}
               {motivosData.length>10&&<div style={{fontSize:9,color:TC.textFaint,textAlign:'center',marginTop:4}}>+{motivosData.length-10} motivos más</div>}
             </div>}
         </div>
@@ -446,7 +515,7 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
               <thead><tr>{['Región','Transporte','Patente','Motivo','Órdenes','Fotos'].map(h=><th key={h} style={{textAlign:h==='Órdenes'?'right':'left',padding:'7px 10px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
               <tbody>
-                {excepcionesData.slice(0,50).map((row,i)=><tr key={i} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 10px'}}><Badge variant="muted" style={{fontSize:8}}>{row.region}</Badge></td><td style={{padding:'6px 10px',color:TC.textSub,fontWeight:600,fontSize:11}}>{row.empresa}</td><td style={{padding:'6px 10px',fontWeight:800,color:TC.text}}>{row.patente}</td><td style={{padding:'6px 10px',color:TC.text,maxWidth:240,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td><td style={{padding:'6px 10px',textAlign:'right',fontWeight:700,color:'#f97316'}}>{row.ordenes}</td><td style={{padding:'6px 10px'}}>{row.fotos.length>0?<span onClick={()=>setImgModal({open:true,images:row.fotos,index:0})} data-html2canvas-ignore style={{color:'#3b82f6',cursor:'pointer',fontWeight:700,fontSize:10,textDecoration:'underline'}}>Ver {row.fotos.length} foto{row.fotos.length>1?'s':''}</span>:<span style={{color:TC.textFaint,fontSize:10}}>—</span>}</td></tr>)}
+                {excepcionesData.slice(0,50).map((row,i)=><tr key={i} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 10px'}}><Badge variant="muted" style={{fontSize:8}}>{row.region}</Badge></td><td style={{padding:'6px 10px',color:TC.textSub,fontWeight:600,fontSize:11}}>{row.empresa}</td><td style={{padding:'6px 10px',fontWeight:800,color:TC.text}}>{row.patente}</td><td style={{padding:'6px 10px',color:TC.text,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td><td style={{padding:'6px 10px',textAlign:'right',fontWeight:700,color:'#f97316'}}>{row.ordenes}</td><td style={{padding:'6px 10px'}}>{row.fotos.length>0?<span onClick={()=>setImgModal({open:true,images:row.fotos,index:0})} data-html2canvas-ignore style={{color:'#3b82f6',cursor:'pointer',fontWeight:700,fontSize:10,textDecoration:'underline'}}>Ver {row.fotos.length} foto{row.fotos.length>1?'s':''}</span>:<span style={{color:TC.textFaint,fontSize:10}}>—</span>}</td></tr>)}
                 {excepcionesData.length>50&&<tr><td colSpan={6} style={{padding:'8px 10px',textAlign:'center',fontSize:9,color:TC.textFaint}}>+{excepcionesData.length-50} registros más</td></tr>}
               </tbody>
             </table>
@@ -454,11 +523,40 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
       </div>
 
       <div style={{background:'rgba(0,0,0,0.01)',borderRadius:R.lg,border:`1px solid ${TC.borderSoft}`,padding:16}}>
-        {ST('Detalle Sectorizado')}
+        {ST('Detalle Sectorizado por Región')}
+        {sectorizadoData.length===0?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos</div>:
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
           <thead><tr>{['Región','Patentes','Empresas','Entregados','En Ruta','Total','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'?'left':'right',padding:'7px 10px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`}}>{h}</th>)}</tr></thead>
           <tbody>{sectorizadoData.map((row,i)=>{const g=termGradient(row.avance);return <tr key={row.region} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'7px 10px',fontWeight:700,color:'#0ea5e9'}}>{row.region}</td><td style={{padding:'7px 10px',textAlign:'right',color:TC.textSub}}>{row.patentes}</td><td style={{padding:'7px 10px',textAlign:'right',color:TC.textSub}}>{row.empresas||'—'}</td><td style={{padding:'7px 10px',textAlign:'right',fontWeight:700,color:'#22c55e'}}>{row.terminados}</td><td style={{padding:'7px 10px',textAlign:'right',color:'#f97316'}}>{row.enRuta}</td><td style={{padding:'7px 10px',textAlign:'right',color:TC.textMuted}}>{row.total}</td><td style={{padding:'7px 10px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt}}>{row.avance}%</span></td><td style={{padding:'7px 10px',minWidth:100}}><div style={{width:'100%',height:6,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 1s'}}/></div></td></tr>})}</tbody>
-        </table>
+        </table>}
+      </div>
+
+      <div style={{background:'rgba(0,0,0,0.01)',borderRadius:R.lg,border:`1px solid ${TC.borderSoft}`,padding:16}}>
+        {ST(`Detalle por Patente y Tipo · ${sectorizadoPatenteData.length} combinaciones`)}
+        {sectorizadoPatenteData.length===0?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos para la selección actual</div>:
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
+            <thead><tr>{['Región','Patente','Tipo','Total','Entregados','En Ruta','Pendientes','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'||h==='Patente'||h==='Tipo'?'left':'right',padding:'7px 10px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+            <tbody>
+              {sectorizadoPatenteData.map((row,i)=>{
+                const g=termGradient(row.avance);
+                const showRegion=i===0||sectorizadoPatenteData[i-1].region!==row.region;
+                const showPatente=i===0||sectorizadoPatenteData[i-1].patente!==row.patente||sectorizadoPatenteData[i-1].region!==row.region;
+                return <tr key={i} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.015)'}}>
+                  <td style={{padding:'6px 10px',fontWeight:showRegion?700:400,color:showRegion?'#0ea5e9':TC.textFaint,fontSize:showRegion?11:10}}>{showRegion?row.region:'↳'}</td>
+                  <td style={{padding:'6px 10px',fontWeight:showPatente?800:400,color:showPatente?TC.text:TC.textFaint,fontFamily:T.fontMono}}>{showPatente?row.patente:''}</td>
+                  <td style={{padding:'6px 10px'}}><Badge variant="muted" style={{fontSize:8,fontFamily:T.fontMono}}>{row.gestion}</Badge></td>
+                  <td style={{padding:'6px 10px',textAlign:'right',color:TC.textMuted}}>{row.total}</td>
+                  <td style={{padding:'6px 10px',textAlign:'right',fontWeight:700,color:'#22c55e'}}>{row.terminados}</td>
+                  <td style={{padding:'6px 10px',textAlign:'right',color:'#f97316'}}>{row.enRuta}</td>
+                  <td style={{padding:'6px 10px',textAlign:'right',color:'#ef4444'}}>{row.pendientes}</td>
+                  <td style={{padding:'6px 10px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,fontSize:10}}>{row.avance}%</span></td>
+                  <td style={{padding:'6px 10px',minWidth:80}}><div style={{width:'100%',height:5,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 1s'}}/></div></td>
+                </tr>
+              })}
+            </tbody>
+          </table>
+        </div>}
       </div>
 
       <div style={{textAlign:'center',fontSize:9,color:TC.textFaint,paddingTop:8,borderTop:`1px solid ${TC.borderSoft}`}}>Generado el {new Date().toLocaleString('es-CL')}</div>
