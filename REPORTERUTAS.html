@@ -306,6 +306,7 @@ function KPICard({title,value,color,progress}){
 function TabDashboard({data,rawRows,allRegions,onFlash}){
   const dashRef=React.useRef(null);
   const[dashRegion,setDashRegion]=React.useState('ALL');
+  const[criticalRegion,setCriticalRegion]=React.useState('RM');
   const[imgModal,setImgModal]=React.useState({open:false,images:[],index:0});
   const[exporting,setExporting]=React.useState(false);
 
@@ -325,14 +326,18 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
 
   const criticalPatentes=React.useMemo(()=>{
     if(!data)return[];
-    const rmRegions=allRegions.filter(r=>r.toLowerCase().includes('metropolitana'));
+    let critRegions;
+    if(criticalRegion==='ALL')critRegions=allRegions;
+    else if(criticalRegion==='RM')critRegions=allRegions.filter(r=>r.toLowerCase().includes('metropolitana'));
+    else if(criticalRegion==='RX')critRegions=allRegions.filter(r=>!r.toLowerCase().includes('metropolitana'));
+    else critRegions=allRegions.filter(r=>r===criticalRegion);
     const patMap={};
-    rmRegions.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!patMap[pat])patMap[pat]={patente:pat,total:0,terminados:0,pendientes:0};patMap[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))patMap[pat].terminados+=v;if(el.includes('pendiente'))patMap[pat].pendientes+=v;})})});
+    critRegions.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!patMap[pat])patMap[pat]={patente:pat,total:0,terminados:0,pendientes:0};patMap[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))patMap[pat].terminados+=v;if(el.includes('pendiente'))patMap[pat].pendientes+=v;})})});
     const pats=Object.values(patMap).filter(p=>p.total>0);
     pats.forEach(p=>{p.avance=p.total>0?Math.round((p.terminados/p.total)*100):0});
     pats.sort((a,b)=>a.avance-b.avance);
-    return pats.slice(0,Math.max(1,Math.ceil(pats.length*0.1)));
-  },[data,allRegions]);
+    return pats.slice(0,10);
+  },[data,allRegions,criticalRegion]);
 
   const motivosData=React.useMemo(()=>{
     if(!rawRows.length)return[];
@@ -409,9 +414,14 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
         <div style={{background:'rgba(0,0,0,0.01)',borderRadius:R.lg,border:`1px solid ${TC.borderSoft}`,padding:16}}>
-          {ST(`Patentes Críticas — Top 10% RM · ${criticalPatentes.length} vehículos`)}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${TC.borderSoft}`}}>
+            <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:TC.textMuted}}>Top 10 Patentes Críticas</span>
+            <DropdownMenu options={[{label:'Región Metropolitana (RM)',onClick:()=>setCriticalRegion('RM'),Icon:<Badge variant="blue" style={{fontSize:8}}>RM</Badge>},{label:'Resto de Regiones (RX)',onClick:()=>setCriticalRegion('RX'),Icon:<Badge variant="purple" style={{fontSize:8}}>RX</Badge>},{label:'Todas las Regiones',onClick:()=>setCriticalRegion('ALL'),Icon:<Badge variant="muted" style={{fontSize:8}}>ALL</Badge>},...allRegions.map(r=>({label:r,onClick:()=>setCriticalRegion(r),Icon:<div style={{width:10,height:10,borderRadius:99,background:criticalRegion===r?'#3b82f6':'rgba(0,0,0,0.1)'}}/>}))]}>
+              <span style={{fontSize:9,fontWeight:700,color:TC.textSub}}>{criticalRegion==='RM'?'RM':criticalRegion==='RX'?'RX':criticalRegion==='ALL'?'Todas':criticalRegion}</span>
+            </DropdownMenu>
+          </div>
           {criticalPatentes.length===0
-            ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos de Región Metropolitana</div>
+            ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin datos para la región seleccionada</div>
             :<table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
               <thead><tr>{['Patente','Total','Entregados','Pendientes','Avance'].map(h=><th key={h} style={{textAlign:h==='Patente'?'left':'right',padding:'6px 8px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`}}>{h}</th>)}</tr></thead>
               <tbody>{criticalPatentes.map((p,i)=>{const g=termGradient(p.avance);return <tr key={p.patente} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'7px 8px',fontWeight:800,color:TC.text}}>{p.patente}</td><td style={{padding:'7px 8px',textAlign:'right',color:TC.textMuted}}>{p.total}</td><td style={{padding:'7px 8px',textAlign:'right',color:'#22c55e',fontWeight:700}}>{p.terminados}</td><td style={{padding:'7px 8px',textAlign:'right',color:'#ef4444',fontWeight:700}}>{p.pendientes}</td><td style={{padding:'7px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,background:g.bg,padding:'2px 8px',borderRadius:99,fontSize:10}}>{p.avance}%</span></td></tr>})}</tbody>
