@@ -74,6 +74,7 @@ const REPORT_TABS = [
   {id:'isos',label:'ISOs por camion',icon:'',badgeVariant:'orange'},
   {id:'incidencias',label:'Incidencias',icon:'!',badgeVariant:'red'},
   {id:'consultar',label:'Consultar ISOs',icon:'',badgeVariant:'teal'},
+  {id:'listado',label:'Listado ISOs',icon:'',badgeVariant:'blue'},
 ];
 
 // Recharts
@@ -574,6 +575,204 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
     </div>
     <ImageModal isOpen={imgModal.open} onClose={()=>setImgModal({open:false,images:[],index:0})} images={imgModal.images} initialIndex={imgModal.index}/>
   </div>
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TAB LISTADO ISOs
+// ══════════════════════════════════════════════════════════════
+const LISTADO_COLS=[
+  {key:'iso',label:'ISO'},
+  {key:'patente',label:'Patente'},
+  {key:'empresa',label:'Empresa'},
+  {key:'estado',label:'Estado'},
+  {key:'motivo',label:'Motivo No Entrega'},
+  {key:'comentario',label:'Comentario No Entrega'},
+  {key:'fotos',label:'Fotos',noFilter:true,noSort:true},
+];
+
+function TabListadoISOs({rawRows,onFlash,isActive}){
+  const[initialized,setInitialized]=React.useState(false);
+  const[isoImgModal,setIsoImgModal]=React.useState({open:false,images:[],index:0});
+  const[colFilters,setColFilters]=React.useState({});
+  const[openFilterCol,setOpenFilterCol]=React.useState(null);
+  const[filterPos,setFilterPos]=React.useState({top:0,left:0});
+  const[filterSearch,setFilterSearch]=React.useState('');
+  const[sortConfig,setSortConfig]=React.useState({key:'',dir:null});
+  const[globalSearch,setGlobalSearch]=React.useState('');
+  const filterPanelRef=React.useRef(null);
+
+  React.useEffect(()=>{if(isActive&&!initialized)setInitialized(true)},[isActive]);
+  React.useEffect(()=>{
+    if(!openFilterCol)return;
+    const h=e=>{if(filterPanelRef.current&&!filterPanelRef.current.contains(e.target))setOpenFilterCol(null)};
+    document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
+  },[openFilterCol]);
+
+  const allRows=React.useMemo(()=>{
+    if(!initialized||!rawRows.length)return[];
+    const byPO={};
+    rawRows.forEach(row=>{
+      const com=(getKey(row,'Commerce')||'').trim().toUpperCase();if(!com.startsWith('I'))return;
+      const po=(getKey(row,'ParentOrder')||'').trim();if(!po)return;
+      const est=(getKey(row,'Estado')||'').trim().toLowerCase();
+      if(!est.includes('en ruta')&&!est.includes('enruta')&&!est.includes('pendiente'))return;
+      if(!byPO[po])byPO[po]=[];byPO[po].push(row);
+    });
+    const result=[];
+    Object.entries(byPO).forEach(([po,rows])=>{
+      let eff=rows;
+      if(rows.length>1){const planKw=['planificado','planificado en simpliroute'];const np=rows.filter(r=>!planKw.includes((getKey(r,'Estado')||'').trim().toLowerCase()));if(np.length>0)eff=np;}
+      const seen=new Set();
+      eff.forEach(row=>{
+        const est=getKey(row,'Estado')||'';const pat=getKey(row,'Patente')||'';
+        const k=`${est}|${pat}`;if(seen.has(k))return;seen.add(k);
+        result.push({iso:po,patente:pat,empresa:getKey(row,'Empresa')||getKey(row,'Transportista')||'',estado:est,motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||''});
+      });
+    });
+    return result.sort((a,b)=>a.iso.localeCompare(b.iso));
+  },[initialized,rawRows]);
+
+  const distinctValues=React.useMemo(()=>{
+    const dv={};LISTADO_COLS.filter(c=>!c.noFilter).forEach(c=>{dv[c.key]=[...new Set(allRows.map(r=>r[c.key]||''))].filter(Boolean).sort()});return dv;
+  },[allRows]);
+
+  const filteredRows=React.useMemo(()=>{
+    let rows=allRows;
+    LISTADO_COLS.filter(c=>!c.noFilter).forEach(c=>{const sel=colFilters[c.key];if(sel&&sel.size>0)rows=rows.filter(r=>sel.has(r[c.key]||''))});
+    if(globalSearch.trim()){const q=globalSearch.toLowerCase();rows=rows.filter(r=>LISTADO_COLS.filter(c=>!c.noFilter).some(c=>(r[c.key]||'').toLowerCase().includes(q)))}
+    if(sortConfig.key&&sortConfig.dir){rows=[...rows].sort((a,b)=>{const va=a[sortConfig.key]||'',vb=b[sortConfig.key]||'';return sortConfig.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va)})}
+    return rows;
+  },[allRows,colFilters,globalSearch,sortConfig]);
+
+  const isFiltered=k=>colFilters[k]&&colFilters[k].size>0;
+  const activeFilters=Object.values(colFilters).filter(s=>s&&s.size>0).length;
+
+  const toggleFilterBtn=(colKey,e)=>{
+    e.stopPropagation();if(openFilterCol===colKey){setOpenFilterCol(null);return;}
+    const rect=e.currentTarget.getBoundingClientRect();
+    setFilterPos({top:rect.bottom+2,left:Math.min(rect.left,window.innerWidth-262)});
+    setFilterSearch('');setOpenFilterCol(colKey);
+  };
+
+  const toggleVal=(colKey,val)=>{
+    setColFilters(prev=>{const cur=prev[colKey]?new Set(prev[colKey]):new Set();cur.has(val)?cur.delete(val):cur.add(val);return{...prev,[colKey]:cur}});
+  };
+
+  const handleSort=k=>{setSortConfig(prev=>{if(prev.key===k){if(prev.dir==='asc')return{key:k,dir:'desc'};return{key:'',dir:null}}return{key:k,dir:'asc'}})};
+
+  const exportExcel=()=>{
+    if(!filteredRows.length)return;
+    const ws=window.XLSX.utils.aoa_to_sheet([['ISO','Patente','Empresa','Estado','Motivo No Entrega','Comentario No Entrega'],...filteredRows.map(r=>[r.iso,r.patente,r.empresa,r.estado,r.motivo,r.comentario])]);
+    const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'ISOs');
+    window.XLSX.writeFile(wb,`Listado_ISOs_${new Date().toLocaleDateString('es-CL').replace(/\//g,'-')}.xlsx`);
+    onFlash('✓ Excel descargado');
+  };
+  const copyTable=()=>{
+    if(!filteredRows.length)return;
+    let t='ISO\tPatente\tEmpresa\tEstado\tMotivo No Entrega\tComentario No Entrega\n';
+    filteredRows.forEach(r=>{t+=`${r.iso}\t${r.patente}\t${r.empresa}\t${r.estado}\t${r.motivo}\t${r.comentario}\n`});
+    navigator.clipboard?.writeText(t).then(()=>onFlash('✓ Tabla copiada'));
+  };
+  const copyISOs=()=>{
+    if(!filteredRows.length)return;
+    const isos=[...new Set(filteredRows.map(r=>r.iso))].join(', ');
+    navigator.clipboard?.writeText(isos).then(()=>onFlash(`✓ ${new Set(filteredRows.map(r=>r.iso)).size} ISOs copiadas`));
+  };
+  const openPhotos=url=>{
+    if(!url)return;
+    const urls=url.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));
+    if(urls.length>0)setIsoImgModal({open:true,images:urls,index:0});
+  };
+
+  const curFilterVals=openFilterCol?distinctValues[openFilterCol]||[]:[];
+  const visFilterVals=filterSearch.trim()?curFilterVals.filter(v=>v.toLowerCase().includes(filterSearch.toLowerCase())):curFilterVals;
+  const eColor=est=>{const e=(est||'').toLowerCase();return e.includes('pendiente')?'#f97316':e.includes('en ruta')||e.includes('enruta')?'#3b82f6':'#636c76'};
+  const eBg=est=>{const e=(est||'').toLowerCase();return e.includes('pendiente')?'rgba(249,115,22,0.1)':e.includes('en ruta')||e.includes('enruta')?'rgba(59,130,246,0.1)':'rgba(0,0,0,0.05)'};
+
+  return <div style={{position:'absolute',inset:0,display:isActive?'flex':'none',flexDirection:'column',background:TC.bg}}>
+    {/* Toolbar */}
+    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 20px',borderBottom:`1px solid ${TC.borderSoft}`,background:TC.headerBg,flexShrink:0,flexWrap:'wrap'}}>
+      <span style={{fontSize:13,fontWeight:800,color:TC.text}}>Listado ISOs</span>
+      <Badge variant="teal">{filteredRows.length}/{allRows.length} filas</Badge>
+      {activeFilters>0&&<><Badge variant="medium">{activeFilters} filtro{activeFilters>1?'s':''} activo{activeFilters>1?'s':''}</Badge><button onClick={()=>setColFilters({})} style={{fontSize:10,color:C.red,background:'transparent',border:'none',cursor:'pointer',fontWeight:700}}>✕ Limpiar</button></>}
+      <div style={{position:'relative'}}>
+        <Search size={12} style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:TC.textFaint,pointerEvents:'none'}}/>
+        <input value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Buscar en tabla..." style={{padding:'5px 8px 5px 26px',borderRadius:R.md,border:`1px solid ${TC.border}`,fontSize:T.sm,width:200,outline:'none',fontFamily:T.fontFamily,color:TC.text}}/>
+        {globalSearch&&<button onClick={()=>setGlobalSearch('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:12}}>✕</button>}
+      </div>
+      <div style={{flex:1}}/>
+      <Btn onClick={copyISOs} variant="secondary" style={{fontSize:10}}>Copiar ISOs</Btn>
+      <Btn onClick={copyTable} variant="secondary" style={{fontSize:10,gap:4}}><Copy size={11}/> Copiar tabla</Btn>
+      <Btn onClick={exportExcel} variant="primary" style={{fontSize:10,gap:4}}><FileDown size={11}/> Excel</Btn>
+    </div>
+    {/* Body */}
+    {!rawRows.length?
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',opacity:0.3,gap:12}}><span style={{fontSize:48}}>📋</span><p style={{fontWeight:700,fontSize:14}}>Carga un reporte primero</p></div>:
+    <div style={{flex:1,overflow:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:T.base,fontFamily:T.fontMono}}>
+        <thead><tr>
+          {LISTADO_COLS.map(col=>{
+            const sorted=sortConfig.key===col.key;const filtered=isFiltered(col.key);
+            return <th key={col.key} style={{padding:'8px 10px',textAlign:'left',fontSize:T.sm,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.06em',position:'sticky',top:0,zIndex:5,background:filtered?'rgba(37,99,235,0.07)':TC.headerBg,color:filtered?'#2563eb':TC.textDisabled,borderBottom:`2px solid ${filtered?'#2563eb':TC.borderSoft}`,whiteSpace:'nowrap',userSelect:'none'}}>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                {!col.noSort
+                  ?<button onClick={()=>handleSort(col.key)} style={{background:'none',border:'none',cursor:'pointer',fontSize:T.sm,fontWeight:800,color:'inherit',fontFamily:T.fontFamily,padding:0,display:'flex',alignItems:'center',gap:3,textTransform:'uppercase',letterSpacing:'0.06em'}}>{col.label}{sorted?<span style={{fontSize:9}}>{sortConfig.dir==='asc'?'▲':'▼'}</span>:<span style={{fontSize:8,opacity:0.25}}>⇅</span>}</button>
+                  :<span>{col.label}</span>}
+                {!col.noFilter&&<button onClick={e=>toggleFilterBtn(col.key,e)} title={filtered?`${colFilters[col.key].size} valor${colFilters[col.key].size>1?'es':''} seleccionado${colFilters[col.key].size>1?'s':''}`:col.label} style={{background:filtered?'rgba(37,99,235,0.18)':'rgba(0,0,0,0.06)',border:`1px solid ${filtered?'rgba(37,99,235,0.4)':'rgba(0,0,0,0.12)'}`,borderRadius:3,cursor:'pointer',padding:'1px 5px',fontSize:8,color:filtered?'#2563eb':TC.textFaint,lineHeight:1.4,marginLeft:2,fontWeight:700}}>▼</button>}
+              </div>
+            </th>;
+          })}
+        </tr></thead>
+        <tbody>
+          {filteredRows.length===0
+            ?<tr><td colSpan={LISTADO_COLS.length} style={{padding:40,textAlign:'center',color:TC.textMuted,fontWeight:700,fontSize:12}}>Sin resultados para los filtros aplicados</td></tr>
+            :filteredRows.map((r,i)=><tr key={`${r.iso}-${i}`} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.011)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(59,130,246,0.04)'} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'transparent':'rgba(0,0,0,0.011)'}>
+              <td style={{padding:'6px 10px',fontWeight:700,color:'#eab308',fontFamily:T.fontMono,whiteSpace:'nowrap'}}>{r.iso}</td>
+              <td style={{padding:'6px 10px',fontWeight:700,color:TC.text}}>{r.patente||'—'}</td>
+              <td style={{padding:'6px 10px',color:TC.textSub,fontSize:T.sm}}>{r.empresa||'—'}</td>
+              <td style={{padding:'6px 10px'}}><span style={{fontSize:T.sm,fontWeight:700,color:eColor(r.estado),background:eBg(r.estado),padding:'2px 8px',borderRadius:99,whiteSpace:'nowrap'}}>{r.estado||'—'}</span></td>
+              <td style={{padding:'6px 10px',color:TC.text,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:T.sm}} title={r.motivo}>{r.motivo||'—'}</td>
+              <td style={{padding:'6px 10px',color:TC.textSub,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:T.sm}} title={r.comentario}>{r.comentario||'—'}</td>
+              <td style={{padding:'6px 10px'}}>{r.imageUrl&&r.imageUrl.trim()?<span onClick={()=>openPhotos(r.imageUrl)} style={{color:'#3b82f6',textDecoration:'underline',cursor:'pointer',fontWeight:700,fontSize:T.sm}}>Ver fotos</span>:<span style={{color:TC.textFaint,fontSize:T.sm}}>—</span>}</td>
+            </tr>)
+          }
+        </tbody>
+      </table>
+    </div>}
+    {/* Filter dropdown portal */}
+    {openFilterCol&&ReactDOM.createPortal(
+      <div ref={filterPanelRef} style={{position:'fixed',top:filterPos.top,left:filterPos.left,zIndex:9990,width:258,background:'#fff',border:`1px solid ${TC.border}`,borderRadius:R.lg,boxShadow:'0 8px 30px rgba(0,0,0,0.15)',overflow:'hidden'}}>
+        <div style={{padding:'8px 10px 6px',borderBottom:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.02)'}}>
+          <div style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:TC.textMuted,marginBottom:5}}>{LISTADO_COLS.find(c=>c.key===openFilterCol)?.label}</div>
+          <input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)} placeholder="Buscar valor..." autoFocus style={{width:'100%',padding:'5px 8px',borderRadius:R.md,border:`1px solid ${TC.border}`,fontSize:T.sm,outline:'none',fontFamily:T.fontFamily,color:TC.text,boxSizing:'border-box'}}/>
+        </div>
+        <div style={{maxHeight:240,overflowY:'auto',padding:'4px 0'}}>
+          <button onClick={()=>{setColFilters(p=>{const n={...p};delete n[openFilterCol];return n})}} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 12px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:T.sm,fontFamily:T.fontFamily,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{width:13,height:13,borderRadius:3,border:`2px solid ${isFiltered(openFilterCol)?TC.border:'#2563eb'}`,background:isFiltered(openFilterCol)?'transparent':'#2563eb',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              {!isFiltered(openFilterCol)&&<span style={{color:'#fff',fontSize:8,fontWeight:900}}>✓</span>}
+            </div>
+            <span style={{fontStyle:'italic',fontWeight:600,color:TC.text,fontSize:T.sm}}>(Todas)</span>
+          </button>
+          {visFilterVals.map(v=>{
+            const sel=!!(colFilters[openFilterCol]&&colFilters[openFilterCol].has(v));
+            return <button key={v||'_'} onClick={()=>toggleVal(openFilterCol,v)} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 12px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:T.sm,fontFamily:T.fontFamily,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <div style={{width:13,height:13,borderRadius:3,border:`2px solid ${sel?'#2563eb':TC.border}`,background:sel?'#2563eb':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.1s'}}>
+                {sel&&<span style={{color:'#fff',fontSize:8,fontWeight:900}}>✓</span>}
+              </div>
+              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:TC.text}}>{v||'(vacío)'}</span>
+            </button>;
+          })}
+          {visFilterVals.length===0&&<div style={{padding:'10px 12px',color:TC.textFaint,fontSize:T.sm,textAlign:'center'}}>Sin coincidencias</div>}
+        </div>
+        <div style={{padding:'6px 10px',borderTop:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.02)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:9,color:TC.textFaint}}>{colFilters[openFilterCol]?.size||0} seleccionado{(colFilters[openFilterCol]?.size||0)!==1?'s':''}</span>
+          <button onClick={()=>setOpenFilterCol(null)} style={{fontSize:T.sm,fontWeight:700,padding:'4px 14px',borderRadius:R.md,background:'#18181B',color:'#fff',border:'none',cursor:'pointer',fontFamily:T.fontFamily}}>OK</button>
+        </div>
+      </div>,
+      document.body
+    )}
+    <ImageModal isOpen={isoImgModal.open} onClose={()=>setIsoImgModal({open:false,images:[],index:0})} images={isoImgModal.images} initialIndex={isoImgModal.index}/>
+  </div>;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1144,6 +1343,9 @@ function ReporteRutas(){
   </div>}
   <ImageModal isOpen={isoImgModal.open} onClose={()=>setIsoImgModal({open:false,images:[],index:0})} images={isoImgModal.images} initialIndex={isoImgModal.index}/>
 </div>}
+
+{/* ─── TAB: LISTADO ISOs ─── */}
+<TabListadoISOs rawRows={rawRows} onFlash={flash} isActive={activeTab==='listado'}/>
 
 {/* ─── TAB: ISOs ─── */}
 {activeTab==='isos'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
