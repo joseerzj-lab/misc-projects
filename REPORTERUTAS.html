@@ -631,7 +631,12 @@ function ReporteRutas(){
     const res=[];
     isos.forEach(iso=>{
       const isoLower=iso.toLowerCase();
-      const matches=ecommRows.filter(r=>(getKey(r,'ParentOrder')||'').trim().toLowerCase()===isoLower);
+      let matches=ecommRows.filter(r=>(getKey(r,'ParentOrder')||'').trim().toLowerCase()===isoLower);
+      if(matches.length>1){
+        const planKw=['planificado','planificado en simpliroute'];
+        const nonPlan=matches.filter(r=>!planKw.includes((getKey(r,'Estado')||'').trim().toLowerCase()));
+        if(nonPlan.length>0)matches=nonPlan;
+      }
       if(matches.length>0){
         const uniqueStates=new Set(matches.map(m=>(getKey(m,'Estado')||'').toLowerCase()));
         const hasMultipleStates=uniqueStates.size>1;
@@ -642,10 +647,13 @@ function ReporteRutas(){
           const key=`${est}|${pat}`;
           if(seen.has(key))return;
           seen.add(key);
-          res.push({iso,found:true,patente:pat,vehiculo:pat,estado:est,comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||'',direccion:getKey(row,'Direccion')||getKey(row,'Dirección')||'',_multipleStates:hasMultipleStates});
+          const motivo=getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'';
+          const motivo3=getMotivo3(motivo);
+          const motivo2=getMotivo2(motivo3);
+          res.push({iso,found:true,patente:pat,vehiculo:pat,estado:est,comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',motivo,imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||'',direccion:getKey(row,'Direccion')||getKey(row,'Dirección')||'',_multipleStates:hasMultipleStates,motivo1:'No Cumple',motivo2,motivo3});
         });
       }else{
-        res.push({iso,found:false,patente:'',vehiculo:'',estado:'',comentario:'',motivo:'',imageUrl:'',direccion:'',_multipleStates:false});
+        res.push({iso,found:false,patente:'',vehiculo:'',estado:'',comentario:'',motivo:'',imageUrl:'',direccion:'',_multipleStates:false,motivo1:'',motivo2:'',motivo3:''});
       }
     });
     setIsoResults(res);
@@ -654,9 +662,9 @@ function ReporteRutas(){
 
   const copiarTablaISOs=()=>{
     if(!isoResults.length)return;
-    const headers=['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega'];
+    const headers=['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Motivo 1','Motivo 2','Motivo 3'];
     let tsv=headers.join('\t')+'\n';
-    isoResults.forEach(r=>{tsv+=[r.iso+(!r.found?' [NO HALLADO]':''),r.patente,r.vehiculo,r.direccion,r.estado,r.comentario,r.motivo].join('\t')+'\n'});
+    isoResults.forEach(r=>{tsv+=[r.iso+(!r.found?' [NO HALLADO]':''),r.patente,r.vehiculo,r.direccion,r.estado,r.comentario,r.motivo,r.motivo1||'',r.motivo2||'',r.motivo3||''].join('\t')+'\n'});
     navigator.clipboard?.writeText(tsv).then(()=>flash('✓ Tabla copiada al portapapeles'));
   };
 
@@ -667,6 +675,22 @@ function ReporteRutas(){
     if(isoSearchQ.trim()){const q=isoSearchQ.trim().toLowerCase();r=r.filter(x=>x.iso.toLowerCase().includes(q)||x.estado.toLowerCase().includes(q)||x.direccion.toLowerCase().includes(q))}
     return r;
   },[isoResults,isoStatusFilter,isoSearchQ]);
+
+  React.useEffect(()=>{
+    if(activeTab!=='consultar')return;
+    const h=e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==='c'&&isoTableSel.start&&isoTableSel.end){
+        e.preventDefault();
+        const getVals=r=>[r.iso+(!r.found?' (NO HALLADO)':''),r.patente||'',r.vehiculo||'',r.direccion||'',r.estado||'',r.comentario||'',r.motivo||'',r.imageUrl?'Ver Fotos':'',r.motivo1||'',r.motivo2||'',r.motivo3||''];
+        const rMin=Math.min(isoTableSel.start.r,isoTableSel.end.r);const rMax=Math.max(isoTableSel.start.r,isoTableSel.end.r);
+        const cMin=Math.min(isoTableSel.start.c,isoTableSel.end.c);const cMax=Math.max(isoTableSel.start.c,isoTableSel.end.c);
+        const tsv=filteredIsoResults.slice(rMin,rMax+1).map(r=>getVals(r).slice(cMin,cMax+1).join('\t')).join('\n');
+        navigator.clipboard?.writeText(tsv).then(()=>flash('✓ Celdas copiadas'));
+      }
+    };
+    window.addEventListener('keydown',h);
+    return()=>window.removeEventListener('keydown',h);
+  },[activeTab,isoTableSel,filteredIsoResults,flash]);
 
   // ── processCSVData ──
   const processCSVData=(rows)=>{
@@ -1073,35 +1097,45 @@ function ReporteRutas(){
         <div style={{flex:1,overflowY:'auto',overflowX:'auto',userSelect:'text'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:T.base,fontFamily:T.fontMono}}>
             <thead><tr>
-              {['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Fotos'].map(h=>
-                <th key={h} style={{textAlign:'left',padding:'8px 14px',fontSize:T.sm,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',position:'sticky',top:0,zIndex:2,background:TC.bgCardAlt,color:TC.textDisabled,borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'nowrap'}}>{h}</th>
+              {['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Fotos','Motivo 1','Motivo 2','Motivo 3'].map((h,hi)=>
+                <th key={h} style={{textAlign:'left',padding:'8px 14px',fontSize:T.sm,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',position:'sticky',top:0,zIndex:2,background:hi>=8?'rgba(234,179,8,0.08)':TC.bgCardAlt,color:hi>=8?'#92400e':TC.textDisabled,borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'nowrap'}}>{h}</th>
               )}
             </tr></thead>
             <tbody>
-              {filteredIsoResults.map((r,i)=>{
+              {(()=>{
+                let srMin=-1,srMax=-1,scMin=-1,scMax=-1;
+                if(isoTableSel.start&&isoTableSel.end){srMin=Math.min(isoTableSel.start.r,isoTableSel.end.r);srMax=Math.max(isoTableSel.start.r,isoTableSel.end.r);scMin=Math.min(isoTableSel.start.c,isoTableSel.end.c);scMax=Math.max(isoTableSel.start.c,isoTableSel.end.c)}
+                return filteredIsoResults.map((r,i)=>{
                 const eL=(r.estado||'').toLowerCase();
                 const eColor=eL.includes('entregado')||eL.includes('exitoso')||eL.includes('completado')?'#22c55e':eL.includes('no entregado')||eL.includes('fallido')||eL.includes('rechazado')||eL.includes('cancelado')||eL.includes('devuelto')?'#ef4444':eL.includes('pendiente')||eL.includes('en ruta')||eL.includes('asignado')?'#3b82f6':'#f0883e';
                 const openPhotos=url=>{if(!url)return;const urls=url.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));if(urls.length>0){setIsoImgModal({open:true,images:urls,index:0})}};
                 const rowBg = !r.found?'rgba(239,68,68,0.04)':r._multipleStates?'rgba(239,68,68,0.1)':'transparent';
-                const rowHoverBg = !r.found?'rgba(239,68,68,0.08)':r._multipleStates?'rgba(239,68,68,0.15)':'rgba(0,0,0,0.02)';
-                return <tr key={`${r.iso}-${i}`} style={{background:rowBg}} onMouseEnter={e=>e.currentTarget.style.background=rowHoverBg} onMouseLeave={e=>e.currentTarget.style.background=rowBg}>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:r.found?'#eab308':'#ef4444'}}>
+                const cellSel=(ri,ci)=>ri>=srMin&&ri<=srMax&&ci>=scMin&&ci<=scMax;
+                const cellStyle=(ci,extra={})=>({padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,cursor:'cell',background:cellSel(i,ci)?'rgba(59,130,246,0.12)':'transparent',outline:cellSel(i,ci)?'1px solid rgba(59,130,246,0.35)':'none',...extra});
+                const onMD=ci=>()=>{setIsoTableSel({start:{r:i,c:ci},end:{r:i,c:ci}});setIsoTableDragging(true)};
+                const onME=ci=>()=>{if(isoTableDragging)setIsoTableSel(p=>({...p,end:{r:i,c:ci}}))};
+                return <tr key={`${r.iso}-${i}`} style={{background:rowBg}}>
+                  <td style={cellStyle(0,{fontWeight:700,color:r.found?'#eab308':'#ef4444'})} onMouseDown={onMD(0)} onMouseEnter={onME(0)}>
                     {r.iso}{!r.found?' (NO HALLADO)':''}
                   </td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:TC.text}}>{r.patente||'-'}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:'#8b5cf6'}}>{r.vehiculo||'-'}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.textSub,maxWidth:200,fontSize:T.sm}}>{r.direccion}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,fontWeight:700,color:eColor}}>{r.estado}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base}}>{r.comentario}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base}}>{r.motivo}</td>
-                  <td style={{padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`}}>
+                  <td style={cellStyle(1,{fontWeight:700,color:TC.text})} onMouseDown={onMD(1)} onMouseEnter={onME(1)}>{r.patente||'-'}</td>
+                  <td style={cellStyle(2,{fontWeight:700,color:'#8b5cf6'})} onMouseDown={onMD(2)} onMouseEnter={onME(2)}>{r.vehiculo||'-'}</td>
+                  <td style={cellStyle(3,{whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.textSub,maxWidth:200,fontSize:T.sm})} onMouseDown={onMD(3)} onMouseEnter={onME(3)}>{r.direccion}</td>
+                  <td style={cellStyle(4,{fontWeight:700,color:eColor})} onMouseDown={onMD(4)} onMouseEnter={onME(4)}>{r.estado}</td>
+                  <td style={cellStyle(5,{whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base})} onMouseDown={onMD(5)} onMouseEnter={onME(5)}>{r.comentario}</td>
+                  <td style={cellStyle(6,{whiteSpace:'pre-wrap',wordBreak:'break-word',color:TC.text,maxWidth:300,fontSize:T.base})} onMouseDown={onMD(6)} onMouseEnter={onME(6)}>{r.motivo}</td>
+                  <td style={cellStyle(7,{})} onMouseDown={onMD(7)} onMouseEnter={onME(7)}>
                     {r.imageUrl&&r.imageUrl.trim().length>0?
                       <span onClick={()=>openPhotos(r.imageUrl)} style={{color:'#3b82f6',textDecoration:'underline',cursor:'pointer',fontWeight:700}}>Ver Fotos</span>:
                       <span style={{color:TC.textFaint}}>Sin fotos</span>
                     }
                   </td>
+                  <td style={cellStyle(8,{fontWeight:700,color:'#92400e',fontSize:T.sm})} onMouseDown={onMD(8)} onMouseEnter={onME(8)}>{r.motivo1||''}</td>
+                  <td style={cellStyle(9,{fontWeight:700,color:r.motivo2==='Cliente'?'#0ea5e9':'#f97316',fontSize:T.sm})} onMouseDown={onMD(9)} onMouseEnter={onME(9)}>{r.motivo2||''}</td>
+                  <td style={cellStyle(10,{color:TC.textSub,fontSize:T.sm})} onMouseDown={onMD(10)} onMouseEnter={onME(10)}>{r.motivo3||''}</td>
                 </tr>;
-              })}
+              });
+            })()}
             </tbody>
           </table>
         </div>
