@@ -782,18 +782,14 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
   </div>;
 }
 
-function ChartTickVertical({x,y,payload,patenteNotes,textColor}){
-  const note=(patenteNotes&&patenteNotes[payload.value])||'';
+function ChartTickVertical({x,y,payload,textColor}){
   return <g transform={`translate(${x},${y})`}>
     <text x={0} y={0} dy={8} textAnchor="end" fill={textColor||'#888'} fontSize={10} transform="rotate(-45)">{payload.value}</text>
-    {note&&<text x={-2} y={12} dy={8} textAnchor="end" fill="#8b5cf6" fontSize={7} fontWeight="700" transform="rotate(-45)">{note.length>20?note.slice(0,20)+'…':note}</text>}
   </g>;
 }
-function ChartTickHorizontal({x,y,payload,patenteNotes,textColor}){
-  const note=(patenteNotes&&patenteNotes[payload.value])||'';
+function ChartTickHorizontal({x,y,payload,textColor}){
   return <g>
-    <text x={x-4} y={y-(note?5:0)} textAnchor="end" dominantBaseline="middle" fill={textColor||'#888'} fontSize={10}>{payload.value}</text>
-    {note&&<text x={x-4} y={y+8} textAnchor="end" dominantBaseline="middle" fill="#8b5cf6" fontSize={7} fontWeight="700">{note.length>20?note.slice(0,20)+'…':note}</text>}
+    <text x={x-4} y={y} textAnchor="end" dominantBaseline="middle" fill={textColor||'#888'} fontSize={10}>{payload.value}</text>
   </g>;
 }
 
@@ -1256,15 +1252,19 @@ function ReporteRutas(){
                 <LabelList dataKey="patente" content={({x,y,width,height,value})=>{
                   const note=patenteNotes[value];
                   if(!note)return null;
-                  const txt=note.length>32?note.slice(0,32)+'…':note;
                   if(chartLayout==='vertical'){
                     const cx=x+(width||0)/2;
                     const fs=Math.max(Math.floor((width||chartBarSize)*0.68),9);
-                    const cy=(y+540)/2;
+                    const barBase=540;
+                    const barH=Math.max(barBase-y,4);
+                    const cy=y+barH/2;
+                    const maxChars=Math.max(1,Math.floor((barH-8)/(fs*0.58)));
+                    const txt=note.length>maxChars?note.slice(0,maxChars):note;
                     return<text x={cx} y={cy} textAnchor="middle" fill="rgba(255,255,255,0.93)" fontSize={fs} fontWeight="800" transform={`rotate(90,${cx},${cy})`} style={{pointerEvents:'none',userSelect:'none'}}>{txt}</text>;
                   }else{
+                    const htxt=note.length>32?note.slice(0,32)+'…':note;
                     const cx=x/2;
-                    return<text x={cx} y={y+(height||0)/2} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={13} fontWeight="800" letterSpacing="0.5">{txt}</text>;
+                    return<text x={cx} y={y+(height||0)/2} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={13} fontWeight="800" letterSpacing="0.5">{htxt}</text>;
                   }
                 }}/>
               </Bar>
