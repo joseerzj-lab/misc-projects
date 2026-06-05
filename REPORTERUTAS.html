@@ -663,15 +663,15 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
 
   const exportExcel=()=>{
     if(!filteredRows.length)return;
-    const ws=window.XLSX.utils.aoa_to_sheet([['ISO','Región','Patente','Empresa','Estado','Motivo No Entrega','Comentario No Entrega'],...filteredRows.map(r=>[r.iso,r.region,r.patente,r.empresa,r.estado,r.motivo,r.comentario])]);
+    const ws=window.XLSX.utils.aoa_to_sheet([['ISO','Región','Patente','Empresa','Estado','Motivo No Entrega','Comentario No Entrega','Fotos'],...filteredRows.map(r=>[r.iso,r.region,r.patente,r.empresa,r.estado,r.motivo,r.comentario,r.imageUrl])]);
     const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'ISOs');
     window.XLSX.writeFile(wb,`Listado_ISOs_${new Date().toLocaleDateString('es-CL').replace(/\//g,'-')}.xlsx`);
     onFlash('✓ Excel descargado');
   };
   const copyTable=()=>{
     if(!filteredRows.length)return;
-    let t='ISO\tRegión\tPatente\tEmpresa\tEstado\tMotivo No Entrega\tComentario No Entrega\n';
-    filteredRows.forEach(r=>{t+=`${r.iso}\t${r.region}\t${r.patente}\t${r.empresa}\t${r.estado}\t${r.motivo}\t${r.comentario}\n`});
+    let t='ISO\tRegión\tPatente\tEmpresa\tEstado\tMotivo No Entrega\tComentario No Entrega\tFotos\n';
+    filteredRows.forEach(r=>{t+=`${r.iso}\t${r.region}\t${r.patente}\t${r.empresa}\t${r.estado}\t${r.motivo}\t${r.comentario}\t${r.imageUrl}\n`});
     navigator.clipboard?.writeText(t).then(()=>onFlash('✓ Tabla copiada'));
   };
   const copyISOs=()=>{
