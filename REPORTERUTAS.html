@@ -134,10 +134,18 @@ async function exportElementAsImage(el,filename,opts={}){
   try{
     if(onBeforeExport)onBeforeExport();
     document.body.appendChild(overlay);
-    // Place at top-left corner of the windowWidth:EXPORT_W simulated page
-    // so html2canvas can find the element at valid coordinates (x≥0)
-    el.style.position='fixed';el.style.left='0';el.style.top='0';el.style.width=EXPORT_W+'px';el.style.maxWidth='none';el.style.zIndex='999998';
-    await new Promise(r=>setTimeout(r,350)); // wait for ResizeObserver + React re-render
+    // Force a width change from small→EXPORT_W so ResizeObserver always fires,
+    // then poll until the inner SVG actually reaches the target width on screen
+    el.style.position='fixed';el.style.left='0';el.style.top='0';el.style.width='1px';el.style.maxWidth='none';el.style.zIndex='999998';
+    await new Promise(r=>setTimeout(r,60));
+    el.style.width=EXPORT_W+'px';
+    // Poll until Recharts SVG reports correct width (max 3s)
+    const svg=el.querySelector('svg');
+    const t0=Date.now();
+    while(svg&&svg.getBoundingClientRect().width<EXPORT_W-10&&Date.now()-t0<3000){
+      await new Promise(r=>setTimeout(r,60));
+    }
+    await new Promise(r=>setTimeout(r,120)); // extra frame for paint
     const exportH=el.offsetHeight;
     const canvas=await html2canvas(el,{backgroundColor,scale:3,useCORS:true,logging:false,windowWidth:EXPORT_W,x:0,y:0,width:EXPORT_W,height:exportH,ignoreElements:e=>e.hasAttribute&&e.hasAttribute('data-html2canvas-ignore')});
     restore();
