@@ -830,6 +830,7 @@ function ReporteRutas(){
   const[showPatentePanel,setShowPatentePanel]=React.useState(false);
   const[patenteNotes,setPatenteNotes]=React.useState({});
   const[showChartSettings,setShowChartSettings]=React.useState(false);
+  const[noteSearch,setNoteSearch]=React.useState('');
   const[chartBarSize,setChartBarSize]=React.useState(40);
   const[chartShowPctLabels,setChartShowPctLabels]=React.useState(true);
   const[chartShowLegend,setChartShowLegend]=React.useState(true);
@@ -1220,13 +1221,20 @@ function ReporteRutas(){
       </div>
       {chartData.length>0&&<><div style={{height:1,background:'rgba(139,92,246,0.15)'}}/>
       <div>
-        <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint,display:'block',marginBottom:8}}>Comentarios por Patente <span style={{opacity:0.6,fontWeight:400,textTransform:'none'}}>(aparecen en el eje del gráfico)</span></span>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:8}}>
-          {chartData.map(d=><div key={d.patente} style={{display:'flex',flexDirection:'column',gap:3}}>
-            <span style={{fontSize:9,fontWeight:800,color:TC.text,fontFamily:T.fontMono}}>{d.patente}</span>
-            <input value={patenteNotes[d.patente]||''} onChange={e=>setPatenteNotes(p=>({...p,[d.patente]:e.target.value||undefined}))} placeholder="Ej: Juan Pérez" style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none',width:'100%',boxSizing:'border-box'}}/>
-          </div>)}
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>Comentarios por Patente <span style={{opacity:0.6,fontWeight:400,textTransform:'none'}}>(se muestran dentro de la barra)</span></span>
+          <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="🔍 Buscar patente..." style={{flex:1,minWidth:140,maxWidth:240,padding:'4px 8px',borderRadius:6,border:`1px solid ${TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none'}}/>
+          {noteSearch&&<button onClick={()=>setNoteSearch('')} style={{background:'transparent',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:12,padding:'0 4px',lineHeight:1}}>✕</button>}
         </div>
+        {(()=>{const filtered=chartData.filter(d=>!noteSearch||d.patente.toLowerCase().includes(noteSearch.toLowerCase()));return filtered.length===0?<div style={{padding:'10px 0',color:TC.textFaint,fontSize:10,textAlign:'center'}}>Sin coincidencias para "{noteSearch}"</div>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:8}}>
+          {filtered.map(d=><div key={d.patente} style={{display:'flex',flexDirection:'column',gap:3}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:9,fontWeight:800,color:TC.text,fontFamily:T.fontMono}}>{d.patente}</span>
+              {patenteNotes[d.patente]&&<button onClick={()=>setPatenteNotes(p=>{const n={...p};delete n[d.patente];return n})} style={{background:'transparent',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:10,padding:0,lineHeight:1}} title="Borrar">✕</button>}
+            </div>
+            <input value={patenteNotes[d.patente]||''} onChange={e=>setPatenteNotes(p=>({...p,[d.patente]:e.target.value||undefined}))} placeholder="Ej: Juan Pérez" style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${patenteNotes[d.patente]?'#8b5cf6':TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+          </div>)}
+        </div>})()}
       </div></>}
     </div>}
     <Card style={{padding:16}}>
@@ -1239,7 +1247,8 @@ function ReporteRutas(){
               {chartLayout==='vertical'?<><XAxis dataKey="patente" angle={-45} textAnchor="end" height={Object.values(patenteNotes).some(v=>v)?100:80} interval={0} tick={<ChartTickVertical patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:TC.textSub}}/><YAxis tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>:<><XAxis type="number" tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:TC.textSub}}/><YAxis dataKey="patente" type="category" width={Object.values(patenteNotes).some(v=>v)?105:90} tick={<ChartTickHorizontal patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>}
               <RechartsTooltip cursor={{fill:'rgba(0,0,0,0.03)'}} contentStyle={{backgroundColor:TC.bgCard,borderColor:TC.border,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}} itemStyle={{fontSize:12,fontWeight:700}} formatter={(value,name,props)=>{if(name==='patente')return[value,'Patente'];if(name==='pctCompletado')return[formatPct(Number(value)),'Completado'];if(name==='dummy')return null;return[value,name]}} labelFormatter={label=>{const note=patenteNotes[label];return note?`${label} — ${note}`:label;}}/>
               {chartShowLegend&&<Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:20,fontSize:12}}/>}
-              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={chartBarSize}/>
+              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={chartBarSize} label={({x,y,width,height,index})=>{const note=patenteNotes[visibleChartData[index]?.patente];if(!note||height<16)return null;const txt=note.length>16?note.slice(0,16)+'…':note;return chartLayout==='vertical'?<text key={index} x={x+width/2} y={y+height-5} textAnchor="middle" fill="rgba(255,255,255,0.95)" fontSize={8} fontWeight="700">{txt}</text>:<text key={index} x={x+5} y={y+height/2} dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={8} fontWeight="700">{txt}</text>;}}/>
+
               <Bar dataKey="Planificado" stackId="a" fill="#f97316" radius={[0,0,0,0]} barSize={chartBarSize}/>
               <Bar dataKey="Pendiente" stackId="a" fill="#eab308" radius={[0,0,0,0]} barSize={chartBarSize}/>
               <Bar dataKey="En Ruta" stackId="a" fill="#ef4444" radius={[4,4,0,0]} barSize={chartBarSize}/>
