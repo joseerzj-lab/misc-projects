@@ -1258,7 +1258,9 @@ function ReporteRutas(){
                   if(!note)return null;
                   const txt=note.length>32?note.slice(0,32)+'…':note;
                   if(chartLayout==='vertical'){
-                    return<text x={x+(width||0)/2} y={y+11} textAnchor="middle" fill="rgba(255,255,255,0.95)" fontSize={9} fontWeight="700">{txt}</text>;
+                    const cx=x+(width||0)/2;
+                    const fs=Math.max(Math.floor((width||chartBarSize)*0.68),9);
+                    return<text x={cx} y={y+6} textAnchor="start" fill="rgba(255,255,255,0.93)" fontSize={fs} fontWeight="800" transform={`rotate(90,${cx},${y+6})`} style={{pointerEvents:'none',userSelect:'none'}}>{txt}</text>;
                   }else{
                     const cx=x/2;
                     return<text x={cx} y={y+(height||0)/2} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={13} fontWeight="800" letterSpacing="0.5">{txt}</text>;
