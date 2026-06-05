@@ -782,6 +782,21 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
   </div>;
 }
 
+function ChartTickVertical({x,y,payload,patenteNotes,textColor}){
+  const note=(patenteNotes&&patenteNotes[payload.value])||'';
+  return <g transform={`translate(${x},${y})`}>
+    <text x={0} y={0} dy={8} textAnchor="end" fill={textColor||'#888'} fontSize={10} transform="rotate(-45)">{payload.value}</text>
+    {note&&<text x={-2} y={12} dy={8} textAnchor="end" fill="#8b5cf6" fontSize={7} fontWeight="700" transform="rotate(-45)">{note.length>20?note.slice(0,20)+'…':note}</text>}
+  </g>;
+}
+function ChartTickHorizontal({x,y,payload,patenteNotes,textColor}){
+  const note=(patenteNotes&&patenteNotes[payload.value])||'';
+  return <g>
+    <text x={x-4} y={y-(note?5:0)} textAnchor="end" dominantBaseline="middle" fill={textColor||'#888'} fontSize={10}>{payload.value}</text>
+    {note&&<text x={x-4} y={y+8} textAnchor="end" dominantBaseline="middle" fill="#8b5cf6" fontSize={7} fontWeight="700">{note.length>20?note.slice(0,20)+'…':note}</text>}
+  </g>;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT — ReporteRutas
 // ══════════════════════════════════════════════════════════════
@@ -813,6 +828,12 @@ function ReporteRutas(){
   const[chartRegion,setChartRegion]=React.useState('');
   const[hiddenPatentes,setHiddenPatentes]=React.useState(new Set());
   const[showPatentePanel,setShowPatentePanel]=React.useState(false);
+  const[patenteNotes,setPatenteNotes]=React.useState({});
+  const[showChartSettings,setShowChartSettings]=React.useState(false);
+  const[chartBarSize,setChartBarSize]=React.useState(40);
+  const[chartShowPctLabels,setChartShowPctLabels]=React.useState(true);
+  const[chartShowLegend,setChartShowLegend]=React.useState(true);
+  const[chartShowGrid,setChartShowGrid]=React.useState(true);
   const[summaryRegion,setSummaryRegion]=React.useState('ALL');
   const tableRef=React.useRef(null);const chartRef=React.useRef(null);const summaryRef=React.useRef(null);
 
@@ -1169,6 +1190,7 @@ function ReporteRutas(){
         Patentes {hiddenPatentes.size>0&&<span style={{background:'#ef4444',color:'#fff',borderRadius:99,padding:'0 5px',fontSize:8,fontWeight:900,lineHeight:'16px'}}>{hiddenPatentes.size} oculta{hiddenPatentes.size!==1?'s':''}</span>}
         <span style={{fontSize:8,opacity:0.5}}>{showPatentePanel?'▲':'▼'}</span>
       </button>
+      <button onClick={()=>setShowChartSettings(p=>!p)} title="Configuración del gráfico" style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,fontSize:13,fontWeight:700,border:'none',cursor:'pointer',fontFamily:T.fontFamily,background:showChartSettings||Object.values(patenteNotes).some(v=>v)?'rgba(139,92,246,0.10)':'rgba(0,0,0,0.04)',color:showChartSettings||Object.values(patenteNotes).some(v=>v)?'#8b5cf6':TC.textMuted,boxShadow:showChartSettings?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>⚙</button>
       <div style={{flex:1}}/>
       <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','copy'),Icon:<Copy size={14}/>}]}><FileDown size={14}/> Exportar Gráfico</DropdownMenu>
     </div>
@@ -1179,21 +1201,49 @@ function ReporteRutas(){
       <div style={{width:1,height:16,background:'rgba(0,0,0,0.08)',margin:'0 2px'}}/>
       {chartData.map(d=>{const hidden=hiddenPatentes.has(d.patente);return<button key={d.patente} onClick={()=>setHiddenPatentes(prev=>{const n=new Set(prev);n.has(d.patente)?n.delete(d.patente):n.add(d.patente);return n})} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:`1px solid ${hidden?'rgba(0,0,0,0.12)':'rgba(37,99,235,0.4)'}`,background:hidden?'rgba(0,0,0,0.04)':'rgba(37,99,235,0.08)',color:hidden?TC.textFaint:'#2563eb',cursor:'pointer',fontFamily:T.fontFamily,textDecoration:hidden?'line-through':'none',opacity:hidden?0.5:1,transition:'all 0.12s'}}>{d.patente}</button>})}
     </div>}
+    {showChartSettings&&<div style={{padding:'14px 16px',borderRadius:10,border:'1px solid rgba(139,92,246,0.2)',background:'rgba(250,249,255,0.98)',display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.07em',color:'#8b5cf6'}}>⚙ Configuración del Gráfico</span>
+        <button onClick={()=>setShowChartSettings(false)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:14,color:TC.textFaint,padding:'0 4px',lineHeight:1}}>✕</button>
+      </div>
+      <div style={{display:'flex',gap:20,flexWrap:'wrap',alignItems:'flex-start'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:5}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>Tamaño de Barras</span>
+          <div style={{display:'flex',gap:4}}>
+            {[['XS',16],['S',28],['M',40],['L',56],['XL',72]].map(([lbl,sz])=><button key={sz} onClick={()=>setChartBarSize(sz)} style={{padding:'3px 9px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:T.fontFamily,background:chartBarSize===sz?'#8b5cf6':'rgba(0,0,0,0.05)',color:chartBarSize===sz?'#fff':TC.textMuted,transition:'all 0.12s'}}>{lbl}</button>)}
+          </div>
+        </div>
+        {[['Mostrar % completado',chartShowPctLabels,setChartShowPctLabels],['Mostrar leyenda',chartShowLegend,setChartShowLegend],['Mostrar grilla',chartShowGrid,setChartShowGrid]].map(([label,val,setter])=><div key={label} style={{display:'flex',flexDirection:'column',gap:5}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>{label}</span>
+          <button onClick={()=>setter(p=>!p)} style={{alignSelf:'flex-start',padding:'3px 9px',borderRadius:6,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:T.fontFamily,background:val?'#8b5cf6':'rgba(0,0,0,0.05)',color:val?'#fff':TC.textMuted,transition:'all 0.12s'}}>{val?'Activado':'Desactivado'}</button>
+        </div>)}
+      </div>
+      {chartData.length>0&&<><div style={{height:1,background:'rgba(139,92,246,0.15)'}}/>
+      <div>
+        <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint,display:'block',marginBottom:8}}>Comentarios por Patente <span style={{opacity:0.6,fontWeight:400,textTransform:'none'}}>(aparecen en el eje del gráfico)</span></span>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:8}}>
+          {chartData.map(d=><div key={d.patente} style={{display:'flex',flexDirection:'column',gap:3}}>
+            <span style={{fontSize:9,fontWeight:800,color:TC.text,fontFamily:T.fontMono}}>{d.patente}</span>
+            <input value={patenteNotes[d.patente]||''} onChange={e=>setPatenteNotes(p=>({...p,[d.patente]:e.target.value||undefined}))} placeholder="Ej: Juan Pérez" style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+          </div>)}
+        </div>
+      </div></>}
+    </div>}
     <Card style={{padding:16}}>
       <div ref={chartRef} id="chart-export-container" style={{background:TC.bgCard,padding:16,borderRadius:12}}>
         <div style={{textAlign:'center',marginBottom:12}}><h2 style={{fontSize:18,fontWeight:900,letterSpacing:'-0.02em',color:TC.text}}>Estado de Vehículos: {chartRegion==='RM'?'Región Metropolitana':chartRegion==='RX'?'Resto de Regiones':chartRegion}</h2></div>
         <div style={{width:'100%',height:chartLayout==='horizontal'?Math.max(600,visibleChartData.length*40):600}}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={visibleChartData} layout={chartLayout==='horizontal'?'vertical':'horizontal'} margin={{top:35,right:chartLayout==='horizontal'?80:20,left:chartLayout==='horizontal'?100:20,bottom:chartLayout==='horizontal'?20:60}} barCategoryGap="20%" onClick={e=>e&&e.activePayload&&handleBarClick(e.activePayload[0].payload)}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={chartLayout==='vertical'} vertical={chartLayout==='horizontal'}/>
-              {chartLayout==='vertical'?<><XAxis dataKey="patente" angle={-45} textAnchor="end" height={80} interval={0} tick={{fontSize:10,fill:TC.textSub}} label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:TC.textSub}}/><YAxis tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>:<><XAxis type="number" tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:TC.textSub}}/><YAxis dataKey="patente" type="category" width={90} tick={{fontSize:10,fill:TC.textSub}} label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>}
-              <RechartsTooltip cursor={{fill:'rgba(0,0,0,0.03)'}} contentStyle={{backgroundColor:TC.bgCard,borderColor:TC.border,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}} itemStyle={{fontSize:12,fontWeight:700}} formatter={(value,name)=>{if(name==='patente')return[value,'Patente'];if(name==='pctCompletado')return[formatPct(Number(value)),'Completado'];return[value,name]}}/>
-              <Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:20,fontSize:12}}/>
-              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={60}/>
-              <Bar dataKey="Planificado" stackId="a" fill="#f97316" radius={[0,0,0,0]} barSize={60}/>
-              <Bar dataKey="Pendiente" stackId="a" fill="#eab308" radius={[0,0,0,0]} barSize={60}/>
-              <Bar dataKey="En Ruta" stackId="a" fill="#ef4444" radius={[4,4,0,0]} barSize={60}/>
-              <Bar dataKey="dummy" stackId="a" fill="transparent" isAnimationActive={false} barSize={60}><LabelList dataKey="pctCompletado" position={chartLayout==='horizontal'?'right':'top'} offset={8} formatter={v=>formatPct(Number(v))} style={{fill:TC.text,fontSize:11,fontWeight:900,textAnchor:chartLayout==='horizontal'?'start':'middle'}}/></Bar>
+              {chartShowGrid&&<CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={chartLayout==='vertical'} vertical={chartLayout==='horizontal'}/>}
+              {chartLayout==='vertical'?<><XAxis dataKey="patente" angle={-45} textAnchor="end" height={Object.values(patenteNotes).some(v=>v)?100:80} interval={0} tick={<ChartTickVertical patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:TC.textSub}}/><YAxis tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>:<><XAxis type="number" tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:TC.textSub}}/><YAxis dataKey="patente" type="category" width={Object.values(patenteNotes).some(v=>v)?105:90} tick={<ChartTickHorizontal patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>}
+              <RechartsTooltip cursor={{fill:'rgba(0,0,0,0.03)'}} contentStyle={{backgroundColor:TC.bgCard,borderColor:TC.border,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}} itemStyle={{fontSize:12,fontWeight:700}} formatter={(value,name,props)=>{if(name==='patente')return[value,'Patente'];if(name==='pctCompletado')return[formatPct(Number(value)),'Completado'];if(name==='dummy')return null;return[value,name]}} labelFormatter={label=>{const note=patenteNotes[label];return note?`${label} — ${note}`:label;}}/>
+              {chartShowLegend&&<Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:20,fontSize:12}}/>}
+              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={chartBarSize}/>
+              <Bar dataKey="Planificado" stackId="a" fill="#f97316" radius={[0,0,0,0]} barSize={chartBarSize}/>
+              <Bar dataKey="Pendiente" stackId="a" fill="#eab308" radius={[0,0,0,0]} barSize={chartBarSize}/>
+              <Bar dataKey="En Ruta" stackId="a" fill="#ef4444" radius={[4,4,0,0]} barSize={chartBarSize}/>
+              <Bar dataKey="dummy" stackId="a" fill="transparent" isAnimationActive={false} barSize={chartBarSize}>{chartShowPctLabels&&<LabelList dataKey="pctCompletado" position={chartLayout==='horizontal'?'right':'top'} offset={8} formatter={v=>formatPct(Number(v))} style={{fill:TC.text,fontSize:11,fontWeight:900,textAnchor:chartLayout==='horizontal'?'start':'middle'}}/>}</Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
