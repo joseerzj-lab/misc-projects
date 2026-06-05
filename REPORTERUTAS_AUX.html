@@ -194,10 +194,12 @@ function srMapStatus(raw){
   return 'En Ruta';
 }
 function srVehicleName(obj){
+  // OJO: nunca usar obj.name como vehículo (en una visita es el nombre del cliente/lugar).
   if(!obj) return '';
-  return String(obj.vehicle_name || (obj.vehicle&&(obj.vehicle.name||obj.vehicle.plate)) || obj.name || '').trim();
+  return String(obj.vehicle_name || (obj.vehicle&&(obj.vehicle.name||obj.vehicle.plate)) || '').trim();
 }
-function srIsAux(name){return /^aux/i.test(String(name||'').trim());}
+// Igual que el script Python: cuenta como auxiliar si el nombre contiene AUX (cubre VAUX, BAUX, AUX).
+function srIsAux(name){return /aux/i.test(String(name||'').trim());}
 // Consulta visitas/rutas de SimpliRoute para una fecha y devuelve sólo filas de vehículos AUX.
 // Cada fila: {vehiculo, iso, estadoRaw, estado, comentario, direccion}
 async function srCargarAux(token, fecha){
@@ -1384,7 +1386,7 @@ function ReporteRutas(){
         <Btn variant="primary" onClick={cargarVisitasAux} disabled={auxLoading} style={{padding:'8px 18px',background:'#14b8a6'}}>{auxLoading?'Cargando…':'⚡ Cargar Ahora'}</Btn>
         {auxRows.length>0&&<Btn variant="ghost" onClick={()=>{setAuxRows([]);setAuxMsg('')}}>✕ Quitar AUX</Btn>}
       </div>
-      <div style={{fontSize:9,color:TC.textFaint,lineHeight:1.5}}>Carga todos los vehículos con prefijo <b>AUX</b> que tengan visita en la fecha indicada. <b style={{color:'#22c55e'}}>completed → Terminado</b> · <b style={{color:'#eab308'}}>failed → Pendiente</b> · resto → <b style={{color:'#ef4444'}}>En Ruta</b>. Las barras AUX aparecen al lado de las patentes.</div>
+      <div style={{fontSize:9,color:TC.textFaint,lineHeight:1.5}}>Carga todos los vehículos auxiliares (<b>VAUX</b> / AUX / BAUX) que tengan visita en la fecha indicada. <b style={{color:'#22c55e'}}>completed → Terminado</b> · <b style={{color:'#eab308'}}>failed → Pendiente</b> · resto → <b style={{color:'#ef4444'}}>En Ruta</b>. Las barras AUX aparecen al lado de las patentes.</div>
     </div>}
     {showPatentePanel&&combinedChartData.length>0&&<div style={{padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,0,0,0.07)',background:'rgba(246,248,250,0.97)',display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
       <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint,marginRight:4}}>Mostrar/Ocultar:</span>
