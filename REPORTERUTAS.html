@@ -1247,12 +1247,24 @@ function ReporteRutas(){
               {chartLayout==='vertical'?<><XAxis dataKey="patente" angle={-45} textAnchor="end" height={Object.values(patenteNotes).some(v=>v)?100:80} interval={0} tick={<ChartTickVertical patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:TC.textSub}}/><YAxis tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>:<><XAxis type="number" tick={{fontSize:11,fill:TC.textSub}} label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:TC.textSub}}/><YAxis dataKey="patente" type="category" width={Object.values(patenteNotes).some(v=>v)?105:90} tick={<ChartTickHorizontal patenteNotes={patenteNotes} textColor={TC.textSub}/>} label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:TC.textSub,style:{textAnchor:'middle'}}}/></>}
               <RechartsTooltip cursor={{fill:'rgba(0,0,0,0.03)'}} contentStyle={{backgroundColor:TC.bgCard,borderColor:TC.border,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}} itemStyle={{fontSize:12,fontWeight:700}} formatter={(value,name,props)=>{if(name==='patente')return[value,'Patente'];if(name==='pctCompletado')return[formatPct(Number(value)),'Completado'];if(name==='dummy')return null;return[value,name]}} labelFormatter={label=>{const note=patenteNotes[label];return note?`${label} — ${note}`:label;}}/>
               {chartShowLegend&&<Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:20,fontSize:12}}/>}
-              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={chartBarSize}>{chartLayout==='horizontal'&&<LabelList dataKey="patente" content={({x,y,height,value})=>{const note=patenteNotes[value];if(!note)return null;const txt=note.length>18?note.slice(0,18)+'…':note;return<text x={x+5} y={y+(height||0)/2} dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={8} fontWeight="700">{txt}</text>;}}/>}</Bar>
-
+              <Bar dataKey="Terminado" stackId="a" fill="#22c55e" radius={[0,0,0,0]} barSize={chartBarSize}/>
               <Bar dataKey="Planificado" stackId="a" fill="#f97316" radius={[0,0,0,0]} barSize={chartBarSize}/>
               <Bar dataKey="Pendiente" stackId="a" fill="#eab308" radius={[0,0,0,0]} barSize={chartBarSize}/>
               <Bar dataKey="En Ruta" stackId="a" fill="#ef4444" radius={[4,4,0,0]} barSize={chartBarSize}/>
-              <Bar dataKey="dummy" stackId="a" fill="transparent" isAnimationActive={false} barSize={chartBarSize}>{chartShowPctLabels&&<LabelList dataKey="pctCompletado" position={chartLayout==='horizontal'?'right':'top'} offset={8} formatter={v=>formatPct(Number(v))} style={{fill:TC.text,fontSize:11,fontWeight:900,textAnchor:chartLayout==='horizontal'?'start':'middle'}}/>}{chartLayout==='vertical'&&<LabelList dataKey="patente" content={({x,y,width,value})=>{const note=patenteNotes[value];if(!note)return null;const txt=note.length>18?note.slice(0,18)+'…':note;return<text x={x+(width||0)/2} y={y+10} textAnchor="middle" fill="rgba(255,255,255,0.95)" fontSize={8} fontWeight="700">{txt}</text>;}}/>}</Bar>
+              <Bar dataKey="dummy" stackId="a" fill="transparent" isAnimationActive={false} barSize={chartBarSize}>
+                {chartShowPctLabels&&<LabelList dataKey="pctCompletado" position={chartLayout==='horizontal'?'right':'top'} offset={8} formatter={v=>formatPct(Number(v))} style={{fill:TC.text,fontSize:11,fontWeight:900,textAnchor:chartLayout==='horizontal'?'start':'middle'}}/>}
+                <LabelList dataKey="patente" content={({x,y,width,height,value})=>{
+                  const note=patenteNotes[value];
+                  if(!note)return null;
+                  const txt=note.length>32?note.slice(0,32)+'…':note;
+                  if(chartLayout==='vertical'){
+                    return<text x={x+(width||0)/2} y={y+11} textAnchor="middle" fill="rgba(255,255,255,0.95)" fontSize={9} fontWeight="700">{txt}</text>;
+                  }else{
+                    const cx=x/2;
+                    return<text x={cx} y={y+(height||0)/2} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.95)" fontSize={13} fontWeight="800" letterSpacing="0.5">{txt}</text>;
+                  }
+                }}/>
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
