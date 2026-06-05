@@ -656,7 +656,12 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
   };
 
   const toggleVal=(colKey,val)=>{
-    setColFilters(prev=>{const cur=prev[colKey]?new Set(prev[colKey]):new Set();cur.has(val)?cur.delete(val):cur.add(val);return{...prev,[colKey]:cur}});
+    setColFilters(prev=>{
+      if(!prev[colKey]||prev[colKey].size===0){const allVals=new Set(distinctValues[colKey]);allVals.delete(val);return{...prev,[colKey]:allVals};}
+      const cur=new Set(prev[colKey]);cur.has(val)?cur.delete(val):cur.add(val);
+      if(cur.size===(distinctValues[colKey]||[]).length){const n={...prev};delete n[colKey];return n;}
+      return{...prev,[colKey]:cur};
+    });
   };
 
   const handleSort=k=>{setSortConfig(prev=>{if(prev.key===k){if(prev.dir==='asc')return{key:k,dir:'desc'};return{key:'',dir:null}}return{key:k,dir:'asc'}})};
@@ -756,7 +761,7 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
             <span style={{fontStyle:'italic',fontWeight:600,color:TC.text,fontSize:T.sm}}>(Todas)</span>
           </button>
           {visFilterVals.map(v=>{
-            const sel=!!(colFilters[openFilterCol]&&colFilters[openFilterCol].has(v));
+            const sel=!isFiltered(openFilterCol)||!!(colFilters[openFilterCol]?.has(v));
             return <button key={v||'_'} onClick={()=>toggleVal(openFilterCol,v)} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 12px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:T.sm,fontFamily:T.fontFamily,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
               <div style={{width:13,height:13,borderRadius:3,border:`2px solid ${sel?'#2563eb':TC.border}`,background:sel?'#2563eb':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.1s'}}>
                 {sel&&<span style={{color:'#fff',fontSize:8,fontWeight:900}}>✓</span>}
@@ -767,7 +772,7 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
           {visFilterVals.length===0&&<div style={{padding:'10px 12px',color:TC.textFaint,fontSize:T.sm,textAlign:'center'}}>Sin coincidencias</div>}
         </div>
         <div style={{padding:'6px 10px',borderTop:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.02)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:9,color:TC.textFaint}}>{colFilters[openFilterCol]?.size||0} seleccionado{(colFilters[openFilterCol]?.size||0)!==1?'s':''}</span>
+          <span style={{fontSize:9,color:TC.textFaint}}>{isFiltered(openFilterCol)?colFilters[openFilterCol].size:(distinctValues[openFilterCol]||[]).length} seleccionado{(isFiltered(openFilterCol)?colFilters[openFilterCol].size:(distinctValues[openFilterCol]||[]).length)!==1?'s':''}</span>
           <button onClick={()=>setOpenFilterCol(null)} style={{fontSize:T.sm,fontWeight:700,padding:'4px 14px',borderRadius:R.md,background:'#18181B',color:'#fff',border:'none',cursor:'pointer',fontFamily:T.fontFamily}}>OK</button>
         </div>
       </div>,
