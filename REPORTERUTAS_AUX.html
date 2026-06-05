@@ -201,48 +201,31 @@ function srIsAux(name){return /^aux/i.test(String(name||'').trim());}
 // Consulta visitas/rutas de SimpliRoute para una fecha y devuelve sólo filas de vehículos AUX.
 // Cada fila: {vehiculo, iso, estadoRaw, estado, comentario, direccion}
 async function srCargarAux(token, fecha){
+  // Mismo camino que el cliente Python: visitas + detalle.
+  //   estado  = visit.status   ·   vehículo = detail.vehicle_name || visit.vehicle_name   ·   ISO = visit.title
+  const visits=await srGet('/v1/routes/visits/',{planned_date:fecha},token);
+  if(!Array.isArray(visits)) return null;   // null = error de conexión
   const filas=[];
-  // 1) Vía rutas (eficiente: cada ruta trae su vehículo y sus visitas)
-  const routes=await srGet('/v1/routes/routes/',{planned_date:fecha},token);
-  if(Array.isArray(routes)&&routes.length){
-    routes.forEach(rt=>{
-      const veh=srVehicleName(rt);
+  const CHUNK=25;
+  for(let i=0;i<visits.length;i+=CHUNK){
+    const batch=visits.slice(i,i+CHUNK);
+    await Promise.all(batch.map(async v=>{
+      // El vehículo suele venir en el detalle; lo pedimos sólo si la lista no lo trae
+      let veh=srVehicleName(v);
+      let d=null;
+      if(!veh){ d=(await srGet(`/v1/plans/visits/${v.id}/detail/`,{},token))||{}; veh=srVehicleName(d); }
       if(!srIsAux(veh)) return;
-      const visits=rt.visits||rt.stops||[];
-      visits.forEach(v=>{
-        const estadoRaw=v.status||v.tracking_status||'';
-        filas.push({
-          vehiculo:veh.toUpperCase(),
-          iso:String(v.title||v.reference||v.order||'S/N').trim(),
-          estadoRaw, estado:srMapStatus(estadoRaw),
-          comentario:String(v.notes||v.fail_reason||v.comment||'').trim(),
-          direccion:String(v.address||'').trim()
-        });
+      // Enriquecer comentario/dirección de los AUX (son pocos)
+      if(!d){ d=(await srGet(`/v1/plans/visits/${v.id}/detail/`,{},token))||{}; }
+      const estadoRaw=v.status||d.status||'';
+      filas.push({
+        vehiculo:veh.toUpperCase(),
+        iso:String(v.title||d.title||'S/N').trim(),
+        estadoRaw, estado:srMapStatus(estadoRaw),
+        comentario:String(d.notes||d.fail_reason||v.notes||'').trim(),
+        direccion:String(d.address||v.address||'').trim()
       });
-    });
-  }
-  // 2) Fallback: visitas planas + detalle (para obtener vehículo/estado)
-  if(!filas.length){
-    const visits=await srGet('/v1/routes/visits/',{planned_date:fecha},token);
-    if(Array.isArray(visits)&&visits.length){
-      const CHUNK=20;
-      for(let i=0;i<visits.length;i+=CHUNK){
-        const batch=visits.slice(i,i+CHUNK);
-        const dets=await Promise.all(batch.map(async v=>({v, d:(await srGet(`/v1/plans/visits/${v.id}/detail/`,{},token))||{}})));
-        dets.forEach(({v,d})=>{
-          const veh=srVehicleName(d)||srVehicleName(v);
-          if(!srIsAux(veh)) return;
-          const estadoRaw=d.status||v.status||'';
-          filas.push({
-            vehiculo:veh.toUpperCase(),
-            iso:String(v.title||d.title||'S/N').trim(),
-            estadoRaw, estado:srMapStatus(estadoRaw),
-            comentario:String(d.notes||v.notes||'').trim(),
-            direccion:String(d.address||v.address||'').trim()
-          });
-        });
-      }
-    }
+    }));
   }
   return filas;
 }
