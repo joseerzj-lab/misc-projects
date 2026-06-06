@@ -220,11 +220,14 @@ async function srCargarAux(token, fecha){
       // Enriquecer comentario/dirección de los AUX (son pocos)
       if(!d){ d=(await srGet(`/v1/plans/visits/${v.id}/detail/`,{},token))||{}; }
       const estadoRaw=v.status||d.status||'';
+      // En SimpliRoute: la "observación" del checkout = Motivo No Entrega; el "comentario" del checkout = Comentario No Entrega
+      const motivo=String(d.checkout_observation||v.checkout_observation||d.observation||d.observations||'').trim();
+      const comentario=String(d.checkout_comment||v.checkout_comment||d.comment||d.notes||v.notes||'').trim();
       filas.push({
         vehiculo:veh.toUpperCase(),
         iso:String(v.title||d.title||'S/N').trim(),
         estadoRaw, estado:srMapStatus(estadoRaw),
-        comentario:String(d.notes||d.fail_reason||v.notes||'').trim(),
+        motivo, comentario,
         direccion:String(d.address||v.address||'').trim()
       });
     }));
@@ -745,7 +748,7 @@ const LISTADO_COLS=[
   {key:'fotos',label:'Fotos',noFilter:true,noSort:true},
 ];
 
-function TabListadoISOs({rawRows,onFlash,isActive}){
+function TabListadoISOs({rawRows,auxRows=[],onFlash,isActive}){
   const[initialized,setInitialized]=React.useState(false);
   const[isoImgModal,setIsoImgModal]=React.useState({open:false,images:[],index:0});
   const[colFilters,setColFilters]=React.useState({});
@@ -764,7 +767,7 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
   },[openFilterCol]);
 
   const allRows=React.useMemo(()=>{
-    if(!initialized||!rawRows.length)return[];
+    if(!initialized||(!rawRows.length&&!auxRows.length))return[];
     const byPO={};
     rawRows.forEach(row=>{
       const com=(getKey(row,'Commerce')||'').trim().toUpperCase();if(!com.startsWith('I'))return;
@@ -784,8 +787,14 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
         result.push({iso:po,region:getKey(row,'Region')||'',patente:pat,empresa:getKey(row,'Empresa')||getKey(row,'Transportista')||'',estado:est,motivo:getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||'',comentario:getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'',imageUrl:getKey(row,'ImageUrl')||getKey(row,'Foto')||''});
       });
     });
+    // VAUX desde la API SimpliRoute (los que NO están terminados):
+    //   observación → Motivo No Entrega · comentario → Comentario No Entrega
+    auxRows.forEach(f=>{
+      if(f.estado==='Terminado')return;
+      result.push({iso:f.iso,region:'RM · Auxiliar',patente:f.vehiculo,empresa:'VAUX (SimpliRoute)',estado:f.estado,motivo:f.motivo||'',comentario:f.comentario||'',imageUrl:''});
+    });
     return result.sort((a,b)=>a.iso.localeCompare(b.iso));
-  },[initialized,rawRows]);
+  },[initialized,rawRows,auxRows]);
 
   const distinctValues=React.useMemo(()=>{
     const dv={};LISTADO_COLS.filter(c=>!c.noFilter).forEach(c=>{dv[c.key]=[...new Set(allRows.map(r=>r[c.key]||''))].filter(Boolean).sort()});return dv;
@@ -866,8 +875,8 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
       <Btn onClick={exportExcel} variant="primary" style={{fontSize:10,gap:4}}><FileDown size={11}/> Excel</Btn>
     </div>
     {/* Body */}
-    {!rawRows.length?
-      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',opacity:0.3,gap:12}}><span style={{fontSize:48}}>📋</span><p style={{fontWeight:700,fontSize:14}}>Carga un reporte primero</p></div>:
+    {(!rawRows.length&&!auxRows.length)?
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',opacity:0.3,gap:12}}><span style={{fontSize:48}}>📋</span><p style={{fontWeight:700,fontSize:14}}>Carga un reporte o las visitas AUX primero</p></div>:
     <div style={{flex:1,overflow:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:T.base,fontFamily:T.fontMono}}>
         <thead><tr>
@@ -1555,12 +1564,12 @@ function ReporteRutas(){
       {auxPendientes.length===0?<div style={{padding:'20px',textAlign:'center',fontSize:11,color:TC.textFaint}}>✓ Sin ISOs pendientes (failed) en los vehículos AUX</div>:
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,borderCollapse:'collapse'}}>
-          <thead><tr style={{background:TC.headerBg}}>{['Vehículo','ISO','Estado','Estado SimpliRoute','Comentario','Dirección'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontWeight:900,fontSize:9,textTransform:'uppercase',letterSpacing:'0.05em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:TC.headerBg}}>{['Vehículo','ISO','Estado','Motivo No Entrega','Comentario No Entrega','Dirección'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontWeight:900,fontSize:9,textTransform:'uppercase',letterSpacing:'0.05em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
           <tbody>{auxPendientes.map((r,i)=><tr key={`${r.vehiculo}-${r.iso}-${i}`} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}>
             <td style={{padding:'8px 12px',fontWeight:800,color:'#0d9488'}}>{r.vehiculo}</td>
             <td style={{padding:'8px 12px',fontWeight:700,color:TC.text}}>{r.iso}</td>
             <td style={{padding:'8px 12px'}}><Badge variant="medium" style={{fontSize:9}}>Pendiente</Badge></td>
-            <td style={{padding:'8px 12px',color:TC.textFaint}}>{r.estadoRaw||'—'}</td>
+            <td style={{padding:'8px 12px',color:TC.text,maxWidth:240,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{r.motivo||'—'}</td>
             <td style={{padding:'8px 12px',color:TC.text,maxWidth:280,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{r.comentario||'—'}</td>
             <td style={{padding:'8px 12px',color:TC.textSub,maxWidth:240,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{r.direccion||'—'}</td>
           </tr>)}</tbody>
@@ -1736,7 +1745,7 @@ function ReporteRutas(){
 </div>}
 
 {/* ─── TAB: LISTADO ISOs ─── */}
-<TabListadoISOs rawRows={rawRows} onFlash={flash} isActive={activeTab==='listado'}/>
+<TabListadoISOs rawRows={rawRows} auxRows={auxRows} onFlash={flash} isActive={activeTab==='listado'}/>
 
 {/* ─── TAB: ISOs ─── */}
 {activeTab==='isos'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
