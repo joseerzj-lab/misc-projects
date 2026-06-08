@@ -823,14 +823,18 @@ function TabListadoISOs({rawRows,onFlash,isActive}){
   </div>;
 }
 
-function ChartTickVertical({x,y,payload,textColor}){
+function ChartTickVertical({x,y,payload,patenteNotes,textColor}){
+  const note=patenteNotes&&patenteNotes[payload.value];
   return <g transform={`translate(${x},${y})`}>
-    <text x={0} y={0} dy={8} textAnchor="end" fill={textColor||'#888'} fontSize={10} transform="rotate(-45)">{payload.value}</text>
+    <text x={0} y={0} dy={note?2:8} textAnchor="end" fill={textColor||'#888'} fontSize={10} fontWeight={note?700:400} transform="rotate(-45)">{payload.value}</text>
+    {note&&<text x={0} y={18} textAnchor="end" fill="#8b5cf6" fontSize={8} transform="rotate(-45)">{note.length>14?note.slice(0,14)+'…':note}</text>}
   </g>;
 }
-function ChartTickHorizontal({x,y,payload,textColor}){
+function ChartTickHorizontal({x,y,payload,patenteNotes,textColor}){
+  const note=patenteNotes&&patenteNotes[payload.value];
   return <g>
-    <text x={x-4} y={y} textAnchor="end" dominantBaseline="middle" fill={textColor||'#888'} fontSize={10}>{payload.value}</text>
+    <text x={x-4} y={note?y-5:y} textAnchor="end" dominantBaseline="middle" fill={textColor||'#888'} fontSize={10} fontWeight={note?700:400}>{payload.value}</text>
+    {note&&<text x={x-4} y={y+7} textAnchor="end" dominantBaseline="middle" fill="#8b5cf6" fontSize={8}>{note.length>24?note.slice(0,24)+'…':note}</text>}
   </g>;
 }
 
@@ -867,7 +871,7 @@ function ReporteRutas(){
   const[showPatentePanel,setShowPatentePanel]=React.useState(false);
   const[patenteNotes,setPatenteNotes]=React.useState({});
   const[showChartSettings,setShowChartSettings]=React.useState(false);
-  const[noteSearch,setNoteSearch]=React.useState('');
+  const[patentePanelSearch,setPatentePanelSearch]=React.useState('');
   const[chartBarSize,setChartBarSize]=React.useState(40);
   const[showResumenPaste,setShowResumenPaste]=React.useState(false);
   const[resumenNotesRaw,setResumenNotesRaw]=React.useState('');
@@ -1242,12 +1246,20 @@ function ReporteRutas(){
       <div style={{flex:1}}/>
       <DropdownMenu options={[{label:'Descargar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','download'),Icon:<FileDown size={14}/>},{label:'Copiar Imagen',onClick:()=>exportToImage(chartRef,'reporte_grafico','copy'),Icon:<Copy size={14}/>}]}><FileDown size={14}/> Exportar Gráfico</DropdownMenu>
     </div>
-    {showPatentePanel&&chartData.length>0&&<div style={{padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,0,0,0.07)',background:'rgba(246,248,250,0.97)',display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
-      <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint,marginRight:4}}>Mostrar/Ocultar:</span>
-      <button onClick={()=>setHiddenPatentes(new Set())} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(34,197,94,0.4)',background:hiddenPatentes.size===0?'#22c55e':'transparent',color:hiddenPatentes.size===0?'#fff':'#22c55e',cursor:'pointer',fontFamily:T.fontFamily}}>Mostrar Todas</button>
-      <button onClick={()=>setHiddenPatentes(new Set(chartData.map(d=>d.patente)))} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(239,68,68,0.4)',background:'transparent',color:'#ef4444',cursor:'pointer',fontFamily:T.fontFamily}}>Ocultar Todas</button>
-      <div style={{width:1,height:16,background:'rgba(0,0,0,0.08)',margin:'0 2px'}}/>
-      {chartData.map(d=>{const hidden=hiddenPatentes.has(d.patente);return<button key={d.patente} onClick={()=>setHiddenPatentes(prev=>{const n=new Set(prev);n.has(d.patente)?n.delete(d.patente):n.add(d.patente);return n})} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:`1px solid ${hidden?'rgba(0,0,0,0.12)':'rgba(37,99,235,0.4)'}`,background:hidden?'rgba(0,0,0,0.04)':'rgba(37,99,235,0.08)',color:hidden?TC.textFaint:'#2563eb',cursor:'pointer',fontFamily:T.fontFamily,textDecoration:hidden?'line-through':'none',opacity:hidden?0.5:1,transition:'all 0.12s'}}>{d.patente}</button>})}
+    {showPatentePanel&&chartData.length>0&&<div style={{padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,0,0,0.07)',background:'rgba(246,248,250,0.97)',display:'flex',flexDirection:'column',gap:8}}>
+      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+        <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>Mostrar/Ocultar:</span>
+        <button onClick={()=>setHiddenPatentes(new Set())} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(34,197,94,0.4)',background:hiddenPatentes.size===0?'#22c55e':'transparent',color:hiddenPatentes.size===0?'#fff':'#22c55e',cursor:'pointer',fontFamily:T.fontFamily}}>Mostrar Todas</button>
+        <button onClick={()=>setHiddenPatentes(new Set(chartData.map(d=>d.patente)))} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(239,68,68,0.4)',background:'transparent',color:'#ef4444',cursor:'pointer',fontFamily:T.fontFamily}}>Ocultar Todas</button>
+        <span style={{fontSize:9,color:TC.textFaint,marginLeft:4}}>{chartData.length-hiddenPatentes.size} visibles / {chartData.length} total</span>
+        <div style={{flex:1}}/>
+        <input value={patentePanelSearch} onChange={e=>setPatentePanelSearch(e.target.value)} placeholder="Buscar patente..." style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none',width:140}}/>
+        {patentePanelSearch&&<button onClick={()=>setPatentePanelSearch('')} style={{background:'transparent',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:12,padding:'0 2px',lineHeight:1}}>✕</button>}
+      </div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:5,maxHeight:120,overflowY:'auto'}}>
+        {chartData.filter(d=>!patentePanelSearch||d.patente.toLowerCase().includes(patentePanelSearch.toLowerCase())).map(d=>{const hidden=hiddenPatentes.has(d.patente);const hasNote=!!patenteNotes[d.patente];return<button key={d.patente} onClick={()=>setHiddenPatentes(prev=>{const n=new Set(prev);n.has(d.patente)?n.delete(d.patente):n.add(d.patente);return n})} style={{padding:'3px 9px',borderRadius:99,fontSize:9,fontWeight:700,border:`1px solid ${hidden?'rgba(0,0,0,0.12)':hasNote?'rgba(139,92,246,0.4)':'rgba(37,99,235,0.4)'}`,background:hidden?'rgba(0,0,0,0.04)':hasNote?'rgba(139,92,246,0.08)':'rgba(37,99,235,0.08)',color:hidden?TC.textFaint:hasNote?'#7c3aed':'#2563eb',cursor:'pointer',fontFamily:T.fontFamily,textDecoration:hidden?'line-through':'none',opacity:hidden?0.5:1,transition:'all 0.12s'}} title={patenteNotes[d.patente]||undefined}>{d.patente}{hasNote&&' ✎'}</button>})}
+        {patentePanelSearch&&chartData.filter(d=>!d.patente.toLowerCase().includes(patentePanelSearch.toLowerCase())).length===chartData.length&&<span style={{fontSize:9,color:TC.textFaint,padding:'3px 0'}}>Sin coincidencias para "{patentePanelSearch}"</span>}
+      </div>
     </div>}
     {showChartSettings&&<div style={{padding:'14px 16px',borderRadius:10,border:'1px solid rgba(139,92,246,0.2)',background:'rgba(250,249,255,0.98)',display:'flex',flexDirection:'column',gap:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1268,26 +1280,19 @@ function ReporteRutas(){
       </div>
       {chartData.length>0&&<><div style={{height:1,background:'rgba(139,92,246,0.15)'}}/>
       <div>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,flexWrap:'wrap'}}>
-          <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>Comentarios por Patente <span style={{opacity:0.6,fontWeight:400,textTransform:'none'}}>(se muestran dentro de la barra)</span></span>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:TC.textFaint}}>Notas por Patente <span style={{opacity:0.6,fontWeight:400,textTransform:'none'}}>(se muestran en el eje del gráfico)</span></span>
+          {Object.keys(patenteNotes).length>0&&<span style={{background:'#7c3aed',color:'#fff',borderRadius:99,padding:'0 6px',fontSize:8,fontWeight:900,lineHeight:'16px'}}>{Object.keys(patenteNotes).length} notas</span>}
           <button onClick={()=>setShowResumenPaste(p=>!p)} style={{padding:'3px 9px',borderRadius:6,fontSize:9,fontWeight:700,border:`1px solid ${showResumenPaste?'rgba(139,92,246,0.4)':'rgba(0,0,0,0.15)'}`,background:showResumenPaste?'rgba(139,92,246,0.1)':'rgba(0,0,0,0.03)',color:showResumenPaste?'#7c3aed':TC.textSub,cursor:'pointer',fontFamily:T.fontFamily}}>⬇ Pegar tabla</button>
           {Object.keys(patenteNotes).length>0&&<button onClick={()=>setPatenteNotes({})} style={{padding:'3px 9px',borderRadius:6,fontSize:9,fontWeight:700,border:'1px solid rgba(239,68,68,0.25)',background:'rgba(239,68,68,0.05)',color:'#ef4444',cursor:'pointer',fontFamily:T.fontFamily}}>✕ Borrar todo</button>}
-          <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="🔍 Buscar patente..." style={{flex:1,minWidth:140,maxWidth:240,padding:'4px 8px',borderRadius:6,border:`1px solid ${TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none'}}/>
-          {noteSearch&&<button onClick={()=>setNoteSearch('')} style={{background:'transparent',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:12,padding:'0 4px',lineHeight:1}}>✕</button>}
         </div>
-        {showResumenPaste&&<div style={{background:'rgba(139,92,246,0.04)',border:'1px solid rgba(139,92,246,0.18)',borderRadius:8,padding:10,marginBottom:10,display:'flex',gap:8,alignItems:'flex-start'}}>
+        {showResumenPaste&&<div style={{background:'rgba(139,92,246,0.04)',border:'1px solid rgba(139,92,246,0.18)',borderRadius:8,padding:10,marginBottom:8,display:'flex',gap:8,alignItems:'flex-start'}}>
           <textarea value={resumenNotesRaw} onChange={e=>setResumenNotesRaw(e.target.value)} placeholder={'VPV01\tJuan Pérez\nVPV02\tPedro Rojas'} style={{flex:1,height:72,padding:8,borderRadius:6,border:'1px solid rgba(139,92,246,0.25)',fontSize:9,fontFamily:T.fontMono,background:'#fff',color:TC.text,outline:'none',resize:'none',boxSizing:'border-box'}}/>
-          <button onClick={()=>{const lines=resumenNotesRaw.split(/\r?\n/).filter(l=>l.trim());const notes={};lines.forEach(l=>{const sep=l.includes('\t')?'\t':',';const parts=l.split(sep);const pat=(parts[0]||'').trim();const com=(parts.slice(1).join(sep)||'').trim();if(pat)notes[pat]=com||undefined});setPatenteNotes(p=>({...p,...notes}));flash('✓ '+Object.keys(notes).length+' notas aplicadas');setShowResumenPaste(false);setResumenNotesRaw('')}} style={{padding:'6px 12px',borderRadius:6,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.1)',color:'#7c3aed',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:T.fontFamily,whiteSpace:'nowrap'}}>Aplicar</button>
+          <button onClick={()=>{const lines=resumenNotesRaw.split(/\r?\n/).filter(l=>l.trim());const notes={};lines.forEach(l=>{const sep=l.includes('\t')?'\t':',';const parts=l.split(sep);const pat=(parts[0]||'').trim();const com=(parts.slice(1).join(sep)||'').trim();if(pat&&com)notes[pat]=com});setPatenteNotes(p=>({...p,...notes}));flash('✓ '+Object.keys(notes).length+' notas aplicadas');setShowResumenPaste(false);setResumenNotesRaw('')}} style={{padding:'6px 12px',borderRadius:6,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.1)',color:'#7c3aed',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:T.fontFamily,whiteSpace:'nowrap'}}>Aplicar</button>
         </div>}
-        {(()=>{const filtered=chartData.filter(d=>!noteSearch||d.patente.toLowerCase().includes(noteSearch.toLowerCase()));return filtered.length===0?<div style={{padding:'10px 0',color:TC.textFaint,fontSize:10,textAlign:'center'}}>Sin coincidencias para "{noteSearch}"</div>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:8}}>
-          {filtered.map(d=><div key={d.patente} style={{display:'flex',flexDirection:'column',gap:3}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{fontSize:9,fontWeight:800,color:TC.text,fontFamily:T.fontMono}}>{d.patente}</span>
-              {patenteNotes[d.patente]&&<button onClick={()=>setPatenteNotes(p=>{const n={...p};delete n[d.patente];return n})} style={{background:'transparent',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:10,padding:0,lineHeight:1}} title="Borrar">✕</button>}
-            </div>
-            <input value={patenteNotes[d.patente]||''} onChange={e=>setPatenteNotes(p=>({...p,[d.patente]:e.target.value||undefined}))} placeholder="Ej: Juan Pérez" style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${patenteNotes[d.patente]?'#8b5cf6':TC.border}`,fontSize:9,fontFamily:T.fontFamily,background:TC.bgCard,color:TC.text,outline:'none',width:'100%',boxSizing:'border-box'}}/>
-          </div>)}
-        </div>})()}
+        {Object.keys(patenteNotes).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+          {Object.entries(patenteNotes).map(([p,n])=><div key={p} style={{display:'flex',alignItems:'center',gap:3,background:'rgba(139,92,246,0.07)',border:'1px solid rgba(139,92,246,0.2)',borderRadius:4,padding:'2px 7px',fontSize:9,fontFamily:T.fontMono}}><span style={{fontWeight:800,color:'#7c3aed'}}>{p}</span><span style={{color:TC.textMuted}}>→</span><span style={{color:TC.text,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n}</span><button onClick={()=>setPatenteNotes(pn=>{const nn={...pn};delete nn[p];return nn})} style={{background:'none',border:'none',cursor:'pointer',color:TC.textFaint,fontSize:9,padding:0,marginLeft:2,lineHeight:1}}>✕</button></div>)}
+        </div>}
       </div></>}
     </div>}
     <Card style={{padding:16}}>
@@ -1355,7 +1360,7 @@ function ReporteRutas(){
       <div style={{fontSize:10,color:TC.textFaint}}>Pega dos columnas desde Excel: primera columna = Patente, segunda = Comentario (separadas por tab o coma).</div>
       <textarea value={resumenNotesRaw} onChange={e=>setResumenNotesRaw(e.target.value)} placeholder={'VPV01\tJuan Pérez\nVPV02\tPedro Rojas'} style={{width:'100%',height:90,padding:10,borderRadius:7,border:`1px solid rgba(139,92,246,0.25)`,fontSize:10,fontFamily:T.fontMono,background:'#fff',color:TC.text,outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
       <div style={{display:'flex',gap:8}}>
-        <button onClick={()=>{const lines=resumenNotesRaw.split(/\r?\n/).filter(l=>l.trim());const notes={};lines.forEach(l=>{const sep=l.includes('\t')?'\t':',';const parts=l.split(sep);const pat=(parts[0]||'').trim();const com=(parts.slice(1).join(sep)||'').trim();if(pat)notes[pat]=com||undefined});setPatenteNotes(p=>({...p,...notes}));flash(`✓ ${Object.keys(notes).length} notas aplicadas`);setShowResumenPaste(false);setResumenNotesRaw('')}} style={{padding:'5px 14px',borderRadius:6,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.1)',color:'#7c3aed',fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:T.fontFamily}}>Aplicar</button>
+        <button onClick={()=>{const lines=resumenNotesRaw.split(/\r?\n/).filter(l=>l.trim());const notes={};lines.forEach(l=>{const sep=l.includes('\t')?'\t':',';const parts=l.split(sep);const pat=(parts[0]||'').trim();const com=(parts.slice(1).join(sep)||'').trim();if(pat&&com)notes[pat]=com});setPatenteNotes(p=>({...p,...notes}));flash(`✓ ${Object.keys(notes).length} notas aplicadas`);setShowResumenPaste(false);setResumenNotesRaw('')}} style={{padding:'5px 14px',borderRadius:6,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.1)',color:'#7c3aed',fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:T.fontFamily}}>Aplicar</button>
         <button onClick={()=>{setPatenteNotes({});flash('✓ Notas borradas')}} style={{padding:'5px 14px',borderRadius:6,border:'1px solid rgba(0,0,0,0.1)',background:'rgba(0,0,0,0.03)',color:TC.textFaint,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:T.fontFamily}}>Borrar todo</button>
       </div>
       {Object.keys(patenteNotes).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
