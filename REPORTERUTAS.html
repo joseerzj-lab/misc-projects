@@ -113,9 +113,10 @@ function getMotivo3(raw){
   if(m.includes('DIRECCI')||m.includes('SIN INFORMACI'))return'Problema de Dirección';
   if(m.includes('SINIESTRO'))return'Siniestro En Calle';
   if(m.includes('PRODUCTO NO CARGADO')||m.includes('NO CARGADO'))return'Producto No Cargado';
+  if(m.includes('RECHAZ'))return'Cliente Rechaza';
   return'Transporte No Gestiona';
 }
-function getMotivo2(m3){return(m3==='Sin Moradores'||m3==='Problema de Dirección')?'Cliente':'Transporte'}
+function getMotivo2(m3){return(m3==='Sin Moradores'||m3==='Problema de Dirección'||m3==='Cliente Rechaza')?'Cliente':'Transporte'}
 
 // Geo-audit logic removed per user request
 
@@ -449,7 +450,7 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
       if(deferredRegions.size>0&&!deferredRegions.has(inc.region))return;
       const motiMap={};
       inc.eventos.forEach(ev=>{const k=ev.motivo||'Sin motivo';if(!motiMap[k])motiMap[k]={ordenes:0,fotos:[],isos:[]};motiMap[k].ordenes++;motiMap[k].fotos.push(...ev.fotos);if(ev.iso&&!motiMap[k].isos.includes(ev.iso))motiMap[k].isos.push(ev.iso)});
-      Object.entries(motiMap).forEach(([motivo,md])=>{rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos,isos:md.isos})});
+      Object.entries(motiMap).forEach(([motivo,md])=>{const m3=getMotivo3(motivo);const m2=getMotivo2(m3);rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos,isos:md.isos,m1:'No Cumple',m2,m3})});
     });
     return rows.sort((a,b)=>b.ordenes-a.ordenes);
   },[data,deferredRegions]);
@@ -558,10 +559,10 @@ function TabDashboard({data,rawRows,allRegions,onFlash}){
           ?<div style={{textAlign:'center',padding:24,opacity:0.3,fontSize:11}}>Sin excepciones registradas</div>
           :<div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,fontFamily:T.fontMono}}>
-              <thead><tr>{['Región','Transporte','Patente','Motivo','Órdenes','ISOs','Fotos'].map(h=><th key={h} style={{textAlign:h==='Órdenes'?'right':'left',padding:'7px 10px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+              <thead><tr>{['Región','Transporte','Patente','Motivo','Responsable','Categoría','Órdenes','ISOs','Fotos',''].map(h=><th key={h} style={{textAlign:h==='Órdenes'?'right':'left',padding:'7px 10px',fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:TC.textMuted,borderBottom:`1px solid ${TC.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
               <tbody>
-                {excepcionesData.slice(0,50).map((row,i)=><tr key={i} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 10px'}}><Badge variant="muted" style={{fontSize:8}}>{row.region}</Badge></td><td style={{padding:'6px 10px',color:TC.textSub,fontWeight:600,fontSize:11}}>{row.empresa}</td><td style={{padding:'6px 10px',fontWeight:800,color:TC.text}}>{row.patente}</td><td style={{padding:'6px 10px',color:TC.text,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td><td style={{padding:'6px 10px',textAlign:'right',fontWeight:700,color:'#f97316'}}>{row.ordenes}</td><td style={{padding:'6px 10px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:9,color:TC.textMuted}} title={row.isos&&row.isos.join(', ')}>{row.isos&&row.isos.length>0?row.isos.join(', '):'—'}</td><td style={{padding:'6px 10px'}}>{row.fotos.length>0?<span onClick={()=>setImgModal({open:true,images:row.fotos,index:0})} data-html2canvas-ignore style={{color:'#3b82f6',cursor:'pointer',fontWeight:700,fontSize:10,textDecoration:'underline'}}>Ver {row.fotos.length} foto{row.fotos.length>1?'s':''}</span>:<span style={{color:TC.textFaint,fontSize:10}}>—</span>}</td></tr>)}
-                {excepcionesData.length>50&&<tr><td colSpan={7} style={{padding:'8px 10px',textAlign:'center',fontSize:9,color:TC.textFaint}}>+{excepcionesData.length-50} registros más</td></tr>}
+                {excepcionesData.slice(0,50).map((row,i)=>{const excKey=row.region+'|'+row.patente+'|'+row.motivo;const isOvr=excOverrides.has(excKey);const effM2=isOvr?'Transporte':row.m2;const effM3=isOvr?'Transporte No Gestiona':row.m3;const toggleOvr=()=>setExcOverrides(prev=>{const n=new Set(prev);n.has(excKey)?n.delete(excKey):n.add(excKey);return n});return <tr key={i} style={{borderBottom:`1px solid ${TC.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 10px'}}><Badge variant="muted" style={{fontSize:8}}>{row.region}</Badge></td><td style={{padding:'6px 10px',color:TC.textSub,fontWeight:600,fontSize:11}}>{row.empresa}</td><td style={{padding:'6px 10px',fontWeight:800,color:TC.text}}>{row.patente}</td><td style={{padding:'6px 10px',color:TC.text,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td><td style={{padding:'6px 10px'}}><Badge variant={effM2==='Cliente'?'blue':'warning'} style={{fontSize:8}}>{effM2}</Badge></td><td style={{padding:'6px 10px',color:TC.textSub,fontSize:10,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={effM3}>{effM3}</td><td style={{padding:'6px 10px',textAlign:'right',fontWeight:700,color:'#f97316'}}>{row.ordenes}</td><td style={{padding:'6px 10px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:9,color:TC.textMuted}} title={row.isos&&row.isos.join(', ')}>{row.isos&&row.isos.length>0?row.isos.join(', '):'—'}</td><td style={{padding:'6px 10px'}}>{row.fotos.length>0?<span onClick={()=>setImgModal({open:true,images:row.fotos,index:0})} data-html2canvas-ignore style={{color:'#3b82f6',cursor:'pointer',fontWeight:700,fontSize:10,textDecoration:'underline'}}>Ver {row.fotos.length} foto{row.fotos.length>1?'s':''}</span>:<span style={{color:TC.textFaint,fontSize:10}}>—</span>}</td><td style={{padding:'6px 6px'}} data-html2canvas-ignore><button onClick={toggleOvr} title={isOvr?'Revertir categorización':'Forzar Transporte No Gestiona'} style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:4,border:`1px solid ${isOvr?'rgba(249,115,22,0.4)':'rgba(0,0,0,0.15)'}`,background:isOvr?'rgba(249,115,22,0.1)':'rgba(0,0,0,0.03)',color:isOvr?'#f97316':TC.textFaint,cursor:'pointer',whiteSpace:'nowrap'}}>{isOvr?'↩ Revertir':'⇄ Transporte'}</button></td></tr>})}
+                {excepcionesData.length>50&&<tr><td colSpan={10} style={{padding:'8px 10px',textAlign:'center',fontSize:9,color:TC.textFaint}}>+{excepcionesData.length-50} registros más</td></tr>}
               </tbody>
             </table>
           </div>}
@@ -875,6 +876,7 @@ function ReporteRutas(){
   const[isoImgModal,setIsoImgModal]=React.useState({open:false,images:[],index:0});
   const[isoTableSel,setIsoTableSel]=React.useState({start:null,end:null});
   const[isoTableDragging,setIsoTableDragging]=React.useState(false);
+  const[excOverrides,setExcOverrides]=React.useState(new Set());
 
   const handleMouseDown=(r,c)=>{setSelection({start:{r,c},end:{r,c}});setIsDragging(true)};
   const handleMouseEnter=(r,c)=>{if(isDragging)setSelection(p=>({...p,end:{r,c}}))};
@@ -934,6 +936,12 @@ function ReporteRutas(){
     if(isoSearchQ.trim()){const q=isoSearchQ.trim().toLowerCase();r=r.filter(x=>x.iso.toLowerCase().includes(q)||x.estado.toLowerCase().includes(q)||x.direccion.toLowerCase().includes(q))}
     return r;
   },[isoResults,isoStatusFilter,isoSearchQ]);
+
+  React.useEffect(()=>{
+    const up=()=>setIsoTableDragging(false);
+    window.addEventListener('mouseup',up);
+    return()=>window.removeEventListener('mouseup',up);
+  },[]);
 
   React.useEffect(()=>{
     if(activeTab!=='consultar')return;
@@ -1003,7 +1011,7 @@ function ReporteRutas(){
           seenEvents.add(eventKey);
 
           const estado=(getKey(row,'Estado')||'Sin Estado').trim();
-          const motivoInc=(getKey(row,'Motivo')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo No Entrega')||'').trim();
+          const motivoInc=(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
           const fecha=(getKey(row,'Fechaentregareal')||getKey(row,'Fecha')||getKey(row,'FechaEntrega')||'').trim();
           const comuna=(getKey(row,'Localidad')||getKey(row,'Comuna')||getKey(row,'CITY')||'').trim();
           const fotos=imgUrl.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));
@@ -1426,7 +1434,7 @@ function ReporteRutas(){
           )}
         </div>
         {/* Table */}
-        <div style={{flex:1,overflowY:'auto',overflowX:'auto',userSelect:'text'}}>
+        <div style={{flex:1,overflowY:'auto',overflowX:'auto',userSelect:'none'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:T.base,fontFamily:T.fontMono}}>
             <thead><tr>
               {['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Fotos','Motivo 1','Motivo 2','Motivo 3'].map((h,hi)=>
@@ -1444,7 +1452,7 @@ function ReporteRutas(){
                 const rowBg = !r.found?'rgba(239,68,68,0.04)':r._multipleStates?'rgba(239,68,68,0.1)':'transparent';
                 const cellSel=(ri,ci)=>ri>=srMin&&ri<=srMax&&ci>=scMin&&ci<=scMax;
                 const cellStyle=(ci,extra={})=>({padding:'8px 14px',borderBottom:`1px solid ${TC.border}`,borderRight:`1px solid ${TC.border}`,cursor:'cell',background:cellSel(i,ci)?'rgba(59,130,246,0.12)':'transparent',outline:cellSel(i,ci)?'1px solid rgba(59,130,246,0.35)':'none',...extra});
-                const onMD=ci=>()=>{setIsoTableSel({start:{r:i,c:ci},end:{r:i,c:ci}});setIsoTableDragging(true)};
+                const onMD=ci=>e=>{e.preventDefault();setIsoTableSel({start:{r:i,c:ci},end:{r:i,c:ci}});setIsoTableDragging(true)};
                 const onME=ci=>()=>{if(isoTableDragging)setIsoTableSel(p=>({...p,end:{r:i,c:ci}}))};
                 return <tr key={`${r.iso}-${i}`} style={{background:rowBg}}>
                   <td style={cellStyle(0,{fontWeight:700,color:r.found?'#eab308':'#ef4444'})} onMouseDown={onMD(0)} onMouseEnter={onME(0)}>
