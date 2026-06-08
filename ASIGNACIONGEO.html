@@ -280,7 +280,6 @@ select.input { cursor: pointer; }
           <input type="file" id="inp-file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFile(event)">
           <div id="base-stats-row" class="flex gap-sm mt-2 hidden">
             <div class="stat-chip"><span class="stat-chip-val" id="base-total">0</span><span class="stat-chip-lbl">Filas</span></div>
-            <div class="stat-chip stat-chip-green"><span class="stat-chip-val" id="base-ikea">0</span><span class="stat-chip-lbl">IKEA</span></div>
             <div class="stat-chip stat-chip-orange"><span class="stat-chip-val" id="base-conpat">0</span><span class="stat-chip-lbl">Con Patente</span></div>
           </div>
         </div>
@@ -515,10 +514,8 @@ function handleFile(e){
     const keys=Object.keys(data[0]||{});
     const colCom=findCol(keys,['commerce']);
     const colPat=findCol(keys,['patente','plate','matricula']);
-    const ikeaRows=colCom?data.filter(r=>(r[colCom]||'').toUpperCase().trim()==='IKEA'):data;
-    const conPat=colPat?ikeaRows.filter(r=>(r[colPat]||'').trim()!=='').length:0;
+    const conPat=colPat?data.filter(r=>(r[colPat]||'').trim()!=='').length:0;
     document.getElementById('base-total').textContent=data.length;
-    document.getElementById('base-ikea').textContent=ikeaRows.length;
     document.getElementById('base-conpat').textContent=conPat;
     document.getElementById('base-stats-row').classList.remove('hidden');
     document.getElementById('base-name').textContent=file.name;
@@ -616,9 +613,9 @@ async function iniciarAnalisis(){
 
   const baseRef={};
   baseData.filter(r=>{
-    const isIkea=!colCom||(r[colCom]||'').toUpperCase().trim()==='IKEA';
+    const startsWithIK=!colCom||(r[colCom]||'').toUpperCase().trim().startsWith('IK');
     const hasPat=colPat&&(r[colPat]||'').trim()!=='';
-    return isIkea&&hasPat;
+    return startsWithIK&&hasPat;
   }).forEach(row=>{
     const iso=(row[colIso||'']||'').trim();
     if(iso) baseRef[iso]={PATENTE:(row[colPat||'']||'').trim(), ESTADO:(row[colEst||'']||'').trim()};
