@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generar Resumen PM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#FAFAF9;--bgCard:#FFFFFF;--bgCardAlt:rgba(0,0,0,0.026);--bgHover:rgba(0,0,0,0.042);
+  --text:#18181B;--textSub:#52525B;--textFaint:#A1A1AA;
+  --border:rgba(0,0,0,0.09);--borderSoft:rgba(0,0,0,0.06);--borderFocus:#2563EB;
+  --blue:#2563EB;--blueHover:#1D4ED8;--accentBg:rgba(37,99,235,0.06);
+  --red:#DC2626;--green:#16A34A;--orange:#EA580C;--purple:#7C3AED;
+  --pasteBlue:#EFF6FF;--pasteRed:#FEF2F2;--pasteGreen:#F0FDF4;
+  --pasteOrange:#FFF7ED;--pastePurple:#F5F3FF;--pasteGray:#F4F4F5;
+  --font-base:'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;
+  --radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);--shadow-sm:0 1px 4px rgba(0,0,0,0.05);
+  --shadow-md:0 2px 8px rgba(0,0,0,0.06);--shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+  --t-fast:0.12s ease;--t-normal:0.20s ease;--t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+  --transition-fast:0.12s ease;--transition-normal:0.20s ease;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-base);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26);}
+.custom-scrollbar::-webkit-scrollbar{width:5px;height:5px;}
+.custom-scrollbar::-webkit-scrollbar-track{background:transparent;}
+.custom-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border-radius:var(--r-md);font-weight:500;font-size:11px;line-height:1;cursor:pointer;transition:background var(--t-fast),transform 0.10s;border:1px solid transparent;outline:none;white-space:nowrap;font-family:var(--font-base);user-select:none;}
+.btn:disabled{opacity:0.32;cursor:not-allowed;}
+.btn:hover:not(:disabled){transform:translateY(-1px);}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98);}
+.btn:focus-visible{outline:2px solid var(--borderFocus);outline-offset:2px;}
+.btn-primary{background:#18181B;color:#fff;border-color:rgba(0,0,0,0.06);}
+.btn-primary:hover:not(:disabled){background:#27272A;}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border);}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover);}
+.btn-danger{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.18);}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.12);}
+.btn-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.18);}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.12);}
+.btn-purple{background:var(--pastePurple);color:var(--purple);border-color:rgba(124,58,237,0.18);}
+.btn-purple:hover:not(:disabled){background:rgba(124,58,237,0.12);}
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);padding:0;display:flex;flex-direction:column;z-index:100;flex-shrink:0;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:36px;border-bottom:1px solid var(--borderSoft);}
+.logo-text{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--textFaint);text-transform:uppercase;}
+.tabs-container{display:flex;padding:0 6px;}
+.tabs-wrapper{display:flex;align-items:flex-end;gap:0;}
+.tab-btn{display:flex;align-items:center;gap:4px;padding:7px 13px;border-radius:var(--r-sm) var(--r-sm) 0 0;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--textFaint);font-size:11px;font-weight:500;cursor:pointer;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);margin-bottom:-1px;font-family:var(--font-base);}
+.tab-btn:hover{color:var(--textSub);background:var(--bgHover);}
+.tab-btn.active{color:var(--text);font-weight:600;border-bottom-color:var(--text);background:transparent;}
+.main-content{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+.tab-pane{display:none;width:100%;height:100%;overflow-y:auto;padding:20px;flex-direction:column;align-items:center;}
+.tab-pane.active{display:flex;}
+.inner-container{max-width:900px;width:100%;display:flex;flex-direction:column;gap:16px;}
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;width:100%;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;}
+.file-drop{border:1px dashed var(--border);border-radius:var(--r-lg);padding:20px;text-align:center;cursor:pointer;transition:background var(--t-normal),border-color var(--t-normal);display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--bgCardAlt);}
+.file-drop:hover{background:var(--accentBg);border-color:rgba(37,99,235,0.35);}
+.file-drop.loaded{border-style:solid;border-color:rgba(22,163,74,0.30);background:var(--pasteGreen);}
+.file-drop input[type="file"]{display:none;}
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:11px;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10);}
+.textarea{resize:vertical;min-height:70px;}
+.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--textFaint);margin-bottom:4px;}
+.toolbar{display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:8px;}
+.table-wrap{width:100%;overflow:auto;border:1px solid var(--border);border-radius:var(--r-lg);background:#ffffff;flex:1;min-height:250px;display:flex;justify-content:center;}
+.dash-table{border-collapse:collapse;table-layout:fixed;width:max-content;font-size:10px;color:#000000;font-family:var(--font-mono);}
+.dash-table th,.dash-table td{width:90px;min-width:90px;max-width:90px;overflow:hidden;text-overflow:ellipsis;word-wrap:break-word;white-space:normal;padding:4px;text-align:center;border:1px solid #E4E4E7;}
+.dash-table th{background:#F4F4F5;color:#52525B;font-weight:600;border-bottom:2px solid #D4D4D8;position:sticky;top:0;z-index:10;}
+.dash-table tbody tr:hover{background:#FAFAF9;}
+.dash-table td input{width:100%;height:100%;border:none;background:transparent;color:#000000;padding:2px;outline:none;font-size:10px;text-align:center;box-sizing:border-box;}
+.dash-table td input:focus{background:rgba(37,99,235,0.06);box-shadow:inset 0 0 0 1.5px var(--blue);}
+.logs-panel{background:#18181B;border:1px solid rgba(255,255,255,0.06);border-radius:var(--r-lg);padding:10px;font-family:var(--font-mono);font-size:10px;color:#A1A1AA;max-height:100px;overflow-y:auto;width:100%;margin-top:12px;line-height:1.7;}
+.log-line{padding:2px 0;display:flex;gap:8px;}
+.log-line.ok{color:#86EFAC;}
+.log-line.warn{color:#FDE68A;}
+.log-line.err{color:#FCA5A5;}
+.log-line.info{color:#A1A1AA;}
+.hidden{display:none !important;}
+#export-container{position:absolute;top:-9999px;left:-9999px;}
+.empty-state{padding:40px;text-align:center;color:var(--textFaint);font-size:12px;width:100%;}
+.badge-loaded{background:var(--pasteGreen);color:var(--green);padding:2px 8px;border-radius:var(--r-xs);font-size:10px;font-weight:700;font-family:var(--font-mono);margin-top:4px;border:1px solid rgba(22,163,74,0.18);}
+.filter-bar{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;padding:10px 14px;background:var(--bgCardAlt);border:1px solid var(--border);border-radius:var(--r-lg);align-items:center;}
+.filter-bar label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);font-size:11px;}
+</style>
+</head>
+<body>
+
+<button id="theme-toggle" onclick="(function(){var r=document.documentElement;var t=r.getAttribute('data-theme');var n=t==='light'?'dark':'light';r.setAttribute('data-theme',n);document.getElementById('theme-toggle').textContent=n==='light'?'Claro':'Oscuro';})()"
+  style="position:fixed;top:8px;right:14px;z-index:9999;background:var(--bgCard);border:1px solid var(--borderSoft);color:var(--textSub);border-radius:var(--r-sm);padding:3px 9px;cursor:pointer;font-size:10px;font-weight:600;font-family:var(--font-base);letter-spacing:.04em;">Oscuro</button>
+
+<header class="header">
+  <div class="header-top">
+    <div class="logo-text">GENERAR RESUMEN PM</div>
+  </div>
+  <div class="tabs-container">
+    <div class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="load">Cargar Archivos</button>
+      <button class="tab-btn" data-tab="params">Parámetros</button>
+      <button class="tab-btn" data-tab="resumen" id="tab-btn-resumen">Resumen</button>
+    </div>
+  </div>
+</header>
+
+<div class="main-content">
+  <div id="tab-load" class="tab-pane active">
+    <div class="inner-container">
+      <div class="grid-2">
+        <div class="card" id="card-simpli">
+          <div class="field-label" style="color:var(--blue);">INPUT SIMPLIROUTE</div>
+          <label class="file-drop" id="drop-simpli">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--textFaint)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            <span id="lbl-simpli" style="color:var(--textSub);">Subir archivo de SimpliRoute...</span>
+            <span id="badge-simpli" class="hidden badge-loaded">✓ CARGADO</span>
+            <input type="file" id="file-simpli" accept=".xlsx,.xls,.csv">
+          </label>
+        </div>
+        <div class="card" id="card-conv">
+          <div class="field-label" style="color:var(--green);">MATRIZ CONVERSIÓN</div>
+          <label class="file-drop" id="drop-conv">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--textFaint)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            <span id="lbl-conv" style="color:var(--textSub);">Subir documento de conversión...</span>
+            <span id="badge-conv" class="hidden badge-loaded">✓ CARGADO</span>
+            <input type="file" id="file-conv" accept=".xlsx,.xls">
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:8px;">
+        <button id="btn-process" class="btn btn-primary btn-lg" style="padding:10px 32px;">▶ Generar Resumen</button>
+      </div>
+      <div id="logs" class="logs-panel hidden"></div>
+    </div>
+  </div>
+
+  <div id="tab-params" class="tab-pane">
+    <div class="inner-container">
+      <div class="card">
+        <h3 style="font-size:13px;margin-bottom:12px;color:var(--text);">Criterios de Agrupación (Prefijos/Keywords)</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div class="field-label">Postventa</div>
+            <input type="text" id="p-pv" class="input" value="VPV, POSTVENTA" style="font-family:var(--font-mono);">
+          </div>
+          <div>
+            <div class="field-label">Proyectos</div>
+            <input type="text" id="p-proj" class="input" value="VPR, LESLIE, PROYECTO" style="font-family:var(--font-mono);">
+          </div>
+          <div>
+            <div class="field-label">Auxiliares</div>
+            <input type="text" id="p-aux" class="input" value="AUX" style="font-family:var(--font-mono);">
+          </div>
+          <hr style="border:0;border-top:1px solid var(--borderSoft);margin:4px 0;">
+          <div>
+            <div class="field-label">Comunas Extraurbanas</div>
+            <textarea id="p-comunas" class="input textarea custom-scrollbar" style="font-family:var(--font-mono);">ALHUE, BUIN, CALERA DE TANGO, COLINA, CURACAVI, EL MONTE, ISLA DE MAIPO, LAMPA, LO BARNECHEA, MARIA PINTO, MELIPILLA, PADRE HURTADO, PAINE, PENAFLOR, PIRQUE, SAN JOSE DE MAIPO, SAN PEDRO, TALAGANTE, TILTIL</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-resumen" class="tab-pane">
+    <div class="inner-container" style="max-width:100%;height:100%;">
+      
+      <div id="filter-bar" class="filter-bar hidden">
+        <span style="font-weight:700;font-size:11px;color:var(--textSub);text-transform:uppercase;">Mostrar:</span>
+        <label><input type="checkbox" id="f-reg" checked style="accent-color:var(--blue);" onchange="renderUI()"> Regulares</label>
+        <label><input type="checkbox" id="f-aux" checked style="accent-color:var(--blue);" onchange="renderUI()"> Auxiliares (AUX)</label>
+        <label><input type="checkbox" id="f-proj" checked style="accent-color:var(--blue);" onchange="renderUI()"> Proyectos (VPR)</label>
+        <label><input type="checkbox" id="f-pv" checked style="accent-color:var(--blue);" onchange="renderUI()"> Postventa (VPV)</label>
+      </div>
+
+      <div id="mini-table-wrap" class="table-wrap hidden" style="margin-bottom:16px; min-height:auto; display:flex; flex-direction:column; align-items:flex-start;">
+        <div class="toolbar" style="padding:8px 12px; margin-bottom:0; border-bottom:1px solid #e2e8f0; background:#f8fafc; width:100%;">
+          <h3 style="font-size:13px;font-weight:700;color:#334155;">Resumen Global (Basado en filtros)</h3>
+          <button id="btn-copy-mini" class="btn btn-primary" style="font-size:10px; padding:4px 10px;">Copiar Tabla</button>
+        </div>
+        <div style="padding:16px; width:100%; display:flex; justify-content:center;">
+          <table class="dash-table" id="mini-table">
+            <thead>
+              <tr><th>Vehículos</th><th>Promedio de ISO</th><th>Suma de ISO</th></tr>
+            </thead>
+            <tbody id="mini-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="toolbar" id="main-toolbar" style="display:none;">
+        <div>
+          <h3 style="font-size:14px;font-weight:700;" id="title-resumen">Tabla de Resultados Detallada</h3>
+          <span id="txt-count" style="font-size:10px;color:var(--textSub);font-family:var(--font-mono);">0 Vehículos Visibles</span>
+        </div>
+        <button id="btn-copy" class="btn btn-secondary">Copiar Tabla</button>
+      </div>
+      
+      <div class="table-wrap custom-scrollbar" id="main-table-wrap" style="display:flex; flex-direction:column; align-items:center;">
+        <div id="empty-view" class="empty-state">No se han procesado datos todavía. Carga los inputs en la primera pestaña.</div>
+        <div style="padding:16px; width:100%; display:flex; justify-content:center; overflow:auto;">
+          <table class="dash-table hidden" id="main-table">
+            <thead id="thead-vis"></thead>
+            <tbody id="tbody-vis"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="export-container">
+  <div id="outlook-mini-wrap"></div>
+  <div id="outlook-main-wrap"></div>
+</div>
+
+<script>
+let dataSimpli = null;
+let dataConv = null;
+let resumenRows = [];    
+let filteredRows = [];   
+
+const COLS = ["ANDEN", "LADO", "Vehículo", "Distancia", "Tiempo en Ruta", "ISO", "Q COMUNAS", "M3", "Horario Salida", "Zona", "Tipo Vehiculo", "Tipo Ticket"];
+
+// Estilos estrictos en línea para forzar celdas de tamaño idéntico en Outlook (90px)
+const expTh = "width:90px; min-width:90px; max-width:90px; padding:4px; border:1px solid #000000; text-align:center; vertical-align:middle; font-weight:bold; font-size:10pt; font-family:'Aptos','Calibri',sans-serif; color:#000000; background-color:#cbd5e1; word-wrap:break-word;";
+const expTd = "width:90px; min-width:90px; max-width:90px; padding:4px; border:1px solid #000000; text-align:center; vertical-align:middle; font-weight:normal; font-size:10pt; font-family:'Aptos','Calibri',sans-serif; color:#000000; word-wrap:break-word;";
+
+document.addEventListener("DOMContentLoaded", () => {
+  setupTabs();
+  setupFiles();
+  document.getElementById("btn-process").addEventListener("click", procesarLogica);
+  document.getElementById("btn-copy").addEventListener("click", () => copyToClipboard("outlook-main-wrap"));
+  document.getElementById("btn-copy-mini").addEventListener("click", () => copyToClipboard("outlook-mini-wrap"));
+});
+
+function setupTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById("tab-" + btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+function addLog(msg, type="info") {
+  const container = document.getElementById("logs");
+  container.classList.remove("hidden");
+  const d = new Date();
+  const timeStr = d.toTimeString().split(' ')[0];
+  const div = document.createElement("div");
+  div.className = `log-line ${type}`;
+  div.innerHTML = `<span class="log-time" style="opacity:0.4;">[${timeStr}]</span> <span>${msg}</span>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function setupFiles() {
+  const bindDrop = (fileId, dropId, lblId, badgeId, isSimpli) => {
+    const input = document.getElementById(fileId);
+    const drop = document.getElementById(dropId);
+    const lbl = document.getElementById(lblId);
+    const badge = document.getElementById(badgeId);
+    
+    input.addEventListener("change", (e) => {
+      if(e.target.files.length) {
+        const file = e.target.files[0];
+        lbl.textContent = file.name;
+        drop.classList.add("loaded");
+        badge.classList.remove("hidden");
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const arr = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(arr, {type:"array"});
+            if(isSimpli) {
+              dataSimpli = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:""});
+              addLog(`SimpliRoute leído: ${dataSimpli.length} registros`, "ok");
+            } else {
+              const sheetName = wb.SheetNames.find(n => n.toLowerCase().trim() === 'plan') || wb.SheetNames[0];
+              dataConv = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:""});
+              addLog(`Matriz de conversión leída (${sheetName}): ${dataConv.length} registros`, "ok");
+            }
+          } catch(err) { addLog("Error parseando archivo Excel", "err"); }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+  };
+  bindDrop("file-simpli", "drop-simpli", "lbl-simpli", "badge-simpli", true);
+  bindDrop("file-conv", "drop-conv", "lbl-conv", "badge-conv", false);
+}
+
+function cleanStr(s) { return s ? String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim() : ''; }
+function parseNum(v) { return typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')) || 0; }
+function findColName(row, variants) {
+  const keys = Object.keys(row);
+  return keys.find(k => variants.some(v => k.toLowerCase() === v.toLowerCase())) || 
+         keys.find(k => variants.some(v => k.toLowerCase().includes(v.toLowerCase()))) || keys[0];
+}
+function toSecs(t) {
+  if(!t) return null;
+  const parts = t.split(':');
+  if(parts.length >= 2) return (parseInt(parts[0])||0)*3600 + (parseInt(parts[1])||0)*60 + (parseInt(parts[2])||0);
+  return null;
+}
+function fmtSecs(s) {
+  if (s < 0 || isNaN(s)) s = 0;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function getGroupType(vName, pvKeys, projKeys, auxKeys) {
+  const u = String(vName).toUpperCase();
+  if (pvKeys.some(k => u.includes(k))) return 'PV';
+  if (projKeys.some(k => u.includes(k))) return 'PROJ';
+  if (auxKeys.some(k => u.includes(k))) return 'AUX';
+  return 'REGULAR';
+}
+
+function procesarLogica() {
+  if(!dataSimpli || !dataConv) return addLog("Falta cargar uno o ambos archivos inputs", "warn");
+  addLog("Procesando consolidación...", "info");
+
+  const pvKeys = document.getElementById("p-pv").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
+  const projKeys = document.getElementById("p-proj").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
+  const auxKeys = document.getElementById("p-aux").value.split(",").map(k => k.trim().toUpperCase()).filter(Boolean);
+  const extraurbanSet = new Set(document.getElementById("p-comunas").value.split(",").map(c => cleanStr(c)).filter(Boolean));
+
+  const convMap = {};
+  const cVini = findColName(dataConv[0], ['v inicial', 'v_inicial', 'veh inicial', 'veh_inicial']);
+  const cVfin = findColName(dataConv[0], ['v final', 'v_final', 'veh final', 'veh_final']);
+  dataConv.forEach(r => { if(r[cVini]) convMap[String(r[cVini]).trim().toUpperCase()] = String(r[cVfin]).trim().toUpperCase(); });
+
+  const sC = {
+    veh: findColName(dataSimpli[0], ['vehículo', 'vehiculo', 'vehicle', 'ruta']),
+    tit: findColName(dataSimpli[0], ['título', 'titulo', 'title', 'iso']),
+    dist: findColName(dataSimpli[0], ['distancia', 'distance']),
+    cap2: findColName(dataSimpli[0], ['capacidad espacio 2', 'capacidad 2', 'capacity 2']),
+    eta: findColName(dataSimpli[0], ['tiempo estimado de llegada', 'eta']),
+    dir: findColName(dataSimpli[0], ['dirección', 'direccion', 'address'])
+  };
+
+  const groups = {};
+  dataSimpli.forEach(row => {
+    const vName = String(row[sC.veh] || '').trim().toUpperCase();
+    if(vName) { if(!groups[vName]) groups[vName] = []; groups[vName].push(row); }
+  });
+
+  const processedList = [];
+  const formatCL = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
+
+  for(const rawVeh in groups) {
+    const rows = groups[rawVeh];
+    let finalVeh = convMap[rawVeh] || rawVeh;
+
+    if (finalVeh === 'VEH98') finalVeh = 'Proyectos Leslie';
+    if (finalVeh === 'VEH99') finalVeh = 'VEH01 Postventa';
+
+    let minS = Infinity, maxS = -Infinity;
+    let isosCount = 0, totalDist = 0, totalM3 = 0;
+    const comunas = new Set();
+
+    rows.forEach(r => {
+      const t = String(r[sC.tit]).trim().toUpperCase();
+      totalDist += parseNum(r[sC.dist]);
+
+      if(t !== 'INICIO' && t !== 'FIN') {
+        isosCount++;
+        totalM3 += parseNum(r[sC.cap2]);
+        const dStr = String(r[sC.dir] || '').trim();
+        if(dStr) {
+          const parts = dStr.split(',');
+          const comunaNode = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+          if(comunaNode) comunas.add(cleanStr(comunaNode));
+        }
+      }
+
+      const rawTime = String(r[sC.eta] || '');
+      const cleanTime = rawTime.includes('T') ? rawTime.split('T')[1] : (rawTime.includes(' ') ? rawTime.split(' ')[1] : rawTime);
+      const secs = toSecs(cleanTime);
+      if(secs !== null) {
+        if(t === 'INICIO' && secs < minS) minS = secs;
+        if(t === 'FIN' && secs > maxS) maxS = secs;
+        if(t !== 'INICIO' && t !== 'FIN') {
+          if(secs < minS) minS = secs;
+          if(secs > maxS) maxS = secs;
+        }
+      }
+    });
+
+    const routeDuration = (minS !== Infinity && maxS !== -Infinity) ? maxS - minS : 0;
+    let isExtraurban = false;
+    comunas.forEach(c => { if(extraurbanSet.has(c)) isExtraurban = true; });
+
+    const item = {};
+    COLS.forEach(c => item[c] = "");
+    
+    item._id = Math.random().toString(36).substr(2, 9);
+    item._group = getGroupType(finalVeh, pvKeys, projKeys, auxKeys);
+
+    item["Vehículo"] = finalVeh;
+    item["Distancia"] = formatCL.format(totalDist);
+    item["Tiempo en Ruta"] = fmtSecs(routeDuration);
+    item["ISO"] = isosCount;
+    item["Q COMUNAS"] = comunas.size;
+    item["M3"] = formatCL.format(totalM3);
+    item["Zona"] = isExtraurban ? 'Extraurbano' : 'Urbano';
+    item["Tipo Ticket"] = finalVeh.toUpperCase().includes('MINI') ? 'MiniTicket' : 'Ticket Regular';
+
+    processedList.push(item);
+  }
+
+  resumenRows = processedList;
+  addLog(`Proceso terminado. ${resumenRows.length} rutas consolidadas.`, "ok");
+  renderUI();
+  document.getElementById("tab-btn-resumen").click();
+}
+
+window.renderUI = function() {
+  const empty = document.getElementById("empty-view");
+  const table = document.getElementById("main-table");
+  const filterBar = document.getElementById("filter-bar");
+  const miniTableWrap = document.getElementById("mini-table-wrap");
+  const mainToolbar = document.getElementById("main-toolbar");
+  const count = document.getElementById("txt-count");
+
+  if(!resumenRows.length) {
+    empty.classList.remove("hidden");
+    table.classList.add("hidden");
+    filterBar.classList.add("hidden");
+    miniTableWrap.classList.add("hidden");
+    mainToolbar.style.display = "none";
+    return;
+  }
+
+  const showReg = document.getElementById("f-reg").checked;
+  const showAux = document.getElementById("f-aux").checked;
+  const showProj = document.getElementById("f-proj").checked;
+  const showPv = document.getElementById("f-pv").checked;
+
+  filteredRows = resumenRows.filter(r => {
+    if(r._group === 'REGULAR' && showReg) return true;
+    if(r._group === 'AUX' && showAux) return true;
+    if(r._group === 'PROJ' && showProj) return true;
+    if(r._group === 'PV' && showPv) return true;
+    return false;
+  });
+
+  const gw = { 'PV':4, 'PROJ':3, 'AUX':2, 'REGULAR':1 };
+  filteredRows.sort((a,b) => {
+    if(gw[a._group] !== gw[b._group]) return gw[a._group] - gw[b._group];
+    return String(a["Vehículo"]).localeCompare(String(b["Vehículo"]));
+  });
+
+  empty.classList.add("hidden");
+  filterBar.classList.remove("hidden");
+  miniTableWrap.classList.remove("hidden");
+  table.classList.remove("hidden");
+  mainToolbar.style.display = "flex";
+  count.textContent = `${filteredRows.length} Vehículos Visibles`;
+
+  renderMiniTable();
+  renderMainTable();
+  syncOutlookTable();
+}
+
+function renderMiniTable() {
+  const totalVehiculos = filteredRows.length;
+  const sumaISO = filteredRows.reduce((acc, curr) => acc + (parseInt(curr["ISO"]) || 0), 0);
+  const promedioISO = totalVehiculos > 0 ? (sumaISO / totalVehiculos).toFixed(1) : 0;
+  
+  // UI Display
+  document.getElementById("mini-tbody").innerHTML = `<tr>
+    <td>${totalVehiculos}</td>
+    <td>${promedioISO}</td>
+    <td>${sumaISO}</td>
+  </tr>`;
+  
+  // Outlook Export Table (Stricly uniform sizes: 3x90 = 270px width table)
+  document.getElementById("outlook-mini-wrap").innerHTML = `
+  <table border="1" style="border-collapse:collapse; table-layout:fixed; width:270px;">
+    <thead>
+      <tr>
+        <th style="${expTh}">Vehículos</th>
+        <th style="${expTh}">Promedio de ISO</th>
+        <th style="${expTh}">Suma de ISO</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="${expTd}">${totalVehiculos}</td>
+        <td style="${expTd}">${promedioISO}</td>
+        <td style="${expTd}">${sumaISO}</td>
+      </tr>
+    </tbody>
+  </table>`;
+}
+
+function renderMainTable() {
+  const thVis = document.getElementById("thead-vis");
+  const tbVis = document.getElementById("tbody-vis");
+  thVis.innerHTML = `<tr>${COLS.map(c => `<th>${c}</th>`).join('')}</tr>`;
+  
+  let visBody = "";
+  filteredRows.forEach((row) => {
+    visBody += `<tr>`;
+    COLS.forEach(c => {
+      visBody += `<td><input type="text" value="${row[c]||''}" oninput="mutateCell('${row._id}', '${c}', this.value)"></td>`;
+    });
+    visBody += `</tr>`;
+  });
+  tbVis.innerHTML = visBody;
+}
+
+window.mutateCell = function(id, colName, value) {
+  const row = resumenRows.find(r => r._id === id);
+  if(row) {
+    row[colName] = value;
+    if(colName === "ISO") {
+      const fRow = filteredRows.find(r => r._id === id);
+      if(fRow) fRow[colName] = value;
+      renderMiniTable();
+    }
+    syncOutlookTable();
+  }
+}
+
+function syncOutlookTable() {
+  const tableWidth = COLS.length * 90;
+  let html = `<table border="1" style="border-collapse:collapse; table-layout:fixed; width:${tableWidth}px;"><thead><tr>`;
+  COLS.forEach(c => html += `<th style="${expTh}">${c}</th>`);
+  html += `</tr></thead><tbody>`;
+  
+  filteredRows.forEach((row, idx) => {
+    const bg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
+    html += `<tr style="background-color:${bg};">`;
+    COLS.forEach(c => {
+      html += `<td style="${expTd}">${row[c]||''}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById("outlook-main-wrap").innerHTML = html;
+}
+
+function copyToClipboard(wrapId) {
+  const el = document.getElementById(wrapId);
+  if(!el) return;
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  try {
+    document.execCommand("copy");
+    addLog("Tabla copiada correctamente", "ok");
+  } catch (e) {
+    addLog("Error al copiar tabla", "err");
+  }
+  selection.removeAllRanges();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruteo 24H Engine</title>
+  <!-- Dependencies -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFAF9; --bgCard: #FFFFFF; --bgCardAlt: rgba(0,0,0,0.026); --bgHover: rgba(0,0,0,0.042);
+      --text: #18181B; --textSub: #52525B; --textFaint: #A1A1AA;
+      --border: rgba(0,0,0,0.09); --borderSoft: rgba(0,0,0,0.06); --borderFocus: #2563EB;
+      --blue: #2563EB; --blueHover: #1D4ED8; --accentBg: rgba(37,99,235,0.06);
+      --red: #DC2626; --green: #16A34A; --orange: #EA580C; --purple: #7C3AED;
+      --pasteBlue: #EFF6FF; --pasteRed: #FEF2F2; --pasteGreen: #F0FDF4;
+      --pasteOrange: #FFF7ED; --pasteGray: #F4F4F5;
+      --font-base: 'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+      --font-mono: 'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+      --r-xs: 2px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 10px;
+      --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 10px;
+      --shadow-xs: 0 1px 2px rgba(0,0,0,0.04); --shadow-sm: 0 1px 4px rgba(0,0,0,0.05);
+      --shadow-md: 0 2px 8px rgba(0,0,0,0.06); --shadow-lg: 0 8px 24px rgba(0,0,0,0.07);
+      --t-fast: 0.12s ease; --t-normal: 0.20s ease; --t-slow: 0.28s cubic-bezier(0.16,1,0.3,1);
+      --transition-fast: 0.12s ease; --transition-normal: 0.20s ease;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-base);
+      background: var(--bg); color: var(--text);
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 12px;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.26); }
+    .header {
+      background: var(--bgCard); border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-xs); padding: 0 16px;
+      height: 44px; display: flex; align-items: center; justify-content: space-between;
+      z-index: 100; flex-shrink: 0; position: sticky; top: 0;
+    }
+    .logo-container { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 26px; height: 26px; background: var(--text); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; color: #fff; }
+    .logo-text { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+    /* Tabs — flat underline matching suite design system */
+    .tabs-wrapper {
+      display: flex; align-items: flex-end; padding: 0 4px;
+    }
+    .tab-btn {
+      display: flex; align-items: center; gap: 5px; padding: 7px 13px;
+      border: none; border-bottom: 2px solid transparent;
+      border-radius: var(--r-sm) var(--r-sm) 0 0;
+      background: transparent; color: var(--textFaint);
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+      font-family: var(--font-base); white-space: nowrap; margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--textSub); background: var(--bgHover); }
+    .tab-btn.active { color: var(--text); font-weight: 600; border-bottom-color: var(--text); background: transparent; }
+    .tab-badge { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; background: var(--pasteGray); color: var(--textSub); border: 1px solid var(--border); margin-left: 3px; font-family: var(--font-mono); }
+    .main-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .content-container { width: 100%; max-width: 1000px; }
+    .tab-pane { display: none; width: 100%; animation: fadeIn 0.18s ease-out; }
+    .tab-pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .card { background: var(--bgCard); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px; margin-bottom: 16px; position: relative; overflow: hidden; }
+    .card-title { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--textFaint); letter-spacing: 0.09em; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 5px 12px; border-radius: var(--r-md); font-weight: 500; font-size: 11px; line-height: 1;
+      cursor: pointer; transition: background var(--t-fast), transform 0.10s;
+      border: 1px solid transparent; outline: none; width: 100%; font-family: var(--font-base);
+      user-select: none;
+    }
+    .btn:disabled { opacity: 0.32; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+    .btn:focus-visible { outline: 2px solid var(--borderFocus); outline-offset: 2px; }
+    .btn-primary { background: #18181B; color: #fff; border-color: rgba(0,0,0,0.06); }
+    .btn-primary:hover:not(:disabled) { background: #27272A; }
+    .btn-secondary { background: var(--bgCardAlt); color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--bgHover); }
+    .btn-danger { background: var(--pasteRed); color: var(--red); border-color: rgba(220,38,38,0.18); }
+    .btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.12); }
+    .btn-green { background: var(--pasteGreen); color: var(--green); border-color: rgba(22,163,74,0.18); }
+    .btn-green:hover:not(:disabled) { background: rgba(22,163,74,0.12); }
+    .drop-zone {
+      border: 1px dashed var(--border); border-radius: var(--r-lg); padding: 26px 16px;
+      text-align: center; cursor: pointer; transition: background var(--t-normal), border-color var(--t-normal);
+      display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bgCardAlt);
+    }
+    .drop-zone:hover { background: var(--accentBg); border-color: rgba(37,99,235,0.35); }
+    .drop-zone i { color: var(--textFaint); }
+    .drop-zone .file-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .drop-zone .file-meta { font-size: 11px; color: var(--textFaint); }
+    .input-group { margin-bottom: 12px; }
+    .input-label { font-size: 10px; font-weight: 600; color: var(--textFaint); margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .05em; }
+    .file-input-compact {
+      display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+      background: var(--bgCardAlt); border: 1px solid var(--border); border-radius: var(--r-md);
+      cursor: pointer; transition: border-color var(--t-fast), background var(--t-fast);
+    }
+    .file-input-compact:hover { border-color: var(--borderFocus); background: var(--accentBg); }
+    .console {
+      background: #18181B; border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-lg);
+      font-family: var(--font-mono); font-size: 11px; color: #A1A1AA;
+      height: 420px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 4px; line-height: 1.7;
+    }
+    .log-entry { display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 3px; }
+    .log-ts { color: #52525B; font-size: 10px; flex-shrink: 0; padding-top: 2px; }
+    .log-msg-info { color: #A1A1AA; }
+    .log-msg-ok { color: #86EFAC; font-weight: 600; }
+    .log-msg-err { color: #FCA5A5; }
+    .log-msg-warn { color: #FDE68A; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: var(--bgCard); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px; }
+    .stat-val { font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
+    .stat-lbl { font-size: 10px; text-transform: uppercase; color: var(--textFaint); margin-top: 4px; font-weight: 600; letter-spacing: 0.07em; }
+    input[type="file"] { display: none; }
+    .hidden { display: none !important; }
+    .flex { display: flex; } .flex-col { flex-direction: column; } .gap-3 { gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .header { flex-direction: column; gap: 8px; height: auto; padding: 10px; } }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i data-lucide="clock"></i>
+      </div>
+      <div class="logo-text">RUTEO 24H ENGINE</div>
+    </div>
+
+    <nav class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="prep">
+        <i data-lucide="wrench" style="width:16px;"></i> Preparación
+      </button>
+      <button class="tab-btn" data-tab="activity">
+        <i data-lucide="activity" style="width:16px;"></i> Actividad
+      </button>
+      <button class="tab-btn" data-tab="exports">
+        <i data-lucide="rocket" style="width:16px;"></i> Exportación
+        <span id="badge-exports" class="tab-badge hidden">0</span>
+      </button>
+    </nav>
+
+    <div style="width: 140px; display: flex; justify-content: flex-end;">
+      <i data-lucide="zap" style="color: var(--orange); width: 18px;"></i>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="content-container">
+
+      <!-- Tab: PREP -->
+      <div id="tab-prep" class="tab-pane active">
+        <div class="grid-2">
+          <!-- Section 1: Pre-Routing -->
+          <div class="flex flex-col">
+            <h2 class="card-title"><i data-lucide="clipboard-list" style="width:14px;"></i> 1. Pre-Routing (SCI)</h2>
+            <div class="card">
+              <label class="drop-zone" id="drop-sci">
+                <i data-lucide="upload-cloud" style="width: 32px; height: 32px;"></i>
+                <div class="file-name" id="name-sci">Seleccionar archivo SCI...</div>
+                <div class="file-meta">Formatos soportados: .xlsx, .xls</div>
+                <input type="file" id="input-sci" accept=".xlsx,.xls">
+              </label>
+
+              <div id="prep-actions" class="hidden" style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 12px; text-align: center; margin-bottom: 8px;">
+                  <span id="sci-row-count" style="color: var(--green); font-weight: 800; font-family: var(--font-mono);">0</span>
+                  <span style="font-size: 11px; color: var(--textSub);"> filas preparadas correctamente</span>
+                </div>
+                <button class="btn btn-secondary" onclick="exportPre('proyectos')"><i data-lucide="download" style="width:16px;"></i> Descargar Proyectos</button>
+                <button class="btn btn-secondary" onclick="exportPre('post_sales')"><i data-lucide="download" style="width:16px;"></i> Descargar Post Sales</button>
+                <button class="btn btn-secondary" onclick="exportPre('mini')"><i data-lucide="download" style="width:16px;"></i> Descargar Mini Ticket</button>
+                <button class="btn btn-secondary" onclick="exportPre('regular')"><i data-lucide="download" style="width:16px;"></i> Descargar Ticket Regular</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Post-Routing -->
+          <div class="flex flex-col">
+            <h2 class="card-title"><i data-lucide="refresh-cw" style="width:14px;"></i> 2. Post-Routing (Cruce)</h2>
+            <div class="card">
+              <div class="input-group">
+                <label class="input-label">1. Ruteo Simpliroute (ISOs) <span style="color:var(--red)">*</span></label>
+                <label class="file-input-compact">
+                  <i data-lucide="file-spreadsheet" style="width:16px; color:var(--textFaint)"></i>
+                  <span id="name-isos" style="font-size:12px; color:var(--textFaint); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subir ISOs...</span>
+                  <input type="file" id="input-isos" accept=".xlsx,.xls,.csv">
+                </label>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">2. Plan Simpliroute <span style="color:var(--red)">*</span></label>
+                <label class="file-input-compact">
+                  <i data-lucide="file-spreadsheet" style="width:16px; color:var(--textFaint)"></i>
+                  <span id="name-plan" style="font-size:12px; color:var(--textFaint); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subir Plan...</span>
+                  <input type="file" id="input-plan" accept=".xlsx,.xls,.csv">
+                </label>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">3. Conversión Vehículos <span style="color:var(--red)">*</span></label>
+                <label class="file-input-compact">
+                  <i data-lucide="file-spreadsheet" style="width:16px; color:var(--textFaint)"></i>
+                  <span id="name-conv" style="font-size:12px; color:var(--textFaint); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Subir Conversión...</span>
+                  <input type="file" id="input-conv" accept=".xlsx,.xls,.csv">
+                </label>
+              </div>
+
+              <button id="btn-process" class="btn btn-primary" style="margin-top: 12px;" disabled onclick="processPost()">
+                <i data-lucide="play" style="width:16px;"></i> PROCESAR POST RUTEO
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: ACTIVITY -->
+      <div id="tab-activity" class="tab-pane">
+        <div id="stats-area" class="hidden">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-val" id="stat-total">0</div>
+              <div class="stat-lbl">ISOs Total</div>
+            </div>
+            <div class="stat-card" style="border-color: rgba(16, 185, 129, 0.3);">
+              <div class="stat-val" id="stat-match" style="color:var(--green)">0</div>
+              <div class="stat-lbl">Con Match</div>
+            </div>
+            <div class="stat-card" style="border-color: rgba(56, 189, 248, 0.3);">
+              <div class="stat-val" id="stat-ps" style="color:var(--blue)">0</div>
+              <div class="stat-lbl">Post Sales</div>
+            </div>
+            <div class="stat-card" style="border-color: rgba(139, 92, 246, 0.3);">
+              <div class="stat-val" id="stat-rest" style="color:var(--purple)">0</div>
+              <div class="stat-lbl">Resto</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="console custom-scrollbar" id="console">
+          <div class="log-entry">
+            <span class="log-ts">[SISTEMA]</span>
+            <span class="log-msg-info">Esperando archivos para iniciar el procesamiento...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: EXPORTS -->
+      <div id="tab-exports" class="tab-pane">
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="card-title"><i data-lucide="download" style="width:14px;"></i> Descargas Pre-Ruteo</h3>
+            <div class="flex flex-col gap-3">
+              <button class="btn btn-secondary" onclick="exportPre('proyectos')" id="btn-dl-pre-1" disabled><i data-lucide="file-spreadsheet" style="width:16px;"></i> Proyectos</button>
+              <button class="btn btn-secondary" onclick="exportPre('post_sales')" id="btn-dl-pre-2" disabled><i data-lucide="file-spreadsheet" style="width:16px;"></i> Post Sales</button>
+              <button class="btn btn-secondary" onclick="exportPre('mini')" id="btn-dl-pre-3" disabled><i data-lucide="file-spreadsheet" style="width:16px;"></i> Mini Ticket</button>
+              <button class="btn btn-secondary" onclick="exportPre('regular')" id="btn-dl-pre-4" disabled><i data-lucide="file-spreadsheet" style="width:16px;"></i> Ticket Regular</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="color: var(--orange)"><i data-lucide="target" style="width:14px;"></i> Descargas Post-Ruteo</h3>
+            <div class="flex flex-col gap-3">
+              <button class="btn btn-primary" onclick="exportPost('preola')" id="btn-dl-post-1" disabled style="background: var(--orange); border-color: var(--orange); color: #000;">
+                <i data-lucide="truck" style="width:16px;"></i> Preola Completa
+              </button>
+              <button class="btn btn-secondary" onclick="exportPost('post_sales')" id="btn-dl-post-2" disabled>
+                <i data-lucide="package" style="width:16px;"></i> Solo Post Sales
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // --- Configuration & Constants ---
+    const MINI_COMUNAS = new Set(["ÑUÑOA", "NUNOA", "LAS CONDES", "VITACURA", "PROVIDENCIA", "SANTIAGO"]);
+    const PS_VEHS = new Set(['VPV01', 'VPV02', 'VPV03', 'VPV04', 'VPV05']);
+
+    // --- State ---
+    let state = {
+      dataF1: null,
+      f1Name: '',
+      filesPost: { isos: null, plan: null, conv: null },
+      postResult: null,
+      processing: false
+    };
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      setupTabs();
+      setupFileInputs();
+    });
+
+    // --- UI Helpers ---
+    function setupTabs() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.dataset.tab;
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('tab-' + tabId).classList.add('active');
+        });
+      });
+    }
+
+    function addLog(msg, type = 'info') {
+      const consoleEl = document.getElementById('console');
+      if(!consoleEl) return;
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      const ts = new Date().toLocaleTimeString('es-CL', { hour12: false });
+      entry.innerHTML = `
+        <span class="log-ts">[${ts}]</span>
+        <span class="log-msg-${type}">${msg}</span>
+      `;
+      consoleEl.appendChild(entry);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function updateBadges() {
+      const badge = document.getElementById('badge-exports');
+      const count = state.postResult?.matched || 0;
+      badge.textContent = count;
+      badge.classList.toggle('hidden', count === 0);
+    }
+
+    // --- Utils ---
+    function removeAccents(str) {
+      return str ? String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim() : "";
+    }
+
+    function esComunaMini(c) {
+      const clean = removeAccents(c);
+      return MINI_COMUNAS.has(clean) || MINI_COMUNAS.has((c || '').toUpperCase().trim());
+    }
+
+    function getFechaMañana() {
+      const f = new Date(); f.setDate(f.getDate() + 1);
+      return `${String(f.getDate()).padStart(2, '0')}-${String(f.getMonth() + 1).padStart(2, '0')}-${f.getFullYear()}`;
+    }
+
+    function getFechaHoy() {
+      const f = new Date();
+      return `${String(f.getDate()).padStart(2, '0')}-${String(f.getMonth() + 1).padStart(2, '0')}-${f.getFullYear()}`;
+    }
+
+    function readFile(file, sheetName) {
+      return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const data = e.target.result;
+            const wb = XLSX.read(data, { type: 'binary' });
+            let ws = wb.Sheets[wb.SheetNames[0]];
+            if (sheetName && wb.Sheets[sheetName]) {
+              ws = wb.Sheets[sheetName];
+            }
+            res(XLSX.utils.sheet_to_json(ws, { defval: '' }));
+          } catch (err) { rej(err); }
+        };
+        reader.onerror = rej;
+        reader.readAsBinaryString(file);
+      });
+    }
+
+    function exportXlsx(data, nombre, skipHeader = false) {
+      const ws = XLSX.utils.json_to_sheet(data, { skipHeader });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      XLSX.writeFile(wb, nombre);
+    }
+
+    function findCol(row, opts) {
+      const keys = Object.keys(row);
+      return keys.find(k => opts.some(o => k.toLowerCase().trim() === o.toLowerCase().trim()))
+        || keys.find(k => opts.some(o => k.toLowerCase().includes(o.toLowerCase())));
+    }
+
+    // --- Core Logic ---
+    function setupFileInputs() {
+      // SCI Input
+      const inputSci = document.getElementById('input-sci');
+      if(inputSci) {
+        inputSci.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          try {
+            addLog(`Leyendo archivo SCI: ${file.name}...`, 'info');
+            const data = await readFile(file);
+            state.dataF1 = data;
+            state.f1Name = file.name;
+            document.getElementById('name-sci').textContent = file.name;
+            document.getElementById('sci-row-count').textContent = data.length;
+            document.getElementById('prep-actions').classList.remove('hidden');
+            
+            // Enable pre-ruteo buttons
+            for(let i=1; i<=4; i++) {
+              const btn = document.getElementById('btn-dl-pre-'+i);
+              if(btn) btn.disabled = false;
+            }
+
+            addLog(`SCI cargado: ${data.length} filas.`, 'ok');
+          } catch (err) {
+            addLog(`Error SCI: ${err.message}`, 'err');
+          }
+        });
+      }
+
+      // Post-Routing Inputs
+      ['isos', 'plan', 'conv'].forEach(id => {
+        const input = document.getElementById('input-'+id);
+        if(input) {
+          input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            state.filesPost[id] = file;
+            document.getElementById('name-'+id).textContent = file.name;
+            addLog(`Cargado ${id.toUpperCase()}: ${file.name}`, 'ok');
+            checkPostReady();
+          });
+        }
+      });
+    }
+
+    function checkPostReady() {
+      const ready = state.filesPost.isos && state.filesPost.plan && state.filesPost.conv;
+      const btn = document.getElementById('btn-process');
+      if(btn) btn.disabled = !ready;
+    }
+
+    async function processPost() {
+      if (state.processing) return;
+      state.processing = true;
+      const btn = document.getElementById('btn-process');
+      if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="spin"></i> PROCESANDO...';
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+
+      addLog('Iniciando Cruce Post-Ruteo...', 'info');
+
+      try {
+        const [rowsISOs, rowsPlan, rowsConv] = await Promise.all([
+          readFile(state.filesPost.isos), 
+          readFile(state.filesPost.plan), 
+          readFile(state.filesPost.conv, 'Plan')
+        ]);
+
+        addLog(`Archivos leídos (ISOs: ${rowsISOs.length}, Plan: ${rowsPlan.length}, Conv: ${rowsConv.length})`, 'info');
+
+        const kISO = findCol(rowsISOs[0] || {}, ['ISO', 'iso', 'Iso']);
+        const kTit = findCol(rowsPlan[0] || {}, ['Título', 'Titulo', 'TITULO', 'TÍTULO', 'Title', 'ISO']);
+        const kDofi = findCol(rowsPlan[0] || {}, ['ID de referencia', 'ID_REFERENCIA', 'DOFI', 'Dofi', 'id de referencia']);
+        const kVehI = findCol(rowsPlan[0] || {}, ['Vehículo', 'Vehiculo', 'VEHICULO', 'VEHÍCULO', 'Vehicle', 'Ruta']);
+        const kVini = findCol(rowsConv[0] || {}, ['VEH INICIAL', 'VEH_INICIAL', 'INICIAL', 'veh inicial']);
+        const kVfin = findCol(rowsConv[0] || {}, ['VEH FINAL', 'VEH_FINAL', 'FINAL', 'veh final']);
+
+        if (!kISO || !kTit || !kDofi || !kVehI || !kVini || !kVfin) {
+          throw new Error('Faltan columnas críticas en los archivos de ruteo.');
+        }
+
+        const mapConv = {};
+        rowsConv.forEach(r => {
+          const ini = (r[kVini] || '').trim().toUpperCase();
+          const fin = (r[kVfin] || '').trim().toUpperCase();
+          if (ini) mapConv[ini] = fin || ini;
+        });
+
+        const mapPlan = {};
+        rowsPlan.forEach(r => {
+          const t = (r[kTit] || '').trim().toUpperCase();
+          if (!t || t === 'INICIO' || t === 'FIN') return;
+          const vehIni = (r[kVehI] || '').trim().toUpperCase();
+          const vehFin = mapConv[vehIni] || vehIni;
+          mapPlan[t] = { dofi: (r[kDofi] || '').trim(), vehIni, vehFin };
+        });
+
+        const isosRuteadas = rowsISOs
+          .map(r => (r[kISO] || '').trim().toUpperCase())
+          .filter(iso => iso && iso !== 'INICIO' && iso !== 'FIN');
+
+        let matched = 0, unmatched = 0;
+        const resultado = isosRuteadas.map(iso => {
+          const found = mapPlan[iso];
+          if (found) {
+            matched++;
+            return { iso, dofi: found.dofi, vehIni: found.vehIni, vehFin: found.vehFin, _found: true };
+          } else {
+            unmatched++;
+            return { iso, dofi: '', vehIni: '', vehFin: '', _found: false };
+          }
+        });
+
+        addLog(`Match exitoso: ${matched} encontradas. Sin match: ${unmatched}`, unmatched > 0 ? 'warn' : 'ok');
+
+        const isPostSales = (r) => {
+          const v = (r.vehFin || r.vehIni || '').toUpperCase();
+          return PS_VEHS.has(v) || v.includes('POSTVENTA') || v.includes('POST VENTA') || v.includes('POST SALES');
+        };
+
+        const postSalesRows = resultado.filter(r => r._found && isPostSales(r)).map(r => ({ ...r, vehFin: 'VEH99' }));
+        const restoRows = resultado.filter(r => r._found && !isPostSales(r));
+
+        state.postResult = { allRows: resultado, postSalesRows, restoRows, matched };
+        
+        // Update UI
+        document.getElementById('stats-area').classList.remove('hidden');
+        document.getElementById('stat-total').textContent = resultado.length;
+        document.getElementById('stat-match').textContent = matched;
+        document.getElementById('stat-ps').textContent = postSalesRows.length;
+        document.getElementById('stat-rest').textContent = restoRows.length;
+        
+        document.getElementById('btn-dl-post-1').disabled = false;
+        document.getElementById('btn-dl-post-2').disabled = false;
+        
+        updateBadges();
+        addLog('Procesamiento completado. Puedes exportar los resultados.', 'ok');
+
+      } catch (err) {
+        addLog(`Error en cruce: ${err.message}`, 'err');
+      } finally {
+        state.processing = false;
+        if(btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="play"></i> PROCESAR POST RUTEO';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+    }
+
+    // --- Export Logic ---
+    function exportPre(type) {
+      if (!state.dataF1) return;
+      let rows = [];
+      let name = '';
+
+      if (type === 'proyectos') {
+        rows = state.dataF1.filter(r => r['TIPO_VISITA'] === 'PROJECT');
+        name = `RUTEAR PROYECTOS ${getFechaMañana()}.xlsx`;
+      } else if (type === 'post_sales') {
+        rows = state.dataF1.filter(r => r['TIPO_VISITA'] === 'POST_SALES');
+        name = `RUTEAR POST SALES ${getFechaMañana()}.xlsx`;
+      } else if (type === 'mini') {
+        rows = state.dataF1.filter(r => {
+          if (r['TIPO_VISITA'] === 'PROJECT' || r['TIPO_VISITA'] === 'POST_SALES') return false;
+          if (r['MINI_TICKET'] !== 'mini_ticket') return false;
+          return esComunaMini(r['D_COUNTY'] || r['CONDUCTOR'] || r['Conductor'] || '');
+        });
+        name = `RUTEAR MINI TICKET ${getFechaMañana()}.xlsx`;
+      } else if (type === 'regular') {
+        rows = state.dataF1.filter(r => {
+          if (r['TIPO_VISITA'] === 'PROJECT' || r['TIPO_VISITA'] === 'POST_SALES') return false;
+          if (r['MINI_TICKET'] === 'no_mini_ticket') return true;
+          if (r['MINI_TICKET'] === 'mini_ticket') return !esComunaMini(r['D_COUNTY'] || r['CONDUCTOR'] || r['Conductor'] || '');
+          return false;
+        });
+        name = `RUTEAR TICKET ${getFechaMañana()}.xlsx`;
+      }
+
+      if (!rows.length) {
+        addLog(`No se encontraron datos para ${type}`, 'warn');
+        return;
+      }
+
+      exportXlsx(rows, name);
+      addLog(`Exportado: ${name} (${rows.length} filas)`, 'ok');
+    }
+
+    function exportPost(type) {
+      if (!state.postResult) return;
+      let rows = [];
+      let name = '';
+
+      if (type === 'preola') {
+        rows = state.postResult.restoRows.filter(r => r.dofi).map(r => ({ 'ID': r.dofi, 'Vehiculo': r.vehFin }));
+        name = `PREOLA ROUTE TO ${getFechaHoy()} entregas ${getFechaMañana()}.xlsx`;
+      } else if (type === 'post_sales') {
+        rows = state.postResult.postSalesRows.filter(r => r.dofi).map(r => ({ 'ID': r.dofi, 'Vehiculo': r.vehFin }));
+        name = `POST SALES ROUTE TO ${getFechaHoy()} entregas ${getFechaMañana()}.xlsx`;
+      }
+
+      if (!rows.length) {
+        addLog(`Sin filas para exportar (${type})`, 'warn');
+        return;
+      }
+
+      exportXlsx(rows, name, true);
+      addLog(`Exportado: ${name} (${rows.length} filas)`, 'ok');
+    }
+
+  </script>
+</body>
+</html>

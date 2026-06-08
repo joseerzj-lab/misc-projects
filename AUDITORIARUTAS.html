@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoría de Rutas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="comunas_data.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif;font-size:12px;line-height:1.55;background:#FAFAF9;color:#18181B;-webkit-font-smoothing:antialiased}
+body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
+:root{
+  --bg:#FAFAF9;--bgCard:#FFFFFF;--bgCardAlt:rgba(0,0,0,0.026);--bgHover:rgba(0,0,0,0.042);
+  --text:#18181B;--textSub:#52525B;--textFaint:#A1A1AA;
+  --border:rgba(0,0,0,0.09);--borderSoft:rgba(0,0,0,0.06);--borderFocus:#2563EB;
+  --blue:#2563EB;--blueHover:#1D4ED8;--accentBg:rgba(37,99,235,0.06);
+  --red:#DC2626;--green:#16A34A;--orange:#EA580C;--yellow:#CA8A04;--purple:#7C3AED;
+  --pasteBlue:#EFF6FF;--pasteRed:#FEF2F2;--pasteGreen:#F0FDF4;--pasteOrange:#FFF7ED;
+  --pasteYellow:#FEFCE8;--pastePurple:#F5F3FF;--pasteGray:#F4F4F5;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);--shadow-sm:0 1px 4px rgba(0,0,0,0.05);
+  --shadow-md:0 2px 8px rgba(0,0,0,0.06);--shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+  --t-fast:0.12s ease;--t-normal:0.20s ease;--t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26)}
+
+/* Header */
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:44px;border-bottom:1px solid var(--borderSoft);gap:12px}
+.header-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.01em;white-space:nowrap}
+.header-brand .brand-tag{font-size:10px;font-weight:500;color:var(--textFaint);font-family:var(--font-mono);letter-spacing:0.02em}
+.tabs-container{display:flex;padding:0 8px}
+.tabs-wrapper{display:flex;align-items:flex-end}
+.tab-btn{display:flex;align-items:center;gap:5px;padding:7px 13px;border:none;border-bottom:2px solid transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;background:transparent;color:var(--textFaint);font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;margin-bottom:-1px;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast)}
+.tab-btn:hover{color:var(--textSub);background:var(--bgHover)}
+.tab-btn.active{color:var(--text);font-weight:600;border-bottom-color:var(--text);background:transparent}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 4px;border-radius:3px;font-size:9px;font-weight:700;font-family:var(--font-mono);background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border)}
+.tab-badge.alert{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.15)}
+.tab-badge.hidden{display:none}
+
+/* Layout */
+.main-content{flex:1;overflow:hidden;position:relative}
+.tab-pane{display:none;width:100%;height:100%;overflow-y:auto;flex-direction:column}
+.tab-pane.active{display:flex}
+.tab-pane.map-pane{overflow:hidden}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border:1px solid transparent;border-radius:var(--r-md);font-family:inherit;font-size:11px;font-weight:500;line-height:1;cursor:pointer;outline:none;white-space:nowrap;user-select:none;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast),transform 0.10s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98)}
+.btn:disabled{opacity:0.32;cursor:not-allowed}
+.btn-primary{background:#18181B;color:#FFFFFF;border-color:rgba(0,0,0,0.06)}
+.btn-primary:hover:not(:disabled){background:#27272A}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover)}
+.btn-danger{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.18)}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.12)}
+.btn-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.18)}
+.btn-green:hover:not(:disabled){background:rgba(22,163,74,0.12)}
+.btn-blue{background:var(--blue);color:#fff;border-color:rgba(0,0,0,0.10)}
+.btn-blue:hover:not(:disabled){background:var(--blueHover)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-lg{padding:8px 16px;font-size:12px;font-weight:600}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--borderSoft);gap:6px;background:var(--bg);flex-wrap:wrap;flex-shrink:0}
+.toolbar-sep{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0}
+.stats-bar{display:flex;align-items:center;padding:4px 12px;border-bottom:1px solid var(--borderSoft);gap:8px;flex-wrap:wrap;background:var(--bgCardAlt);flex-shrink:0}
+
+/* Cards */
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px}
+.card-header{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* Upload zone */
+.upload-zone{border:1px dashed var(--border);border-radius:var(--r-lg);padding:32px 24px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--bgCardAlt);transition:background var(--t-normal),border-color var(--t-normal)}
+.upload-zone:hover,.upload-zone.drag{background:var(--accentBg);border-color:rgba(37,99,235,0.35)}
+.upload-zone.loaded{border-style:solid;border-color:rgba(22,163,74,0.30);background:var(--pasteGreen)}
+
+/* Inputs */
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:inherit;font-size:11px;line-height:1.4;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10)}
+.input::placeholder{color:var(--textFaint)}
+.search-wrap{position:relative;flex:1;max-width:220px}
+.search-wrap .input{padding-left:26px}
+
+/* Badges/Pills */
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:17px;padding:0 5px;border-radius:3px;font-family:var(--font-mono);font-size:10px;font-weight:700;background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border)}
+.badge.blue{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.15)}
+.badge.red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.15)}
+.badge.green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.15)}
+.badge.orange{background:var(--pasteOrange);color:var(--orange);border-color:rgba(234,88,12,0.15)}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:var(--r-xs);font-family:var(--font-mono);font-size:10px;font-weight:600;border:1px solid;white-space:nowrap;letter-spacing:0.02em}
+.pill-gray{background:var(--pasteGray);color:var(--textSub);border-color:var(--border)}
+.pill-blue{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.20)}
+.pill-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.20)}
+.pill-red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.20)}
+.pill-orange{background:var(--pasteOrange);color:var(--orange);border-color:rgba(234,88,12,0.20)}
+.pill-purple{background:var(--pastePurple);color:var(--purple);border-color:rgba(124,58,237,0.20)}
+
+/* Stat chips */
+.stat-chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border:1px solid var(--border);border-radius:var(--r-xs);background:var(--bgCard)}
+.stat-chip-val{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text)}
+.stat-chip-val.blue{color:var(--blue)}
+.stat-chip-val.green{color:var(--green)}
+.stat-chip-val.red{color:var(--red)}
+.stat-chip-val.orange{color:var(--orange)}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint)}
+.stat-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px}
+.stat-card-val{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.02em;line-height:1.1}
+.stat-card-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--textFaint);margin-top:4px}
+
+/* Tables — monocromo (blanco y negro) */
+.dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px;font-family:var(--font-mono)}
+.dash-table th,.dash-table td{border-right:1px solid #E7E7E7;border-bottom:1px solid #E7E7E7;padding:0;position:relative}
+.dash-table thead tr th{background:#111;color:#fff;padding:8px 10px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.03em;white-space:nowrap;font-family:inherit;position:sticky;top:0;z-index:10}
+.dash-table tbody tr{transition:background var(--t-fast)}
+.dash-table tbody tr:hover td{background:#F4F4F4}
+.dash-table td{padding:6px 10px;vertical-align:middle;color:#222}
+.dash-table tbody tr.is-selected td{background:#ECECEC}
+.dash-table tbody tr.row-resolved td{opacity:0.45;text-decoration:line-through}
+.dash-table tbody tr.row-flagged td:first-child{box-shadow:inset 3px 0 0 #111}
+.dash-table tbody tr.row-flagged td{font-weight:600}
+
+/* Map tabs */
+.map-layout{display:grid;grid-template-columns:360px 1fr;height:100%;overflow:hidden}
+.map-sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--bgCard)}
+.map-sidebar-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--bgCardAlt)}
+.map-sidebar-filters{padding:8px 12px;border-bottom:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bgCard)}
+.map-sidebar-list{flex:1;overflow-y:auto;padding:6px}
+.map-container{position:relative;background:#e8e8e8}
+.conflict-row{padding:10px 12px;border-radius:var(--r-md);margin-bottom:5px;cursor:pointer;border:1px solid var(--border);background:var(--bgCard);transition:background var(--t-fast),border-color var(--t-fast);border-left:3px solid var(--border)}
+.conflict-row:hover{background:var(--bgHover)}
+.conflict-row.focused{background:var(--accentBg);border-color:rgba(37,99,235,0.3);border-left-color:var(--blue)}
+.conflict-row.flagged{background:var(--pasteRed);border-color:rgba(220,38,38,0.2);border-left-color:var(--red)}
+.conflict-row.resolved{opacity:0.5;border-left-color:var(--green)}
+
+/* Filter pills row */
+.filter-pills{display:flex;gap:4px;flex-wrap:wrap}
+.filter-pill{padding:3px 9px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCardAlt);color:var(--textSub);font-size:10px;font-weight:500;cursor:pointer;transition:all var(--t-fast)}
+.filter-pill.active{background:var(--text);color:#fff;border-color:transparent}
+.filter-pill:hover:not(.active){background:var(--bgHover)}
+
+/* Route Plan */
+.veh-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:8px;overflow:hidden}
+.veh-card-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;border:none;width:100%;text-align:left;background:transparent;font-family:inherit;transition:background var(--t-fast)}
+.veh-card-header:hover{background:var(--bgHover)}
+.veh-card-body{display:none;border-top:1px solid var(--borderSoft);padding:8px 14px}
+.veh-card.open .veh-card-body{display:block}
+.commune-row{padding:6px 10px;border-radius:var(--r-sm);margin-bottom:3px;cursor:pointer;border:1px solid var(--borderSoft);background:var(--bgCardAlt);transition:background var(--t-fast)}
+.commune-row:hover{background:var(--bgHover)}
+.commune-row.open{background:var(--bgCard);border-color:var(--border)}
+.commune-isos{display:none;padding:4px 0 4px 10px;border-top:1px solid var(--borderSoft);margin-top:4px}
+.commune-row.open .commune-isos{display:block}
+.iso-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:var(--r-xs);border:1px solid var(--border);background:var(--bgCard);font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--blue);cursor:pointer;margin:2px;transition:background var(--t-fast)}
+.iso-chip:hover{background:var(--pasteBlue)}
+.iso-chip.copied{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.2)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.22);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity var(--t-normal)}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-content{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-xl);width:100%;max-width:520px;padding:22px;position:relative;transform:scale(0.97) translateY(6px);transition:transform var(--t-slow);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-overlay.active .modal-content{transform:scale(1) translateY(0)}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#18181B;color:#F4F4F5;border:1px solid rgba(255,255,255,0.08);padding:8px 16px;border-radius:var(--r-md);font-size:11px;font-weight:600;letter-spacing:0.01em;box-shadow:var(--shadow-lg);z-index:2000;white-space:nowrap;pointer-events:none;transition:transform var(--t-slow)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.toast-ok{background:#14532D}
+.toast.toast-error{background:#7F1D1D}
+.toast.toast-warn{background:#78350F}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:10px;padding:40px;text-align:center;color:var(--textFaint)}
+.empty-icon{font-size:32px}
+.empty-title{font-size:13px;font-weight:600;color:var(--textSub)}
+
+/* Map markers */
+@keyframes pulse-red{0%{box-shadow:0 0 0 0 rgba(220,38,38,0.7)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+@keyframes pulse-focus{0%{box-shadow:0 0 0 0 rgba(37,99,235,0.7)}70%{box-shadow:0 0 0 10px rgba(37,99,235,0)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
+.mk-conflict{animation:pulse-red 2s infinite;border:2px solid #fff!important}
+.mk-focus{animation:pulse-focus 1.5s infinite;border:2.5px solid #fff!important}
+.commune-lbl{font-size:var(--clbl-sz,12px);font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.04em;text-shadow:1px 1px 4px rgba(0,0,0,0.8),-1px -1px 2px rgba(0,0,0,0.8);pointer-events:none}
+.leaflet-popup-content-wrapper{background:var(--bgCard)!important;border:1px solid var(--border)!important;border-radius:var(--r-lg)!important;box-shadow:var(--shadow-md)!important}
+.leaflet-popup-tip{background:var(--bgCard)!important}
+.leaflet-popup-content{font-family:inherit;font-size:11px;color:var(--text)!important;margin:10px 14px!important}
+
+/* Summary table */
+.summary-table-wrap{flex:1;overflow:auto}
+.summary-tr:hover td{background:var(--bgHover)}
+.summary-tr.flagged td{background:var(--pasteRed)}
+.summary-tr.resolved{opacity:0.5}
+.sort-btn{background:none;border:none;cursor:pointer;color:var(--textFaint);font-size:9px;padding:1px 3px;border-radius:2px}
+.sort-btn:hover,.sort-btn.active{color:var(--text)}
+
+/* Export tab */
+.export-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;gap:16px;transition:border-color var(--t-fast),background var(--t-fast)}
+.export-card:hover{border-color:rgba(37,99,235,0.3);background:var(--accentBg)}
+.export-card.disabled{opacity:0.4;pointer-events:none}
+
+/* Filtro de columna (popover) */
+.col-filter-btn{background:none;border:none;cursor:pointer;color:#bbb;font-size:10px;margin-left:4px;padding:0 2px}
+.col-filter-btn.active{color:#fff}
+.col-popover{position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-lg);width:220px;max-height:280px;display:flex;flex-direction:column;padding:8px;gap:6px}
+.col-popover .cp-list{overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.col-popover label{display:flex;align-items:center;gap:6px;font-size:11px;color:#222;font-family:inherit;cursor:pointer;padding:2px 4px;border-radius:3px}
+.col-popover label:hover{background:#F4F4F4}
+.cp-actions{display:flex;gap:6px;justify-content:space-between;border-top:1px solid var(--borderSoft);padding-top:6px}
+.row-check{width:14px;height:14px;cursor:pointer;accent-color:#111}
+.sel-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#111;color:#fff;font-size:11px}
+.sel-bar.hidden{display:none}
+@keyframes rowIn{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+.dash-table tbody tr{animation:rowIn 0.12s ease}
+
+/* Utilities */
+.hidden{display:none!important}
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}.flex-1{flex:1}
+.gap-xs{gap:4px}.gap-sm{gap:6px}.gap-md{gap:10px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--textFaint)}
+.divider{width:100%;height:1px;background:var(--borderSoft);margin:12px 0}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--borderSoft);border-top-color:var(--text);border-radius:50%;animation:spin 0.65s linear infinite}
+</style>
+</head>
+<body class="app-layout">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div class="header-brand">
+      <span>🔍</span>
+      <span>AUDITORÍA DE RUTAS</span>
+      <span class="brand-tag">v2.0</span>
+    </div>
+    <div class="flex items-center gap-sm">
+      <div id="geo-status" class="pill pill-gray hidden">Geo: cargando…</div>
+      <button class="btn btn-secondary btn-sm" onclick="openGuide()">❔ ¿Cómo auditar?</button>
+      <button class="btn btn-secondary btn-sm" onclick="handleClear()">Limpiar</button>
+    </div>
+  </div>
+  <div class="tabs-container">
+    <div class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="tab-plan" onclick="switchTab('tab-plan',this)">📥 Cargar Plan</button>
+      <button class="tab-btn" data-tab="tab-geo" onclick="switchTab('tab-geo',this)">📍 Auditoría Geo <span class="tab-badge hidden" id="badge-geo"></span></button>
+      <button class="tab-btn" data-tab="tab-proyectos" onclick="switchTab('tab-proyectos',this)">🚧 Proyectos <span class="tab-badge hidden" id="badge-proyectos"></span></button>
+      <button class="tab-btn" data-tab="tab-resumen" onclick="switchTab('tab-resumen',this)">📊 Resumen <span class="tab-badge hidden" id="badge-resumen"></span></button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main-content">
+
+  <!-- TAB: CARGAR PLAN -->
+  <div class="tab-pane active" id="tab-plan" style="padding:24px;overflow-y:auto;gap:20px">
+    <div>
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:4px">Cargar Plan de Rutas</h2>
+      <p style="font-size:11px;color:var(--textFaint)">XLSX o CSV con columnas: Título, Vehículo, Dirección — Lat/Lng opcionales para análisis geo</p>
+    </div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div style="font-size:28px" id="upload-icon">📂</div>
+      <div style="font-size:13px;font-weight:600;color:var(--textSub)" id="upload-text">Arrastra tu archivo aquí</div>
+      <div style="font-size:11px;color:var(--textFaint)" id="upload-sub">o haz click para buscar · XLSX, XLS, CSV</div>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" style="display:none" onchange="handleFileInput(event)">
+    <div id="plan-stats" class="hidden" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val blue" id="stat-isos">0</div>
+        <div class="stat-card-lbl">ISOs</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val" id="stat-vehs">0</div>
+        <div class="stat-card-lbl">Vehículos</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val green" id="stat-comunas">0</div>
+        <div class="stat-card-lbl">Comunas</div>
+      </div>
+      <div class="stat-card" style="min-width:90px;text-align:center">
+        <div class="stat-card-val orange" id="stat-gps">0</div>
+        <div class="stat-card-lbl">Con GPS</div>
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn btn-secondary btn-sm" onclick="runGeoAnalysis()">🔍 Analizar Geo</button>
+      </div>
+    </div>
+    <div id="plan-conflicts-info" class="hidden" style="padding:10px 14px;border-radius:var(--r-md);border:1px solid rgba(220,38,38,0.2);background:var(--pasteRed);font-size:11px;color:var(--red);font-weight:600"></div>
+    <details id="params-panel" style="border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bgCard)">
+      <summary style="cursor:pointer;padding:12px 16px;font-size:12px;font-weight:700;user-select:none">⚙ Parámetros de auditoría</summary>
+      <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <p class="section-label" style="margin-bottom:6px">Vehículos excluidos de auditoría geo</p>
+          <div id="param-excluded-chips" class="filter-pills" style="margin-bottom:6px"></div>
+          <input class="input" id="param-excluded-input" placeholder="Agregar código y Enter (ej. VPV05)" style="max-width:280px">
+        </div>
+        <div>
+          <p class="section-label" style="margin-bottom:6px">Vehículos de proyecto (van a la pestaña Proyectos)</p>
+          <div id="param-project-chips" class="filter-pills" style="margin-bottom:6px"></div>
+          <input class="input" id="param-project-input" placeholder="Agregar código y Enter (ej. VPR03)" style="max-width:280px">
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap">
+          <label style="font-size:11px;color:var(--textSub)">Umbral borde 🟡/🔴 (km)
+            <input class="input" id="param-border-km" type="number" step="0.1" min="0" style="width:90px;margin-top:4px">
+          </label>
+          <label style="font-size:11px;color:var(--textSub)">Grosor borde comuna
+            <input class="input" id="param-border-weight" type="number" step="0.1" min="0.5" style="width:90px;margin-top:4px">
+          </label>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- TAB: WRONG COMMUNE (MAP) -->
+  <div class="tab-pane map-pane" id="tab-geo">
+    <div class="map-layout">
+      <div class="map-sidebar">
+        <div class="map-sidebar-header">
+          <div style="flex:1">
+            <span class="stat-chip-val red num" id="geo-count">0</span>
+            <span class="stat-chip-lbl" style="margin-left:4px">Conflictos</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="exportConflictsXLSX()">↓ Excel</button>
+          <button class="btn btn-primary btn-sm" onclick="runGeoAnalysis()">Analizar</button>
+          <button class="btn btn-green btn-sm" onclick="resolveAllConflicts()">Todo ✓</button>
+          <button class="btn btn-danger btn-sm" onclick="flagAllConflicts()">Todo ⚠</button>
+        </div>
+        <div class="map-sidebar-filters">
+          <div class="flex items-center gap-xs">
+            <button class="btn btn-secondary btn-sm" onclick="navConflict(-1)" title="Anterior (←)">‹</button>
+            <button class="btn btn-secondary btn-sm" onclick="navConflict(1)" title="Siguiente (→)">›</button>
+            <button class="btn btn-secondary btn-sm" onclick="navNextPendiente()" title="Siguiente pendiente">⏭ Pend.</button>
+            <span id="geo-progress" class="stat-chip-lbl" style="margin-left:auto"></span>
+          </div>
+          <input class="input" id="geo-search" placeholder="Buscar ISO, veh…" oninput="renderConflictList()" style="font-size:11px">
+          <div class="filter-pills" id="geo-status-filter">
+            <button class="filter-pill active" data-filter="all" onclick="setGeoFilter('all',this)">Todos</button>
+            <button class="filter-pill" data-filter="pendiente" onclick="setGeoFilter('pendiente',this)">⏳ Pendiente</button>
+            <button class="filter-pill" data-filter="alerta" onclick="setGeoFilter('alerta',this)">⚠ Alerta</button>
+            <button class="filter-pill" data-filter="resuelto" onclick="setGeoFilter('resuelto',this)">✓ Resuelto</button>
+          </div>
+          <div style="font-size:10px;color:var(--textFaint)">Clic en un marcador o ítem para enfocarlo. 🔴 lejos · 🟡 cerca del borde · ✓/⚠ para revisar. Teclas: ← → R A Esc.</div>
+        </div>
+        <div class="map-sidebar-list" id="geo-list">
+          <div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">Carga un plan y ejecuta análisis</div></div>
+        </div>
+      </div>
+      <div class="map-container" id="map-geo-wrap">
+        <div id="map-geo" style="width:100%;height:100%"></div>
+        <div style="position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px">
+          <button onclick="toggleMapTheme('geo')" id="geo-tile-btn" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--bgCard);border:1px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">☀️</button>
+          <button id="geo-clear-focus" onclick="clearGeoFocus()" class="hidden" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--pasteRed);border:1px solid rgba(220,38,38,0.2);cursor:pointer;font-size:14px;font-weight:700;color:var(--red);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: PROYECTOS (MAP) -->
+  <div class="tab-pane map-pane" id="tab-proyectos">
+    <div class="map-layout">
+      <div class="map-sidebar">
+        <div class="map-sidebar-header">
+          <div style="flex:1">
+            <span class="stat-chip-val purple num" id="proy-count">0</span>
+            <span class="stat-chip-lbl" style="margin-left:4px">Proyectos</span>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="resolveAllProyectos()">Todo ✓</button>
+          <button class="btn btn-danger btn-sm" onclick="flagAllProyectos()">Todo ⚠</button>
+        </div>
+        <div class="map-sidebar-filters">
+          <input class="input" id="proy-search" placeholder="Buscar ISO, veh…" oninput="renderProyectoList()" style="font-size:11px">
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all" onclick="setProyFilter('all',this)">Todos</button>
+            <button class="filter-pill" data-filter="pendiente" onclick="setProyFilter('pendiente',this)">⏳ Pendiente</button>
+            <button class="filter-pill" data-filter="alerta" onclick="setProyFilter('alerta',this)">⚠ Alerta</button>
+            <button class="filter-pill" data-filter="resuelto" onclick="setProyFilter('resuelto',this)">✓ Resuelto</button>
+          </div>
+        </div>
+        <div class="map-sidebar-list" id="proy-list">
+          <div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-title">Sin proyectos detectados</div></div>
+        </div>
+      </div>
+      <div class="map-container" id="map-proy-wrap">
+        <div id="map-proy" style="width:100%;height:100%"></div>
+        <div style="position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px">
+          <button onclick="toggleMapTheme('proy')" id="proy-tile-btn" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--bgCard);border:1px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">☀️</button>
+          <button id="proy-clear-focus" onclick="clearProyFocus()" class="hidden" style="width:36px;height:36px;border-radius:var(--r-md);background:var(--pasteRed);border:1px solid rgba(220,38,38,0.2);cursor:pointer;font-size:14px;font-weight:700;color:var(--red);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SUMMARY -->
+  <div class="tab-pane" id="tab-resumen" style="flex-direction:column;overflow:hidden">
+    <div class="toolbar" id="summary-toolbar">
+      <span style="font-size:11px;color:var(--textSub)" id="summary-info">0 en total</span>
+      <div class="toolbar-sep"></div>
+      <select class="input" id="summary-veh" onchange="setVehFilter(this.value)" style="max-width:160px"><option value="all">Todos los vehículos</option></select>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--textSub);cursor:pointer">
+        <input type="checkbox" class="row-check" id="hide-reviewed" onchange="setHideReviewed(this.checked)">Ocultar revisadas
+      </label>
+      <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Limpiar</button>
+      <div style="position:relative">
+        <input class="input" id="summary-search" placeholder="Buscar…" oninput="renderSummary()" style="max-width:160px">
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-blue btn-sm" onclick="copySummaryToClipboard()">📋 Copiar</button>
+        <button class="btn btn-green btn-sm" onclick="exportSummaryXLSX()">↓ Exportar</button>
+      </div>
+    </div>
+    <div class="sel-bar hidden" id="sel-bar">
+      <span id="sel-count">0 seleccionadas</span>
+      <button class="btn btn-sm" style="background:#fff;color:#111" onclick="clearSelection()">Quitar selección</button>
+      <span style="margin-left:auto;font-size:10px;opacity:0.8">Exportar/copiar usa la selección; si no hay, usa lo visible.</span>
+    </div>
+    <div class="summary-table-wrap" id="summary-wrap">
+      <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Ejecuta el análisis geo para ver el resumen</div></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--borderSoft);background:var(--bgCardAlt)">
+      <span class="section-label">Datos / Sesión</span>
+      <button class="btn btn-secondary btn-sm" onclick="exportFullPlan()">↓ Plan completo (XLSX)</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportSession()">↓ Sesión (JSON)</button>
+    </div>
+  </div>
+
+
+</main>
+
+<div class="modal-overlay" id="guide-modal" onclick="if(event.target===this)closeGuide()">
+  <div class="modal-content">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Cómo auditar rutas</h2>
+    <ol style="font-size:12px;line-height:1.7;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+      <li><b>Carga el plan</b> (XLSX/CSV) en la pestaña Cargar Plan. Revisa los Parámetros (vehículos excluidos y de proyecto).</li>
+      <li>Ve a <b>Auditoría Geo</b>: el mapa muestra cada entrega. <b>🔴 = comuna equivocada lejos</b>, <b>🟡 = cerca del borde</b> (probable caso límite).</li>
+      <li>Navega con <b>‹ ›</b> o <b>← →</b>. Para cada punto decide: <b>✓ descartar</b> (sin problema) o <b>⚠ marcar error</b>. Atajos: R / A / Esc.</li>
+      <li>Revisa <b>Proyectos</b> (vehículos VPR01/VPR02) igual que los geo.</li>
+      <li>En <b>Resumen</b> filtra por vehículo o columna, oculta las revisadas, <b>selecciona</b> las filas y <b>Exporta</b> solo esas.</li>
+    </ol>
+    <div style="margin-top:14px;text-align:right"><button class="btn btn-primary btn-sm" onclick="closeGuide()">Entendido</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GEO UTILS
+// ═══════════════════════════════════════════════════════════
+function normK(s) {
+  return (s || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Z0-9 ]/g, '').trim()
+}
+
+function pointInPolygon(lat, lng, poly) {
+  let inside = false
+  const n = poly.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1]
+    const xj = poly[j][0], yj = poly[j][1]
+    if ((yi > lng) !== (yj > lng) && lat < ((xj - xi) * (lng - yi)) / (yj - yi) + xi)
+      inside = !inside
+  }
+  return inside
+}
+
+function comunaFromCoords(lat, lng) {
+  const D = window.RM_COMUNAS_DATA
+  if (!D) return null
+  for (const key of Object.keys(D)) {
+    if (D[key].p && pointInPolygon(lat, lng, D[key].p)) return key
+  }
+  // Nearest centroid fallback
+  let best = null, md = 1e9
+  for (const k of Object.keys(D)) {
+    const c = D[k].c
+    if (!c) continue
+    const d = (lat - c[0]) ** 2 + (lng - c[1]) ** 2
+    if (d < md) { md = d; best = k }
+  }
+  return best
+}
+
+function haversine(c1, c2) {
+  const R = 6371
+  const dLat = (c2[0] - c1[0]) * Math.PI / 180
+  const dLon = (c2[1] - c1[1]) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+
+// Distancia mínima (km) de un punto al borde de un polígono [[lat,lng],...]
+function distPointToSegmentKm(p, a, b) {
+  // Proyección local: escalar lng por cos(lat) para aproximar metros
+  const latRef = (a[0]+b[0])/2 * Math.PI/180
+  const kx = 111.32 * Math.cos(latRef)   // km por grado lng
+  const ky = 110.57                       // km por grado lat
+  const px=(p[1])*kx, py=(p[0])*ky
+  const ax=a[1]*kx, ay=a[0]*ky, bx=b[1]*kx, by=b[0]*ky
+  const dx=bx-ax, dy=by-ay
+  const len2 = dx*dx+dy*dy
+  let t = len2 ? ((px-ax)*dx+(py-ay)*dy)/len2 : 0
+  t = Math.max(0, Math.min(1, t))
+  const cx=ax+t*dx, cy=ay+t*dy
+  return Math.hypot(px-cx, py-cy)
+}
+function distPointToPolygonKm(lat, lng, poly) {
+  let min = Infinity
+  for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
+    const d = distPointToSegmentKm([lat,lng], poly[j], poly[i])
+    if (d < min) min = d
+  }
+  return min
+}
+
+function getDisplayName(normKey) {
+  const D = window.RM_COMUNAS_DATA
+  if (D && D[normKey] && D[normKey].n) return D[normKey].n
+  if (!normKey) return '?'
+  return normKey.charAt(0) + normKey.slice(1).toLowerCase()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let routeData = []          // RouteRow[]
+let conflicts = []          // ComunaConflict[]
+let resolvedConflicts = new Set()
+let flaggedConflicts = new Set()
+let resolvedProyectos = new Set()
+let flaggedProyectos = new Set()
+
+// Parámetros configurables (persistidos en aud_params_v3)
+let params = {
+  excludedVehicles: ['VPV01','VPV02','VPV03','VPV04'],
+  projectVehicles:  ['VPR01','VPR02'],
+  borderKm: 0.1,
+  borderWeight: 2.2,
+  borderOpacity: 0.75,
+}
+function vehSet(arr){ return new Set((arr||[]).map(v => (v||'').trim().toUpperCase())) }
+function isExcludedVeh(veh){ return vehSet(params.excludedVehicles).has((veh||'').toUpperCase()) }
+function isProjectVeh(veh){ return vehSet(params.projectVehicles).has((veh||'').toUpperCase()) }
+
+let geoFilter = 'all'
+let proyFilter = 'all'
+let vehFilter = 'all'           // 'all' o nombre de vehículo
+let hideReviewed = false        // ocultar filas ya revisadas (no pendientes)
+let summaryColFilters = {}      // { colKey: Set(valoresPermitidos) }
+let selectedRows = new Set()    // claves rowKey seleccionadas
+let openColPopover = null
+function rowKey(r){ return r.tipo + '|' + r.iso }
+let geoFocusISO = null
+let proyFocusISO = null
+
+// Map state
+let geoMap = null, geoTile = null, geoMarkers = [], geoLines = []
+let proyMap = null, proyTile = null, proyMarkers = [], proyLines = []
+let geoDarkMap = true, proyDarkMap = true
+
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+const VEH_COLORS = ['#2563EB','#7C3AED','#16A34A','#EA580C','#EC4899','#0891B2','#D97706','#DC2626','#059669','#6366F1']
+
+// ═══════════════════════════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+// Solo se persisten los PARÁMETROS de configuración.
+// Los datos de auditoría (plan, conflictos, progreso) NO se guardan:
+// arrancan vacíos en cada sesión.
+function saveState() {
+  try {
+    localStorage.setItem('aud_params_v3', JSON.stringify(params))
+    // Limpiar claves de datos de auditoría de versiones previas
+    ;['aud_route_v2','aud_conf_v2','aud_res_v2','aud_flg_v2','aud_res_proy_v2','aud_flg_proy_v2','aud_excl_v2']
+      .forEach(k => localStorage.removeItem(k))
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const p = localStorage.getItem('aud_params_v3')
+    if (p) { try { params = Object.assign(params, JSON.parse(p)) } catch(e){} }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILE PARSER
+// ═══════════════════════════════════════════════════════════
+function nm(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'') }
+function findCol(keys, ...cands) {
+  const exact = keys.find(k => cands.some(c => nm(k) === nm(c)))
+  if (exact) return exact
+  return keys.find(k => cands.some(c => nm(k).includes(nm(c))))
+}
+
+function parseRows(rows) {
+  if (!rows.length) return { rows: [], hasGeo: false, error: 'Archivo vacío' }
+  const keys = Object.keys(rows[0])
+  const cTit  = findCol(keys,'Título','Titulo','titulo','title','iso','titulos')
+  const cVeh  = findCol(keys,'Vehículo','Vehiculo','vehiculo','veh','vehicle','camion','truck')
+  const cDir  = findCol(keys,'Dirección','Direccion','direccion','dir','address','domicilio')
+  const cLat  = findCol(keys,'Latitud','Lat','latitude','lat','y','coord_y')
+  const cLng  = findCol(keys,'Longitud','Lng','Lon','longitude','lng','lon','x','coord_x')
+  const cPar  = findCol(keys,'Parada','Stop','stop','orden','order','secuencia','seq','numero','num','n')
+  const cCond = findCol(keys,'Conductor','conductor','driver')
+  if (!cTit) return { rows:[], hasGeo:false, error:`Sin columna Titulo/ISO. Columnas: ${keys.slice(0,8).join(' | ')}` }
+  if (!cVeh) return { rows:[], hasGeo:false, error:`Sin columna Vehículo. Columnas: ${keys.slice(0,8).join(' | ')}` }
+  if (!cDir) return { rows:[], hasGeo:false, error:`Sin columna Dirección. Columnas: ${keys.slice(0,8).join(' | ')}` }
+
+  const parsed = rows
+    .filter(r => {
+      const iso = (r[cTit]||'').trim().toUpperCase()
+      return iso && !['INICIO','FIN','INICIO DE RUTA','FIN DE RUTA'].includes(iso)
+    })
+    .map(r => {
+      const dir = (r[cDir]||'').trim()
+      const parts = dir.split(',').map(s => s.trim())
+      const n = parts.length
+      const lat = cLat ? parseFloat(r[cLat]) : NaN
+      const lng = cLng ? parseFloat(r[cLng]) : NaN
+      const isChile = n >= 1 && parts[n-1].trim().toUpperCase() === 'CHILE'
+      const comunaIdx = isChile ? (n>=3?n-3:0) : (n>=2?n-2:0)
+      const provIdx   = isChile ? (n>=2?n-2:0) : (n>=1?n-1:0)
+      return {
+        iso:       (r[cTit]||'').trim(),
+        veh:       (r[cVeh]||'').trim(),
+        dir,
+        comuna:    parts[comunaIdx] || 'Sin comuna',
+        provincia: parts[provIdx] || '',
+        lat:       isNaN(lat) ? null : lat,
+        lng:       isNaN(lng) ? null : lng,
+        parada:    cPar ? (parseInt(r[cPar])||0) : 0,
+        conductor: cCond ? (r[cCond]||'').trim() : '',
+      }
+    })
+  const hasGeo = parsed.some(r => r.lat !== null && r.lng !== null)
+  return { rows: parsed, hasGeo, error: null }
+}
+
+function handleFileInput(e) {
+  const f = e.target.files[0]
+  if (f) processFile(f)
+  e.target.value = ''
+}
+function handleDrop(e) {
+  e.preventDefault()
+  document.getElementById('upload-zone').classList.remove('drag')
+  const f = e.dataTransfer.files[0]
+  if (f) processFile(f)
+}
+
+function processFile(file) {
+  const icon = document.getElementById('upload-icon')
+  const text = document.getElementById('upload-text')
+  icon.textContent = '⏳'
+  text.textContent = 'Procesando…'
+
+  const reader = new FileReader()
+  reader.onload = e => {
+    try {
+      let rawRows
+      if (/\.xlsx?$/i.test(file.name)) {
+        const W = window.XLSX
+        if (!W) { showToast('XLSX no disponible','error'); return }
+        const wb = W.read(new Uint8Array(e.target.result), { type:'array' })
+        rawRows = W.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' })
+      } else {
+        const text = e.target.result
+        const lines = text.split(/\r?\n/).filter(Boolean)
+        if (lines.length < 2) { showToast('CSV vacío','error'); return }
+        const sep = (lines[0].match(/\t/g)||[]).length > (lines[0].match(/,/g)||[]).length ? '\t' : ','
+        const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g,''))
+        rawRows = lines.slice(1).map(line => {
+          const vals = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''))
+          const obj = {}
+          headers.forEach((h,i) => { obj[h] = vals[i]||'' })
+          return obj
+        })
+      }
+      const result = parseRows(rawRows)
+      if (result.error) { showToast(result.error, 'error'); icon.textContent='📂'; text.textContent='Arrastra tu archivo aquí'; return }
+
+      routeData = result.rows
+      conflicts = []
+      resolvedConflicts = new Set()
+      flaggedConflicts = new Set()
+      resolvedProyectos = new Set()
+      flaggedProyectos = new Set()
+      saveState()
+      updateAllUI()
+
+      const zone = document.getElementById('upload-zone')
+      zone.classList.add('loaded')
+      icon.textContent = '✅'
+      text.textContent = `${routeData.length} ISOs cargadas${result.hasGeo?' · con GPS':''}`
+      document.getElementById('upload-sub').textContent = 'Haz click o arrastra para reemplazar'
+
+      showToast(`✓ ${routeData.length} ISOs cargadas`)
+
+      if (result.hasGeo && window.RM_COMUNAS_DATA) {
+        switchTab('tab-geo', document.querySelector('[data-tab="tab-geo"]'))
+        setTimeout(() => {
+          runGeoAnalysis()
+        }, 300)
+      } else {
+        switchTab('tab-resumen', document.querySelector('[data-tab="tab-resumen"]'))
+      }
+    } catch(err) {
+      showToast('Error al leer archivo: ' + err.message, 'error')
+      icon.textContent='📂'; text.textContent='Arrastra tu archivo aquí'
+    }
+  }
+  if (/\.xlsx?$/i.test(file.name)) reader.readAsArrayBuffer(file)
+  else reader.readAsText(file, 'UTF-8')
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GEO ANALYSIS
+// ═══════════════════════════════════════════════════════════
+function runGeoAnalysis() {
+  if (!routeData.length) { showToast('Carga un plan primero', 'warn'); return }
+  const D = window.RM_COMUNAS_DATA
+  if (!D || !Object.keys(D).length) { showToast('comunas_data.js no disponible', 'error'); return }
+
+  const pts = routeData.filter(r => r.lat !== null && r.lng !== null)
+  if (!pts.length) { showToast('Sin coordenadas GPS en el plan', 'warn'); return }
+
+  conflicts = []
+  for (const r of pts) {
+    if (isExcludedVeh(r.veh) || isProjectVeh(r.veh)) continue
+    const kDir   = normK(r.comuna)
+    const kCoord = comunaFromCoords(r.lat, r.lng)
+    if (!kDir || !kCoord) continue
+    if (kDir === kCoord) continue
+    if (kDir.includes(kCoord) || kCoord.includes(kDir)) continue
+    const cd = D[kDir]
+    if (cd && cd.c) {
+      const dist = haversine([r.lat, r.lng], cd.c)
+      if (dist < 0.5) continue
+    }
+    const cdDir = D[kDir]
+    let distBordeKm = Infinity
+    if (cdDir && cdDir.p) distBordeKm = distPointToPolygonKm(r.lat, r.lng, cdDir.p)
+    const severity = distBordeKm <= (params.borderKm||0.1) ? 'amarilla' : 'roja'
+    conflicts.push({
+      iso: r.iso, veh: r.veh, dir: r.dir,
+      comunaDireccion: r.comuna,
+      comunaReal: getDisplayName(kCoord),
+      comunaRealKey: kCoord,
+      lat: r.lat, lng: r.lng, parada: r.parada,
+      severity, distBordeKm: Math.round(distBordeKm*1000)/1000,
+      status: 'pendiente',
+    })
+  }
+
+  saveState()
+  updateAllUI()
+  showToast(conflicts.length ? `${conflicts.length} conflictos detectados` : '✓ Sin conflictos de comuna')
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════════════════════
+function toggleResolveConflict(iso) {
+  if (resolvedConflicts.has(iso)) { resolvedConflicts.delete(iso) }
+  else { resolvedConflicts.add(iso); flaggedConflicts.delete(iso) }
+  saveState(); updateAllUI()
+}
+function toggleFlagConflict(iso) {
+  if (flaggedConflicts.has(iso)) { flaggedConflicts.delete(iso) }
+  else { flaggedConflicts.add(iso); resolvedConflicts.delete(iso) }
+  saveState(); updateAllUI()
+}
+function resolveAllConflicts() {
+  const visible = getVisibleConflicts()
+  visible.forEach(c => { resolvedConflicts.add(c.iso); flaggedConflicts.delete(c.iso) })
+  saveState(); updateAllUI()
+  showToast(`✓ ${visible.length} resueltos`)
+}
+function flagAllConflicts() {
+  const visible = getVisibleConflicts()
+  visible.forEach(c => { flaggedConflicts.add(c.iso); resolvedConflicts.delete(c.iso) })
+  saveState(); updateAllUI()
+  showToast(`⚠ ${visible.length} alertados`)
+}
+function toggleResolveProyecto(iso) {
+  if (resolvedProyectos.has(iso)) { resolvedProyectos.delete(iso) }
+  else { resolvedProyectos.add(iso); flaggedProyectos.delete(iso) }
+  saveState(); updateAllUI()
+}
+function toggleFlagProyecto(iso) {
+  if (flaggedProyectos.has(iso)) { flaggedProyectos.delete(iso) }
+  else { flaggedProyectos.add(iso); resolvedProyectos.delete(iso) }
+  saveState(); updateAllUI()
+}
+function resolveAllProyectos() {
+  getProyectosData().forEach(r => { resolvedProyectos.add(r.iso); flaggedProyectos.delete(r.iso) })
+  saveState(); updateAllUI()
+}
+function flagAllProyectos() {
+  getProyectosData().forEach(r => { flaggedProyectos.add(r.iso); resolvedProyectos.delete(r.iso) })
+  saveState(); updateAllUI()
+}
+function handleClear() {
+  if (!confirm('¿Limpiar todos los datos?')) return
+  routeData=[]; conflicts=[]; resolvedConflicts=new Set(); flaggedConflicts=new Set()
+  resolvedProyectos=new Set(); flaggedProyectos=new Set()
+  saveState()
+  const zone=document.getElementById('upload-zone'); zone.classList.remove('loaded')
+  document.getElementById('upload-icon').textContent='📂'
+  document.getElementById('upload-text').textContent='Arrastra tu archivo aquí'
+  document.getElementById('upload-sub').textContent='o haz click para buscar · XLSX, XLS, CSV'
+  updateAllUI()
+  switchTab('tab-plan', document.querySelector('[data-tab="tab-plan"]'))
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+function getProyectosData() {
+  return routeData.filter(r => isProjectVeh(r.veh))
+}
+function getVehColor(veh) {
+  const vehs = [...new Set(routeData.map(r=>r.veh))].sort()
+  return VEH_COLORS[vehs.indexOf(veh) % VEH_COLORS.length] || VEH_COLORS[0]
+}
+function getConflictStatus(iso) {
+  if (resolvedConflicts.has(iso)) return 'resuelto'
+  if (flaggedConflicts.has(iso)) return 'alerta'
+  return 'pendiente'
+}
+function getProyStatus(iso) {
+  if (resolvedProyectos.has(iso)) return 'resuelto'
+  if (flaggedProyectos.has(iso)) return 'alerta'
+  return 'pendiente'
+}
+function getVisibleConflicts() {
+  const q = (document.getElementById('geo-search')?.value||'').toLowerCase()
+  return conflicts.filter(c => {
+    if (isExcludedVeh(c.veh)) return false
+    if (geoFilter !== 'all' && getConflictStatus(c.iso) !== geoFilter) return false
+    if (q) return c.iso.toLowerCase().includes(q) || c.veh.toLowerCase().includes(q) || c.comunaDireccion.toLowerCase().includes(q)
+    return true
+  })
+}
+function getSummaryRows() {
+  const rows = []
+  for (const c of conflicts) {
+    if (isExcludedVeh(c.veh)) continue
+    rows.push({
+      iso:c.iso, veh:c.veh, dir:c.dir,
+      obs:'Comuna Incorrecta',
+      detalle:`${c.comunaDireccion} → ${c.comunaReal}`,
+      severity:c.severity||'roja', tipo:'geo',
+      status:getConflictStatus(c.iso),
+    })
+  }
+  for (const r of getProyectosData()) {
+    rows.push({
+      iso:r.iso, veh:r.veh, dir:r.dir,
+      obs:'Proyecto', detalle:`Proyecto${r.conductor?' · '+r.conductor:''}`,
+      severity:'', tipo:'proy',
+      status:getProyStatus(r.iso),
+    })
+  }
+  return rows.sort((a,b)=>{ const o={alerta:0,pendiente:1,resuelto:2}; return (o[a.status]||0)-(o[b.status]||0) })
+}
+function ts() {
+  const d=new Date(), p=n=>String(n).padStart(2,'0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`
+}
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;') }
+
+// ═══════════════════════════════════════════════════════════
+//  PARAMS PANEL
+// ═══════════════════════════════════════════════════════════
+function renderParamsPanel() {
+  const exWrap = document.getElementById('param-excluded-chips')
+  const prWrap = document.getElementById('param-project-chips')
+  if (!exWrap || !prWrap) return
+  const chip = (code, kind) =>
+    `<span class="filter-pill active" style="cursor:default">${escH(code)}
+      <span onclick="removeParamVeh('${kind}','${escH(code)}')" style="cursor:pointer;margin-left:4px;font-weight:700">✕</span>
+    </span>`
+  exWrap.innerHTML = params.excludedVehicles.map(c => chip(c,'excluded')).join('') || '<span style="font-size:10px;color:var(--textFaint)">Ninguno</span>'
+  prWrap.innerHTML = params.projectVehicles.map(c => chip(c,'project')).join('') || '<span style="font-size:10px;color:var(--textFaint)">Ninguno</span>'
+  const km = document.getElementById('param-border-km'); if (km) km.value = params.borderKm
+  const w = document.getElementById('param-border-weight'); if (w) w.value = params.borderWeight
+}
+function addParamVeh(kind, code) {
+  code = (code||'').trim().toUpperCase()
+  if (!code) return
+  const arr = kind==='excluded' ? params.excludedVehicles : params.projectVehicles
+  if (!arr.includes(code)) arr.push(code)
+  saveState(); renderParamsPanel(); reanalyze()
+}
+function removeParamVeh(kind, code) {
+  const key = kind==='excluded' ? 'excludedVehicles' : 'projectVehicles'
+  params[key] = params[key].filter(c => c !== code)
+  saveState(); renderParamsPanel(); reanalyze()
+}
+function reanalyze() {
+  if (routeData.length && routeData.some(r=>r.lat!==null)) runGeoAnalysis()
+  else updateAllUI()
+}
+function wireParamsPanel() {
+  const exIn = document.getElementById('param-excluded-input')
+  const prIn = document.getElementById('param-project-input')
+  if (exIn) exIn.addEventListener('keydown', e => { if (e.key==='Enter'){ addParamVeh('excluded', exIn.value); exIn.value='' } })
+  if (prIn) prIn.addEventListener('keydown', e => { if (e.key==='Enter'){ addParamVeh('project', prIn.value); prIn.value='' } })
+  const km = document.getElementById('param-border-km')
+  if (km) km.addEventListener('change', () => { params.borderKm = parseFloat(km.value)||0.1; saveState(); reanalyze() })
+  const w = document.getElementById('param-border-weight')
+  if (w) w.addEventListener('change', () => { params.borderWeight = parseFloat(w.value)||2.2; saveState(); redrawComunaBorders() })
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+function showToast(msg, type='', ms=2400) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.className = 'toast show' + (type ? ' toast-'+type : '')
+  clearTimeout(t._tid)
+  t._tid = setTimeout(() => t.className='toast', ms)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GUÍA
+// ═══════════════════════════════════════════════════════════
+function openGuide(){ document.getElementById('guide-modal').classList.add('active') }
+function closeGuide(){ document.getElementById('guide-modal').classList.remove('active'); localStorage.setItem('aud_guide_seen_v3','1') }
+
+// ═══════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  if (btn) btn.classList.add('active')
+
+  if (id === 'tab-geo') initGeoMap()
+  if (id === 'tab-proyectos') initProyMap()
+  if (id === 'tab-resumen') renderSummary()
+}
+
+function setGeoFilter(f, btn) {
+  geoFilter = f
+  document.querySelectorAll('#geo-status-filter .filter-pill').forEach(b => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+  renderConflictList()
+}
+function setProyFilter(f, btn) {
+  proyFilter = f
+  document.querySelectorAll('#tab-proyectos .filter-pill').forEach(b => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+  renderProyectoList()
+}
+function setVehFilter(v){ vehFilter=v; renderSummary() }
+function setHideReviewed(v){ hideReviewed=v; renderSummary() }
+function clearAllFilters(){
+  vehFilter='all'; hideReviewed=false; summaryColFilters={}
+  const s=document.getElementById('summary-search'); if(s)s.value=''
+  const hr=document.getElementById('hide-reviewed'); if(hr)hr.checked=false
+  const v=document.getElementById('summary-veh'); if(v)v.value='all'
+  renderSummary()
+}
+function clearSelection(){ selectedRows.clear(); renderSummary() }
+
+// ═══════════════════════════════════════════════════════════
+//  UPDATE ALL UI
+// ═══════════════════════════════════════════════════════════
+function updateAllUI() {
+  updateBadges()
+  updatePlanTab()
+  renderConflictList()
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+  renderProyectoList()
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+  renderSummary()
+  updateGeoStatusBadge()
+  renderParamsPanel()
+  updateGeoProgress()
+}
+
+function updateBadges() {
+  const setBadge = (id, n) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (n) { el.textContent=n; el.classList.remove('hidden') }
+    else el.classList.add('hidden')
+  }
+  const geoAlerts = conflicts.filter(c => !isExcludedVeh(c.veh) && !resolvedConflicts.has(c.iso)).length
+  setBadge('badge-geo', geoAlerts || null)
+  if (geoAlerts) document.getElementById('badge-geo').classList.add('alert')
+  else document.getElementById('badge-geo').classList.remove('alert')
+  setBadge('badge-proyectos', getProyectosData().filter(r => !resolvedProyectos.has(r.iso)).length || null)
+  const summPend = getSummaryRows().filter(r => r.status !== 'resuelto').length
+  setBadge('badge-resumen', summPend || null)
+}
+
+function updatePlanTab() {
+  const statsEl = document.getElementById('plan-stats')
+  if (!routeData.length) { statsEl.classList.add('hidden'); return }
+  statsEl.classList.remove('hidden')
+  document.getElementById('stat-isos').textContent = routeData.length
+  document.getElementById('stat-vehs').textContent = new Set(routeData.map(r=>r.veh)).size
+  document.getElementById('stat-comunas').textContent = new Set(routeData.map(r=>r.comuna)).size
+  document.getElementById('stat-gps').textContent = routeData.filter(r=>r.lat!==null).length
+  const infoEl = document.getElementById('plan-conflicts-info')
+  if (conflicts.length) {
+    infoEl.classList.remove('hidden')
+    infoEl.textContent = `${conflicts.length} conflictos de comuna detectados · ${conflicts.filter(c=>!resolvedConflicts.has(c.iso)).length} pendientes`
+  } else infoEl.classList.add('hidden')
+}
+
+function updateGeoStatusBadge() {
+  const el = document.getElementById('geo-status')
+  const D = window.RM_COMUNAS_DATA
+  if (D && Object.keys(D).length) {
+    el.textContent = `Geo: ${Object.keys(D).length} comunas`
+    el.className = 'pill pill-green'
+    el.classList.remove('hidden')
+  } else {
+    el.textContent = 'Geo: sin datos'
+    el.className = 'pill pill-red'
+    el.classList.remove('hidden')
+  }
+}
+
+function copyISO(iso, el) {
+  navigator.clipboard.writeText(iso).catch(()=>{})
+  el.classList.add('copied')
+  setTimeout(()=>el.classList.remove('copied'),1300)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP: INIT
+// ═══════════════════════════════════════════════════════════
+let comunaBorderLayers = { geo: [], proy: [] }
+function drawComunaPolygons(map, which) {
+  const D = window.RM_COMUNAS_DATA
+  if (!D || !window.L) return
+  const L = window.L
+  comunaBorderLayers[which] = []
+  Object.keys(D).forEach(k => {
+    const d = D[k]; if (!d || !d.p) return
+    const poly = L.polygon(d.p, { color:'#334155', weight:params.borderWeight, opacity:params.borderOpacity, fillColor:'#334155', fillOpacity:0.05, interactive:false }).addTo(map)
+    comunaBorderLayers[which].push(poly)
+    if (d.c) {
+      const icon = L.divIcon({ className:'', html:`<div class="commune-lbl">${escH(d.n||k)}</div>`, iconSize:[180,24], iconAnchor:[90,12] })
+      const lbl = L.marker(d.c, { icon, interactive:false, zIndexOffset:-100 }).addTo(map)
+      comunaBorderLayers[which].push(lbl)
+    }
+  })
+}
+function redrawComunaBorders() {
+  ['geo','proy'].forEach(which => {
+    const map = which==='geo' ? geoMap : proyMap
+    if (!map) return
+    comunaBorderLayers[which].forEach(l => map.removeLayer(l))
+    drawComunaPolygons(map, which)
+  })
+}
+
+function initGeoMap() {
+  if (geoMap) { setTimeout(()=>geoMap.invalidateSize(),150); return }
+  const L = window.L; if (!L) return
+  const el = document.getElementById('map-geo'); if (!el) return
+  geoMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
+  geoTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(geoMap)
+  drawComunaPolygons(geoMap, 'geo')
+  addMapZoomControl(geoMap)
+  addMapZoomLabel(geoMap, 'geo')
+  geoMap.on('zoom', () => updateComunaLabelSize(geoMap))
+  updateComunaLabelSize(geoMap)
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+}
+function initProyMap() {
+  if (proyMap) { setTimeout(()=>proyMap.invalidateSize(),150); return }
+  const L = window.L; if (!L) return
+  const el = document.getElementById('map-proy'); if (!el) return
+  proyMap = L.map(el, { center:[-33.47,-70.65], zoom:11, zoomControl:false })
+  proyTile = L.tileLayer(TILE_DARK, { attribution:'© CARTO', subdomains:'abcd', maxZoom:19 }).addTo(proyMap)
+  drawComunaPolygons(proyMap, 'proy')
+  addMapZoomControl(proyMap)
+  addMapZoomLabel(proyMap, 'proy')
+  proyMap.on('zoom', () => updateComunaLabelSize(proyMap))
+  updateComunaLabelSize(proyMap)
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+}
+function addMapZoomControl(map) {
+  window.L.control.zoom({ position:'bottomright' }).addTo(map)
+}
+function addMapZoomLabel(map, which) {
+  // commune label size updated on zoom via updateComunaLabelSize
+}
+function updateComunaLabelSize(map) {
+  const z = map.getZoom()
+  const sz = Math.max(Math.min(Math.round(10 * Math.pow(2, z-12)), 80), 6)
+  document.querySelectorAll('.commune-lbl').forEach(el => el.style.fontSize = sz+'px')
+}
+function toggleMapTheme(which) {
+  const L = window.L; if (!L) return
+  if (which==='geo') {
+    geoDarkMap = !geoDarkMap
+    if (geoTile) geoMap.removeLayer(geoTile)
+    geoTile = L.tileLayer(geoDarkMap?TILE_DARK:TILE_LIGHT, { attribution:'© CARTO', maxZoom:19 }).addTo(geoMap)
+    document.getElementById('geo-tile-btn').textContent = geoDarkMap?'☀️':'🌙'
+  } else {
+    proyDarkMap = !proyDarkMap
+    if (proyTile) proyMap.removeLayer(proyTile)
+    proyTile = L.tileLayer(proyDarkMap?TILE_DARK:TILE_LIGHT, { attribution:'© CARTO', maxZoom:19 }).addTo(proyMap)
+    document.getElementById('proy-tile-btn').textContent = proyDarkMap?'☀️':'🌙'
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP: MARKERS
+// ═══════════════════════════════════════════════════════════
+function updateMapMarkers(map, markersArr, linesArr, data, confs, resolved, flagged, focusISO, which) {
+  const L = window.L; if (!L || !map) return
+  markersArr.forEach(m => map.removeLayer(m)); markersArr.length=0
+  linesArr.forEach(l => map.removeLayer(l)); linesArr.length=0
+
+  const pts = data.filter(r => r.lat!==null && r.lng!==null)
+  if (!pts.length) return
+
+  const confSet = new Set(confs.map(c=>c.iso))
+  const focusVeh = focusISO ? (data.find(r=>r.iso===focusISO)||{}).veh : null
+
+  // Polylines per vehicle
+  const vPts = {}
+  pts.forEach(r => { if(!vPts[r.veh]) vPts[r.veh]=[]; vPts[r.veh].push([r.lat,r.lng]) })
+  Object.entries(vPts).forEach(([v,ps]) => {
+    if (ps.length < 2) return
+    const isF = focusVeh ? v===focusVeh : true
+    const line = L.polyline(ps, {
+      color: getVehColor(v), weight: isF?2.5:1.5,
+      opacity: focusVeh ? (isF?0.85:0.12) : 0.5
+    }).addTo(map)
+    linesArr.push(line)
+  })
+
+  // Markers
+  pts.forEach(r => {
+    const isConf = confSet.has(r.iso)
+    const isF = r.iso === focusISO
+    const isRes = resolved.has(r.iso)
+    const isFlg = flagged.has(r.iso)
+    const isVehF = focusVeh ? r.veh===focusVeh : true
+    if (focusVeh && !isVehF) return
+
+    const conf = isConf ? confs.find(x=>x.iso===r.iso) : null
+    const sevColor = conf && conf.severity==='amarilla' ? '#CA8A04' : '#DC2626'
+    const col = isF ? '#FFDA1A' : isConf ? (isRes ? '#16A34A' : sevColor) : getVehColor(r.veh)
+    const sz = isF ? 22 : isConf ? 16 : 9
+    const cls = isF ? 'mk-focus' : (isConf && !isRes && (!conf || conf.severity==='roja') ? 'mk-conflict' : '')
+    const label = isConf ? (isRes?'✓':'!') : ''
+
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;cursor:pointer">${label}</div>`,
+      iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2]
+    })
+    const mk = L.marker([r.lat,r.lng], { icon, zIndexOffset: isF?1000:(isConf?500:0) })
+
+    if (isConf) {
+      const c = confs.find(x=>x.iso===r.iso)
+      if (c) {
+        const popContent = `<div style="font-size:11px;min-width:220px">
+          <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:4px">${escH(r.iso)}</div>
+          <div style="font-size:10px;color:var(--textFaint);margin-bottom:4px">${escH(r.veh)}</div>
+          <div style="color:var(--textSub);margin-bottom:8px;line-height:1.4">${escH(c.dir)}</div>
+          <div style="background:var(--pasteRed);border:1px solid rgba(220,38,38,0.15);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:10px">
+            <span style="font-weight:700;color:var(--textSub)">${escH(c.comunaDireccion)}</span>
+            <span style="color:var(--textFaint);margin:0 4px">→</span>
+            <span style="font-weight:700;color:var(--red)">${escH(c.comunaReal)}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="window.dispatchEvent(new CustomEvent('map-resolve',{detail:'${r.iso}'}))" style="flex:1;padding:5px 8px;background:var(--pasteGreen);color:var(--green);border:1px solid rgba(22,163,74,0.2);border-radius:var(--r-sm);cursor:pointer;font-size:10px;font-weight:600">${isRes?'↩ Reabrir':'✓ Resolver'}</button>
+            <button onclick="window.dispatchEvent(new CustomEvent('map-flag',{detail:'${r.iso}'}))" style="flex:1;padding:5px 8px;background:var(--pasteRed);color:var(--red);border:1px solid rgba(220,38,38,0.2);border-radius:var(--r-sm);cursor:pointer;font-size:10px;font-weight:600">${isFlg?'✕ Quitar':'⚠ Alertar'}</button>
+          </div>
+        </div>`
+        mk.bindPopup(popContent, { autoPan:false, maxWidth:300 })
+      }
+    }
+    mk.on('click', () => {
+      if (which==='geo') { geoFocusISO = r.iso===geoFocusISO?null:r.iso; renderConflictList(); updateMapMarkers(geoMap,geoMarkers,geoLines,routeData,conflicts,resolvedConflicts,flaggedConflicts,geoFocusISO,'geo'); flyToISO(geoMap,r) }
+      else { proyFocusISO = r.iso===proyFocusISO?null:r.iso; renderProyectoList(); updateMapMarkers(proyMap,proyMarkers,proyLines,getProyectosData(),[],resolvedProyectos,flaggedProyectos,proyFocusISO,'proy'); flyToISO(proyMap,r) }
+    })
+    mk.addTo(map)
+    markersArr.push(mk)
+    if (isF && isConf) setTimeout(()=>mk.openPopup(),60)
+  })
+
+  // Show clear focus button
+  const clearBtn = document.getElementById(which+'-clear-focus')
+  if (clearBtn) { if(focusISO) clearBtn.classList.remove('hidden'); else clearBtn.classList.add('hidden') }
+
+  // Fit bounds on first load
+  if (!focusISO && pts.length) {
+    const latLngs = pts.map(r=>[r.lat,r.lng])
+    try { map.flyToBounds(latLngs, { padding:[30,30], maxZoom:12, duration:0.7 }) } catch(e){}
+  }
+}
+
+function flyToISO(map, r) {
+  if (!map || r.lat===null) return
+  map.flyTo([r.lat, r.lng], Math.max(map.getZoom(), 14), { duration:0.6 })
+}
+
+function clearGeoFocus() { geoFocusISO=null; renderConflictList(); updateMapMarkers(geoMap,geoMarkers,geoLines,routeData,conflicts,resolvedConflicts,flaggedConflicts,null,'geo') }
+function clearProyFocus() { proyFocusISO=null; renderProyectoList(); updateMapMarkers(proyMap,proyMarkers,proyLines,getProyectosData(),[],resolvedProyectos,flaggedProyectos,null,'proy') }
+
+window.addEventListener('map-resolve', e => { toggleResolveConflict(e.detail) })
+window.addEventListener('map-flag',    e => { toggleFlagConflict(e.detail) })
+
+// ═══════════════════════════════════════════════════════════
+//  CONFLICT LIST RENDER
+// ═══════════════════════════════════════════════════════════
+function renderConflictList() {
+  const list = document.getElementById('geo-list')
+  document.getElementById('geo-count').textContent = conflicts.length
+  const visible = getVisibleConflicts()
+  if (!conflicts.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">Carga un plan y ejecuta análisis</div></div>'
+    return
+  }
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+  list.innerHTML = visible.map(c => {
+    const st = getConflictStatus(c.iso)
+    const isRes = st==='resuelto', isFlg = st==='alerta', isF = c.iso===geoFocusISO
+    return `<div class="conflict-row ${isF?'focused':''} ${isFlg?'flagged':''} ${isRes?'resolved':''}"
+      onclick="focusConflict('${escH(c.iso)}')">
+      <div class="flex items-center gap-sm" style="margin-bottom:5px">
+        <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--blue)">${escH(c.iso)}</span>
+        ${isRes?'<span class="pill pill-green">✓</span>':isFlg?'<span class="pill pill-red">⚠</span>':''}
+        <span style="margin-left:auto;font-size:10px;color:var(--textFaint)">${escH(c.veh)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--textSub);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(c.dir)}">${escH(c.dir)}</div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-xs">
+          <span style="font-size:10px;font-weight:600;color:var(--textSub)">${escH(c.comunaDireccion)}</span>
+          <span style="color:var(--textFaint);font-size:9px">→</span>
+          <span style="font-size:10px;font-weight:700;color:var(--red)">${escH(c.comunaReal)}</span>
+        </div>
+        <div class="flex gap-xs" onclick="event.stopPropagation()">
+          <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="toggleResolveConflict('${escH(c.iso)}')">${isRes?'↩':'✓'}</button>
+          <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="toggleFlagConflict('${escH(c.iso)}')">${isFlg?'✕':'⚠'}</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function focusConflict(iso) {
+  geoFocusISO = geoFocusISO===iso ? null : iso
+  renderConflictList()
+  const r = routeData.find(x=>x.iso===iso)
+  updateMapMarkers(geoMap, geoMarkers, geoLines, routeData, conflicts, resolvedConflicts, flaggedConflicts, geoFocusISO, 'geo')
+  if (geoFocusISO && r && r.lat!==null && geoMap) flyToISO(geoMap, r)
+}
+
+function navConflict(dir){
+  const list = getVisibleConflicts()
+  if (!list.length) return
+  let idx = list.findIndex(c=>c.iso===geoFocusISO)
+  idx = idx<0 ? 0 : (idx+dir+list.length)%list.length
+  // si no había foco y vamos hacia atrás, empezar desde el final
+  if (geoFocusISO===null && dir<0) idx = list.length-1
+  focusConflict(list[idx].iso)
+}
+function navNextPendiente(){
+  const list = getVisibleConflicts()
+  if (!list.length) return
+  const start = Math.max(0, list.findIndex(c=>c.iso===geoFocusISO))
+  for (let n=1;n<=list.length;n++){
+    const c = list[(start+n)%list.length]
+    if (getConflictStatus(c.iso)==='pendiente'){ focusConflict(c.iso); return }
+  }
+  showToast('No quedan pendientes visibles','warn')
+}
+function updateGeoProgress(){
+  const el=document.getElementById('geo-progress'); if(!el) return
+  const total=conflicts.filter(c=>!isExcludedVeh(c.veh)).length
+  const done=conflicts.filter(c=>!isExcludedVeh(c.veh) && getConflictStatus(c.iso)!=='pendiente').length
+  el.textContent = total ? `${done} / ${total} revisados` : ''
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROYECTO LIST RENDER
+// ═══════════════════════════════════════════════════════════
+function renderProyectoList() {
+  const list = document.getElementById('proy-list')
+  const data = getProyectosData()
+  document.getElementById('proy-count').textContent = data.length
+  const q = (document.getElementById('proy-search')?.value||'').toLowerCase()
+  const visible = data.filter(r => {
+    if (proyFilter !== 'all' && getProyStatus(r.iso) !== proyFilter) return false
+    if (q) return r.iso.toLowerCase().includes(q) || r.veh.toLowerCase().includes(q)
+    return true
+  })
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-title">Sin proyectos — verifica los vehículos de proyecto en ⚙ Parámetros</div></div>'
+    return
+  }
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Sin resultados</div></div>'
+    return
+  }
+  list.innerHTML = visible.map(r => {
+    const st = getProyStatus(r.iso)
+    const isRes = st==='resuelto', isFlg = st==='alerta', isF = r.iso===proyFocusISO
+    return `<div class="conflict-row ${isF?'focused':''} ${isFlg?'flagged':''} ${isRes?'resolved':''}"
+      onclick="focusProyecto('${escH(r.iso)}')">
+      <div class="flex items-center gap-sm" style="margin-bottom:5px">
+        <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--purple)">${escH(r.iso)}</span>
+        ${isRes?'<span class="pill pill-green">✓</span>':isFlg?'<span class="pill pill-red">⚠</span>':''}
+        <span style="margin-left:auto;font-size:10px;color:var(--textFaint)">${escH(r.veh)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--textSub);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(r.dir)}">${escH(r.dir)}</div>
+      <div class="flex justify-between items-center">
+        <span style="font-size:10px;color:var(--textFaint)">${escH(r.conductor||'')}</span>
+        <div class="flex gap-xs" onclick="event.stopPropagation()">
+          <button class="btn btn-sm ${isRes?'btn-green':'btn-secondary'}" onclick="toggleResolveProyecto('${escH(r.iso)}')">${isRes?'↩':'✓'}</button>
+          <button class="btn btn-sm ${isFlg?'btn-danger':'btn-secondary'}" onclick="toggleFlagProyecto('${escH(r.iso)}')">${isFlg?'✕':'⚠'}</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function focusProyecto(iso) {
+  proyFocusISO = proyFocusISO===iso ? null : iso
+  renderProyectoList()
+  const r = routeData.find(x=>x.iso===iso)
+  updateMapMarkers(proyMap, proyMarkers, proyLines, getProyectosData(), [], resolvedProyectos, flaggedProyectos, proyFocusISO, 'proy')
+  if (proyFocusISO && r && r.lat!==null && proyMap) flyToISO(proyMap, r)
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUMMARY TABLE
+// ═══════════════════════════════════════════════════════════
+function getFilteredSummaryRows() {
+  const q = (document.getElementById('summary-search')?.value||'').toLowerCase()
+  return getSummaryRows().filter(r => {
+    if (hideReviewed && r.status!=='pendiente') return false
+    if (vehFilter!=='all' && r.veh!==vehFilter) return false
+    for (const col of Object.keys(summaryColFilters)) {
+      const allowed = summaryColFilters[col]
+      if (allowed && allowed.size && !allowed.has(String(r[col]??''))) return false
+    }
+    if (q) return r.iso.toLowerCase().includes(q)||r.veh.toLowerCase().includes(q)||(r.dir||'').toLowerCase().includes(q)||(r.detalle||'').toLowerCase().includes(q)
+    return true
+  })
+}
+
+function renderSummary() {
+  const wrap = document.getElementById('summary-wrap')
+  if (!wrap) return
+  const vehSel = document.getElementById('summary-veh')
+  if (vehSel) {
+    const vehs = [...new Set(getSummaryRows().map(r=>r.veh))].sort((a,b)=>a.localeCompare(b,'es'))
+    const cur = vehFilter
+    vehSel.innerHTML = '<option value="all">Todos los vehículos</option>' + vehs.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')
+    vehSel.value = cur
+  }
+  const all = getSummaryRows()
+  const visible = getFilteredSummaryRows()
+  const pend = all.filter(r=>r.status==='pendiente').length
+  const filtered = visible.length !== all.length ? ` · ${visible.length} visibles` : ''
+  document.getElementById('summary-info').innerHTML = `${all.length} en total${filtered} · <span style="font-weight:700">${pend} pendientes</span>`
+  const selBar = document.getElementById('sel-bar')
+  if (selBar) { selBar.classList.toggle('hidden', selectedRows.size===0); const sc=document.getElementById('sel-count'); if(sc) sc.textContent=`${selectedRows.size} seleccionadas` }
+
+  if (!all.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Carga un plan y revisa el mapa para ver los hallazgos aquí</div></div>'; return }
+  if (!visible.length) { wrap.innerHTML='<div class="empty-state"><div class="empty-title">Sin resultados con los filtros actuales</div></div>'; return }
+
+  const COLS = [
+    {key:'iso',label:'ISO'},{key:'veh',label:'Vehículo'},{key:'dir',label:'Dirección'},{key:'detalle',label:'Corrección'},
+  ]
+  const visKeys = visible.map(rowKey)
+  const allSelected = visKeys.length && visKeys.every(k=>selectedRows.has(k))
+
+  wrap.innerHTML = `<table class="dash-table" style="table-layout:auto;width:100%">
+    <thead><tr>
+      <th style="width:30px;text-align:center"><input type="checkbox" class="row-check" ${allSelected?'checked':''} onclick="toggleSelectAll(this.checked)" title="Seleccionar todo"></th>
+      ${COLS.map(c=>{
+        const active = summaryColFilters[c.key] && summaryColFilters[c.key].size
+        return `<th>${c.label}<button class="col-filter-btn ${active?'active':''}" onclick="toggleColPopover(event,'${c.key}')">▼</button></th>`
+      }).join('')}
+      <th style="width:78px;text-align:center">Revisar</th>
+    </tr></thead>
+    <tbody>
+    ${visible.map(r=>{
+      const k = rowKey(r)
+      const sel = selectedRows.has(k)
+      const rowCls = r.status==='resuelto' ? 'row-resolved' : r.status==='alerta' ? 'row-flagged' : ''
+      return `<tr class="${sel?'is-selected':''} ${rowCls}">
+        <td style="text-align:center"><input type="checkbox" class="row-check" ${sel?'checked':''} onclick="toggleRowSel('${escH(k)}')"></td>
+        <td><span style="font-weight:700;cursor:pointer" onclick="navigator.clipboard.writeText('${escH(r.iso)}')" title="Clic para copiar">${escH(r.iso)}</span></td>
+        <td>${escH(r.veh)}</td>
+        <td title="${escH(r.dir)}">${escH(r.dir||'—')}</td>
+        <td title="${escH(r.detalle)}">${escH(r.detalle||'—')}</td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-sm btn-secondary" title="Descartar (revisado, sin problema)" onclick="summaryResolve('${escH(r.iso)}','${r.tipo}')">${r.status==='resuelto'?'↩':'✓'}</button>
+          <button class="btn btn-sm btn-secondary" title="Marcar como error" onclick="summaryFlag('${escH(r.iso)}','${r.tipo}')">${r.status==='alerta'?'✕':'⚠'}</button>
+        </td>
+      </tr>`
+    }).join('')}
+    </tbody>
+  </table>`
+}
+function toggleRowSel(k){ if(selectedRows.has(k))selectedRows.delete(k); else selectedRows.add(k); renderSummary() }
+function toggleSelectAll(check){ const vis=getFilteredSummaryRows().map(rowKey); if(check)vis.forEach(k=>selectedRows.add(k)); else vis.forEach(k=>selectedRows.delete(k)); renderSummary() }
+function toggleColPopover(ev, col){
+  ev.stopPropagation()
+  if (openColPopover) { openColPopover.remove(); openColPopover=null }
+  const th = ev.target.closest('th')
+  const values = [...new Set(getSummaryRows().map(r=>String(r[col]??'')))].sort((a,b)=>a.localeCompare(b,'es'))
+  const sel = summaryColFilters[col] || new Set(values)
+  const pop = document.createElement('div')
+  pop.className='col-popover'
+  pop.innerHTML = `<input class="input" placeholder="Buscar…" oninput="filterPopoverList(this)">
+    <div class="cp-list">${values.map(v=>`<label><input type="checkbox" class="row-check cp-cb" value="${escH(v)}" ${sel.has(v)?'checked':''}>${escH(v||'(vacío)')}</label>`).join('')}</div>
+    <div class="cp-actions">
+      <button class="btn btn-sm btn-secondary" onclick="applyColFilter('${col}',this)">Aplicar</button>
+      <button class="btn btn-sm btn-secondary" onclick="resetColFilter('${col}')">Quitar</button>
+    </div>`
+  th.appendChild(pop)
+  pop.addEventListener('click', e=>e.stopPropagation())
+  openColPopover = pop
+}
+function filterPopoverList(input){
+  const q=input.value.toLowerCase()
+  input.parentElement.querySelectorAll('.cp-list label').forEach(l=>{ l.style.display = l.textContent.toLowerCase().includes(q)?'flex':'none' })
+}
+function applyColFilter(col, btn){
+  const pop = btn.closest('.col-popover')
+  const checked = [...pop.querySelectorAll('.cp-cb:checked')].map(c=>c.value)
+  const total = pop.querySelectorAll('.cp-cb').length
+  if (checked.length===total) delete summaryColFilters[col]
+  else summaryColFilters[col] = new Set(checked)
+  if (openColPopover){ openColPopover.remove(); openColPopover=null }
+  renderSummary()
+}
+function resetColFilter(col){ delete summaryColFilters[col]; if(openColPopover){openColPopover.remove();openColPopover=null} renderSummary() }
+document.addEventListener('click', ()=>{ if(openColPopover){ openColPopover.remove(); openColPopover=null } })
+
+function summaryResolve(iso, tipo) {
+  const resSet = tipo==='proy' ? resolvedProyectos : resolvedConflicts
+  const flgSet = tipo==='proy' ? flaggedProyectos : flaggedConflicts
+  if (resSet.has(iso)) resSet.delete(iso)
+  else { resSet.add(iso); flgSet.delete(iso) }
+  saveState(); updateAllUI()
+}
+function summaryFlag(iso, tipo) {
+  const resSet = tipo==='proy' ? resolvedProyectos : resolvedConflicts
+  const flgSet = tipo==='proy' ? flaggedProyectos : flaggedConflicts
+  if (flgSet.has(iso)) flgSet.delete(iso)
+  else { flgSet.add(iso); resSet.delete(iso) }
+  saveState(); updateAllUI()
+}
+
+function getW() {
+  const W = window.XLSX
+  if (!W) { showToast('XLSX no disponible','error'); return null }
+  return W
+}
+function exportFullPlan() {
+  if (!routeData.length) { showToast('Sin datos','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Comuna','Provincia','Lat','Lng','Parada','Conductor'],
+    ...routeData.map(r=>[r.iso,r.veh,r.dir,r.comuna,r.provincia,r.lat??'',r.lng??'',r.parada,r.conductor])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:22},{wch:18},{wch:10},{wch:10},{wch:8},{wch:30}]
+  W.utils.book_append_sheet(wb, ws, 'Plan Rutas')
+  W.writeFile(wb, `plan_rutas_${ts()}.xlsx`)
+  showToast('✓ Exportado')
+}
+function exportConflictsXLSX() {
+  if (!conflicts.length) { showToast('Sin conflictos','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Comuna Dir.','Comuna Real','Lat','Lng','Estado'],
+    ...conflicts.map(c=>[c.iso,c.veh,c.dir,c.comunaDireccion,c.comunaReal,c.lat,c.lng,getConflictStatus(c.iso)])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:22},{wch:22},{wch:10},{wch:10},{wch:12}]
+  W.utils.book_append_sheet(wb, ws, 'Conflictos')
+  W.writeFile(wb, `conflictos_geo_${ts()}.xlsx`)
+  showToast('✓ Exportado')
+}
+function rowsForExport(){
+  const vis = getFilteredSummaryRows()
+  if (selectedRows.size) return vis.filter(r=>selectedRows.has(rowKey(r)))
+  return vis
+}
+function exportSummaryXLSX() {
+  const rows = rowsForExport()
+  if (!rows.length) { showToast('Sin filas para exportar','warn'); return }
+  const W = getW(); if (!W) return
+  const wb = W.utils.book_new()
+  const ws = W.utils.aoa_to_sheet([
+    ['ISO','Vehículo','Dirección','Corrección'],
+    ...rows.map(r=>[r.iso,r.veh,r.dir,r.detalle])
+  ])
+  ws['!cols']=[{wch:14},{wch:22},{wch:50},{wch:40}]
+  ws['!freeze']={xSplit:0,ySplit:1}
+  W.utils.book_append_sheet(wb, ws, 'Hallazgos')
+  W.writeFile(wb, `auditoria_${ts()}.xlsx`)
+  showToast(`✓ Exportadas ${rows.length} filas`)
+}
+function exportSession() {
+  if (!routeData.length) { showToast('Sin datos','warn'); return }
+  const snap = {
+    meta: { version:'2.0', exportedAt:new Date().toISOString(), totalISOs:routeData.length, totalConflicts:conflicts.length },
+    routeData, conflicts,
+    resolvedConflicts:[...resolvedConflicts], flaggedConflicts:[...flaggedConflicts],
+    resolvedProyectos:[...resolvedProyectos], flaggedProyectos:[...flaggedProyectos],
+  }
+  const blob = new Blob([JSON.stringify(snap,null,2)], { type:'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href=url; a.download=`sesion_auditoria_${ts()}.json`; a.click()
+  URL.revokeObjectURL(url)
+  showToast('✓ Sesión exportada')
+}
+function copySummaryToClipboard() {
+  const rows = rowsForExport()
+  if (!rows.length) { showToast('Sin filas','warn'); return }
+  const hS='border:1px solid #ccc;padding:5px 8px;font-weight:700;background:#111;color:#fff;font-size:11px;'
+  const tS='border:1px solid #ccc;padding:4px 8px;font-size:11px;'
+  const head=['ISO','Vehículo','Dirección','Corrección']
+  let rich=`<table style="border-collapse:collapse"><tr>${head.map(h=>`<th style="${hS}">${h}</th>`).join('')}</tr>`
+  let plain=head.join('\t')+'\n'
+  rows.forEach(r=>{
+    const cells=[r.iso,r.veh,r.dir||'',r.detalle]
+    rich+=`<tr>${cells.map(v=>`<td style="${tS}">${escH(String(v))}</td>`).join('')}</tr>`
+    plain+=cells.join('\t')+'\n'
+  })
+  rich+='</table>'
+  try { navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([rich],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]); showToast(`✓ Copiadas ${rows.length} filas`) }
+  catch { navigator.clipboard.writeText(plain); showToast('✓ Copiado (texto)') }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  loadState()
+  updateAllUI()
+  renderParamsPanel()
+  wireParamsPanel()
+  updateGeoStatusBadge()
+
+  // Drag & drop on body
+  document.body.addEventListener('dragover', e => e.preventDefault())
+  document.body.addEventListener('drop', e => {
+    e.preventDefault()
+    const f = e.dataTransfer.files[0]
+    if (f && (f.name.match(/\.xlsx?$|\.csv$/i))) processFile(f)
+  })
+
+  // Wait for comunas_data.js if not yet loaded
+  if (!window.RM_COMUNAS_DATA || !Object.keys(window.RM_COMUNAS_DATA).length) {
+    let attempts = 0
+    const check = setInterval(() => {
+      attempts++
+      if (window.RM_COMUNAS_DATA && Object.keys(window.RM_COMUNAS_DATA).length) {
+        clearInterval(check)
+        updateGeoStatusBadge()
+      } else if (attempts >= 40) clearInterval(check)
+    }, 250)
+  }
+
+  // Atajos de teclado para auditar (solo en la pestaña de mapa geo, sin interferir con inputs)
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||'')) return
+    if (!document.getElementById('tab-geo').classList.contains('active')) return
+    if (e.key==='ArrowRight'){ e.preventDefault(); navConflict(1) }
+    else if (e.key==='ArrowLeft'){ e.preventDefault(); navConflict(-1) }
+    else if (e.key==='r'||e.key==='R'){ if(geoFocusISO) toggleResolveConflict(geoFocusISO) }
+    else if (e.key==='a'||e.key==='A'){ if(geoFocusISO) toggleFlagConflict(geoFocusISO) }
+    else if (e.key==='Escape'){ clearGeoFocus() }
+  })
+
+  // Mostrar la guía la primera vez
+  if (!localStorage.getItem('aud_guide_seen_v3')) setTimeout(openGuide, 500)
+}
+
+init()
+</script>
+</body>
+</html>

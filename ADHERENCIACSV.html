@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte Geosort — Filtro Ecommerce</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #FAFAF9;
+    --bgCard: #FFFFFF;
+    --bgCardAlt: rgba(0,0,0,0.026);
+    --bgHover: rgba(0,0,0,0.042);
+    --text: #18181B;
+    --textSub: #52525B;
+    --textFaint: #A1A1AA;
+    --border: rgba(0,0,0,0.09);
+    --borderSoft: rgba(0,0,0,0.06);
+    --borderFocus: #2563EB;
+    --blue: #2563EB;
+    --blueHover: #1D4ED8;
+    --accentBg: rgba(37,99,235,0.06);
+    --red: #DC2626;
+    --green: #16A34A;
+    --orange: #EA580C;
+    --yellow: #CA8A04;
+    --purple: #7C3AED;
+    --pasteBlue: #EFF6FF;
+    --pasteRed: #FEF2F2;
+    --pasteGreen: #F0FDF4;
+    --pasteOrange: #FFF7ED;
+    --pasteGray: #F4F4F5;
+    --font-base: 'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+    --font-mono: 'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+    --r-xs: 2px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 10px;
+    --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 10px;
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.07);
+    --t-fast: 0.12s ease;
+    --t-normal: 0.20s ease;
+    --t-slow: 0.28s cubic-bezier(0.16,1,0.3,1);
+    --transition-fast: 0.12s ease;
+    --transition-normal: 0.20s ease;
+    /* legacy aliases */
+    --surface: var(--bgCard);
+    --muted: var(--textFaint);
+    --success: var(--green);
+    --error: var(--red);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-base);
+    font-size: 12px;
+    line-height: 1.55;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.26); }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    max-width: 680px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .ecomm-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--r-xs);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    background: var(--pasteGray);
+    color: var(--textSub);
+    border: 1px solid var(--border);
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--text);
+  }
+  h1 span { color: var(--textSub); }
+  .subtitle {
+    color: var(--textFaint);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
+    margin-top: 8px;
+  }
+  .rule {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin-top: 16px;
+  }
+
+  /* ── Card ── */
+  .card {
+    width: 100%;
+    max-width: 680px;
+    background: var(--bgCard);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--textFaint);
+    margin-bottom: 14px;
+  }
+
+  /* ── Drop Zone ── */
+  #drop-zone {
+    border: 1px dashed var(--border);
+    border-radius: var(--r-lg);
+    padding: 26px 16px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bgCardAlt);
+    transition: border-color var(--transition-normal), background var(--transition-normal);
+    position: relative;
+  }
+  #drop-zone.drag-over {
+    border-color: rgba(37,99,235,0.35);
+    background: var(--accentBg);
+  }
+  #drop-zone.has-file {
+    border-color: rgba(22,163,74,0.30);
+    border-style: solid;
+    background: var(--pasteGreen);
+  }
+  #file-input { display: none; }
+  .drop-icon {
+    font-size: 26px;
+    margin-bottom: 8px;
+    display: block;
+    color: var(--textFaint);
+  }
+  .drop-label {
+    font-size: 12px;
+    color: var(--textFaint);
+    line-height: 1.6;
+  }
+  .drop-label strong { color: var(--textSub); font-weight: 600; }
+  #file-name {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    font-family: var(--font-mono);
+    min-height: 16px;
+    word-break: break-all;
+    max-width: 260px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ── Date Picker ── */
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  label.field-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--textFaint);
+    margin-bottom: 5px;
+  }
+  input[type="date"] {
+    background: var(--bgCard);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  input[type="date"]:focus {
+    border-color: var(--borderFocus);
+    box-shadow: 0 0 0 2.5px rgba(37,99,235,0.10);
+  }
+  .filename-preview {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--textFaint);
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: var(--bgCardAlt);
+    border-radius: var(--r-xs);
+    border-left: 2px solid var(--text);
+  }
+  .filename-preview span { color: var(--text); font-weight: 600; }
+
+  /* ── Stats ── */
+  #stats-row {
+    display: none;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  #stats-row.visible { display: flex; }
+  .stat-pill {
+    flex: 1;
+    min-width: 130px;
+    background: var(--bgCard);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+  }
+  .stat-pill .stat-val {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .stat-pill.found .stat-val { color: var(--green); }
+  .stat-pill .stat-lbl {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--textFaint);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── Export Button ── */
+  #btn-export {
+    width: 100%;
+    max-width: 680px;
+    padding: 9px 16px;
+    background: #18181B;
+    color: #fff;
+    font-family: var(--font-base);
+    font-weight: 600;
+    font-size: 12px;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background var(--t-fast), transform 0.10s ease;
+  }
+  #btn-export:hover:not(:disabled) {
+    background: #27272A;
+    transform: translateY(-1px);
+  }
+  #btn-export:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+  #btn-export:disabled {
+    background: var(--bgCardAlt);
+    color: var(--textFaint);
+    border: 1px solid var(--border);
+    cursor: not-allowed;
+  }
+
+  /* ── Message ── */
+  #msg {
+    width: 100%;
+    max-width: 680px;
+    text-align: center;
+    font-size: 11px;
+    min-height: 18px;
+    margin-top: 10px;
+    transition: color var(--transition-fast);
+  }
+  #msg.ok { color: var(--green); font-weight: 600; }
+  #msg.err { color: var(--red); font-weight: 600; }
+
+  /* ── Preview Table ── */
+  #preview-wrap {
+    display: none;
+    width: 100%;
+    max-width: 680px;
+  }
+  #preview-wrap.visible { display: block; }
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .preview-header span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    color: var(--textFaint);
+    text-transform: uppercase;
+  }
+  .preview-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  th {
+    background: #F4F4F5;
+    color: var(--textFaint);
+    padding: 5px 7px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid var(--borderSoft);
+    white-space: nowrap;
+  }
+  td {
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--borderSoft);
+    color: var(--text);
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,0,0,0.016); }
+  td.highlight { color: var(--green); font-weight: 700; }
+
+  footer {
+    margin-top: 32px;
+    font-size: 10px;
+    color: var(--textFaint);
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-row">
+    <span class="ecomm-badge">ECOMM</span>
+  </div>
+  <h1>Filtro <span>Geosort</span></h1>
+  <p class="subtitle">CSV → XLSX · FILTRO COLUMNA COMMERCE · ECOMMERCE (letra I)</p>
+  <div class="rule"></div>
+</header>
+
+<!-- Step 1: Upload -->
+<div class="card">
+  <div class="card-title">01 · Archivo CSV</div>
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".csv">
+    <span class="drop-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>
+    <div class="drop-label">
+      <strong>Arrastra tu CSV aquí</strong><br>
+      o haz click para seleccionar
+    </div>
+    <div id="file-name"></div>
+  </div>
+</div>
+
+<!-- Step 2: Date -->
+<div class="card">
+  <div class="card-title">02 · Fecha del reporte</div>
+  <div class="field-row">
+    <label class="field-label" for="report-date">Fecha</label>
+    <input type="date" id="report-date">
+  </div>
+  <div class="filename-preview">
+    Archivo: <span id="filename-display">Reporte_Geosort-DD-MM-AAAA.xlsx</span>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="card" id="stats-card" style="display:none">
+  <div class="card-title">03 · Resultado del filtro</div>
+  <div id="stats-row">
+    <div class="stat-pill total">
+      <div class="stat-val" id="stat-total">0</div>
+      <div class="stat-lbl">Filas totales</div>
+    </div>
+    <div class="stat-pill found">
+      <div class="stat-val" id="stat-found">0</div>
+      <div class="stat-lbl">Filas filtradas</div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Button -->
+<button id="btn-export" disabled>↓ Exportar XLSX</button>
+<div id="msg"></div>
+
+<!-- Preview -->
+<div id="preview-wrap">
+  <div class="preview-header">
+    <span>Vista previa (primeras 20 filas)</span>
+  </div>
+  <div class="preview-scroll">
+    <table id="preview-table"></table>
+  </div>
+</div>
+
+<footer>GEOSORT · FILTRO ECOMMERCE · CSV→XLSX</footer>
+
+<script>
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileNameEl = document.getElementById('file-name');
+  const reportDate = document.getElementById('report-date');
+  const filenameDisplay = document.getElementById('filename-display');
+  const btnExport = document.getElementById('btn-export');
+  const msgEl = document.getElementById('msg');
+  const statsCard = document.getElementById('stats-card');
+  const statsRow = document.getElementById('stats-row');
+  const statTotal = document.getElementById('stat-total');
+  const statFound = document.getElementById('stat-found');
+  const previewWrap = document.getElementById('preview-wrap');
+  const previewTable = document.getElementById('preview-table');
+
+  // Set today as default date
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  reportDate.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+  let filteredData = null;
+
+  function getFilename() {
+    const d = reportDate.value;
+    if (!d) return 'Reporte_Geosort.xlsx';
+    const [y, m, day] = d.split('-');
+    return `Reporte_Geosort-${day}-${m}-${y}.xlsx`;
+  }
+
+  function updateFilenamePreview() {
+    filenameDisplay.textContent = getFilename();
+  }
+  reportDate.addEventListener('change', updateFilenamePreview);
+  updateFilenamePreview();
+
+  // Drag & drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+
+  function processFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showMsg('Solo se aceptan archivos .csv', 'err');
+      return;
+    }
+    fileNameEl.textContent = '✓ ' + file.name;
+    dropZone.classList.add('has-file');
+
+    const reader = new FileReader();
+    reader.onload = e => parseCSV(e.target.result);
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function parseCSV(text) {
+    try {
+      const wb = XLSX.read(text, { type: 'string', raw: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (rows.length === 0) {
+        showMsg('El CSV está vacío o no tiene filas de datos.', 'err');
+        return;
+      }
+
+      // Find Commerce column (case-insensitive)
+      const headers = Object.keys(rows[0]);
+      const commerceKey = headers.find(h => h.trim().toLowerCase() === 'commerce');
+
+      if (!commerceKey) {
+        showMsg(`No se encontró la columna "Commerce". Columnas disponibles: ${headers.join(', ')}`, 'err');
+        return;
+      }
+
+      // Filter rows where Commerce starts with "I" (case-insensitive)
+      const ecomm = rows.filter(r => String(r[commerceKey]).trim().toLowerCase().startsWith('i'));
+
+      filteredData = { headers, rows: ecomm, commerceKey };
+
+      // Stats
+      statTotal.textContent = rows.length.toLocaleString('es-CL');
+      statFound.textContent = ecomm.length.toLocaleString('es-CL');
+      statsCard.style.display = 'block';
+      statsRow.classList.add('visible');
+
+      if (ecomm.length === 0) {
+        showMsg('No se encontraron filas de ecommerce (letra I) en la columna Commerce.', 'err');
+        btnExport.disabled = true;
+      } else {
+        showMsg(`✓ ${ecomm.length} filas encontradas (ecommerce I).`, 'ok');
+        btnExport.disabled = false;
+        renderPreview(headers, ecomm, commerceKey);
+      }
+    } catch(err) {
+      showMsg('Error al leer el CSV: ' + err.message, 'err');
+    }
+  }
+
+  function renderPreview(headers, rows, commerceKey) {
+    const preview = rows.slice(0, 20);
+    let html = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+    preview.forEach(row => {
+      html += '<tr>' + headers.map(h => {
+        const val = row[h] ?? '';
+        const cls = h === commerceKey ? ' class="highlight"' : '';
+        return `<td${cls} title="${String(val).replace(/"/g,'"')}">${String(val)}</td>`;
+      }).join('') + '</tr>';
+    });
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+    previewWrap.classList.add('visible');
+  }
+
+  btnExport.addEventListener('click', () => {
+    if (!filteredData) return;
+    const { headers, rows } = filteredData;
+
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+
+    // Style header row
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '2563EB' } },
+          alignment: { horizontal: 'center' }
+        };
+      }
+    }
+
+    // Column widths
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ECOMMERCE');
+
+    XLSX.writeFile(wb, getFilename(), { bookType: 'xlsx', cellStyles: true });
+    showMsg(`✓ Archivo descargado: ${getFilename()}`, 'ok');
+  });
+
+  function showMsg(text, type) {
+    msgEl.textContent = text;
+    msgEl.className = type;
+  }
+</script>
+</body>
+</html>
