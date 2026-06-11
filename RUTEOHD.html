@@ -132,12 +132,48 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 <div id="main">
 <!-- ══ ARCHIVOS ══ -->
 <div id="tab-archivos" class="tab-section active panel">
-<div class="grid2">
-<div class="card" style="display:flex;flex-direction:column;gap:16px">
-<div class="lbl-blue">Archivo Base SCI <span style="color:#f87171;font-weight:900">!</span></div>
+<!-- Flujo de trabajo -->
+<div class="card" style="width:100%;background:rgba(37,99,235,0.04);border-color:rgba(37,99,235,0.14)">
+<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--blue);margin-bottom:11px">Flujo de trabajo</div>
+<div style="display:flex;align-items:stretch;gap:0;overflow-x:auto">
+<div style="flex:1;min-width:96px;padding:9px 11px;background:var(--bgCard);border-radius:var(--r-md) 0 0 var(--r-md);border:1px solid rgba(37,99,235,0.20)">
+  <div style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em;margin-bottom:3px">① AQUÍ</div>
+  <div style="font-size:12px;font-weight:700;line-height:1.3">Cargar Base SCI</div>
+  <div style="font-size:9px;color:var(--textSub);margin-top:3px;font-family:var(--font-mono)">Ruteo_formato_simpliroute</div>
+</div>
+<div style="display:flex;align-items:center;padding:0 5px;color:var(--textFaint);font-size:14px;flex-shrink:0">→</div>
+<div style="flex:1;min-width:96px;padding:9px 11px;background:var(--bgCard);border:1px solid rgba(37,99,235,0.20);border-left:none">
+  <div style="font-size:9px;font-weight:800;color:var(--textFaint);letter-spacing:.06em;margin-bottom:3px">② PRE RUTEO</div>
+  <div style="font-size:12px;font-weight:700;line-height:1.3">Descargar archivos</div>
+  <div style="font-size:9px;color:var(--textSub);margin-top:3px">Cargar en SimpliRoute</div>
+</div>
+<div style="display:flex;align-items:center;padding:0 5px;color:var(--textFaint);font-size:14px;flex-shrink:0">→</div>
+<div style="flex:1;min-width:96px;padding:9px 11px;background:var(--bgCard);border:1px solid rgba(37,99,235,0.20);border-left:none">
+  <div style="font-size:9px;font-weight:800;color:var(--orange);letter-spacing:.06em;margin-bottom:3px">③ SIMPLIROUTE</div>
+  <div style="font-size:12px;font-weight:700;line-height:1.3">Rutear y exportar</div>
+  <div style="font-size:9px;color:var(--orange);margin-top:3px;font-weight:600">Sin guardar el plan</div>
+</div>
+<div style="display:flex;align-items:center;padding:0 5px;color:var(--textFaint);font-size:14px;flex-shrink:0">→</div>
+<div style="flex:1;min-width:96px;padding:9px 11px;background:var(--bgCard);border:1px solid rgba(37,99,235,0.20);border-left:none">
+  <div style="font-size:9px;font-weight:800;color:var(--textFaint);letter-spacing:.06em;margin-bottom:3px">④ POST RUTEO</div>
+  <div style="font-size:12px;font-weight:700;line-height:1.3">Cargar plan + Polinomio</div>
+  <div style="font-size:9px;color:var(--textSub);margin-top:3px;font-family:var(--font-mono)">Simpliroute_Plan_...</div>
+</div>
+<div style="display:flex;align-items:center;padding:0 5px;color:var(--textFaint);font-size:14px;flex-shrink:0">→</div>
+<div style="flex:1;min-width:96px;padding:9px 11px;background:var(--bgCard);border-radius:0 var(--r-md) var(--r-md) 0;border:1px solid rgba(37,99,235,0.20);border-left:none">
+  <div style="font-size:9px;font-weight:800;color:var(--green);letter-spacing:.06em;margin-bottom:3px">⑤ EXPORTAR</div>
+  <div style="font-size:12px;font-weight:700;line-height:1.3">Descargar resultados</div>
+  <div style="font-size:9px;color:var(--textSub);margin-top:3px">Plan · Route To · Preola</div>
+</div>
+</div>
+</div>
+<div class="grid2" style="width:100%">
+<div class="card" style="display:flex;flex-direction:column;gap:14px">
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em">① Cargar Base SCI</div>
+<div style="font-size:11px;color:var(--textSub);margin-top:-6px">Archivo: <span style="font-family:var(--font-mono);font-weight:700;color:var(--text);font-size:10px">Ruteo_formato_simpliroute.xlsx</span></div>
 <label class="upload-zone" for="inp-f1">
 <div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
-<div class="fname" id="f1-name">Base SCI</div>
+<div class="fname" id="f1-name">Haz clic aquí para cargar</div>
 <input type="file" id="inp-f1" accept=".xlsx,.xls" style="display:none"/>
 </label>
 <div class="tag-ok" id="f1-tag" style="display:none"></div>
@@ -170,7 +206,10 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 </div>
 <!-- ══ PRERUTEO ══ -->
 <div id="tab-preruteo" class="tab-section panel-sm">
-<div class="card" style="width:100%;text-align:center">
+<div class="card" style="width:100%">
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px">② Descargar archivos para SimpliRoute</div>
+<div style="font-size:11px;color:var(--textSub);line-height:1.6;margin-bottom:10px">Descarga los archivos correspondientes y cárgalos en SimpliRoute. Cada botón exporta un segmento de la operación.</div>
+<div style="padding:9px 12px;background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.20);border-radius:var(--r-md);font-size:11px;color:var(--orange);font-weight:600;margin-bottom:16px">③ Al terminar de rutear en SimpliRoute, exporta el plan <u>sin guardar ni confirmar</u> y ve a la pestaña <strong>Post Ruteo</strong>.</div>
 <div class="btn-grid">
 <button class="btn btn-secondary" id="btn-proyectos" disabled>Proyectos</button>
 <button class="btn btn-secondary" id="btn-postsales" disabled>Post Sales</button>
@@ -181,13 +220,16 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 </div>
 <!-- ══ POST RUTEO ══ -->
 <div id="tab-postruteo" class="tab-section panel-sm">
-<div class="card" style="width:100%;display:flex;flex-direction:column;gap:20px">
-<div class="lbl-blue">Plan de SimpliRoute</div>
+<div class="card" style="width:100%;display:flex;flex-direction:column;gap:16px">
+<div>
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px">④ Cargar Plan de SimpliRoute</div>
+<div style="font-size:11px;color:var(--textSub)">Archivo: <span style="font-family:var(--font-mono);font-weight:700;color:var(--text);font-size:10px">Simpliroute_Plan_YYYY-MM-dd.xlsx</span></div>
+</div>
 <label class="upload-zone" for="inp-simpli">
 <span class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>
 <div style="flex:1;min-width:0">
-<div style="font-size:13px;font-weight:700;word-break:break-all" id="simpli-name">Cargar Plan Finalizado</div>
-<div style="font-size:10px;opacity:.4">Archivo exportado de SimpliRoute</div>
+<div style="font-size:12px;font-weight:700;word-break:break-all" id="simpli-name">Haz clic para cargar el plan</div>
+<div style="font-size:10px;color:var(--orange);font-weight:600;margin-top:4px">⚠ Exportar ANTES de guardar o confirmar el plan en SimpliRoute</div>
 </div>
 <input type="file" id="inp-simpli" accept=".xlsx,.xls,.csv" style="display:none"/>
 </label>
@@ -269,15 +311,31 @@ const S = {
 // ══════════════════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════════════════
-const CONFIG = {
- trucks_order: Array.from({length:100},(_,i)=>i+1)
-   .filter(i=>i!==29&&i!==30)
-   .map(i=>`VEH${String(i).padStart(2,'0')}`),
+const CONFIG={
+ trucks_order:[],
+ trucks_max:100,
+ trucks_excluded:[29,30],
  extraurban_communes:["ALHUE","BUIN","CALERA DE TANGO","COLINA","CURACAVI","EL MONTE","ISLA DE MAIPO","LAMPA","LO BARNECHEA","MARIA PINTO","MELIPILLA","PADRE HURTADO","PAINE","PENAFLOR","PIRQUE","SAN JOSE DE MAIPO","SAN PEDRO","TALAGANTE","TILTIL"],
+ mini_comunas:["ÑUÑOA","NUNOA","LAS CONDES","VITACURA","PROVIDENCIA","SANTIAGO"],
  weights:{distance_km:0.44,duration_hr:0.10,iso_count:0.20,q_comunas:0.01,volume_m3:0.25},
  zone_multiplier:{extraurbano:2.0,default:1.0}
+};
+function rebuildTrucksOrder(){
+ const excl=new Set(CONFIG.trucks_excluded.map(n=>+n));
+ CONFIG.trucks_order=Array.from({length:CONFIG.trucks_max},(_,i)=>i+1)
+   .filter(i=>!excl.has(i))
+   .map(i=>`VEH${String(i).padStart(2,'0')}`);
 }
-const MINI_COMUNAS = new Set(["ÑUÑOA","NUNOA","LAS CONDES","VITACURA","PROVIDENCIA","SANTIAGO"])
+rebuildTrucksOrder();
+let MINI_COMUNAS=new Set();
+function rebuildMiniComunas(){
+ MINI_COMUNAS=new Set();
+ CONFIG.mini_comunas.forEach(c=>{
+   MINI_COMUNAS.add(removeAccents(c));
+   MINI_COMUNAS.add(c.toUpperCase().trim());
+ });
+}
+rebuildMiniComunas();
 // ══════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════
@@ -576,8 +634,9 @@ function downloadPlan(){
  const print=S.sheetPlan.map(r=>{const c={...r};delete c._DOFI;delete c._TITULO;return c});
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(print),"Plan");
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(S.sheetPolinomio),"Polinomio");
- const ws3=XLSX.utils.json_to_sheet(S.sheetResumen);
- if(S.metrics) XLSX.utils.sheet_add_aoa(ws3,[["Vehículos","Promedio de ISO","Suma de ISO"],[S.metrics.total,S.metrics.prom,S.metrics.sum]],{origin:"N1"});
+ const metaRows=[["Vehículos","Promedio de ISO","Suma de ISO"],[S.metrics?S.metrics.total:0,S.metrics?S.metrics.prom:0,S.metrics?S.metrics.sum:0],[]];
+ const ws3=XLSX.utils.aoa_to_sheet(metaRows);
+ XLSX.utils.sheet_add_json(ws3,S.sheetResumen,{origin:"A4"});
  XLSX.utils.book_append_sheet(wb,ws3,"Resumen");
  XLSX.writeFile(wb,`1. Simpliroute_Plan_${getFechaE()} RUTEO.xlsx`);
  addLog('Plan exportado','ok');
@@ -723,7 +782,7 @@ function renderParams(){
    {k:'Vehículo Postventa', v:pp,    note:'→ VEH99 en Preola'},
    {k:'Fecha Picking',      v:getFechaP()},
    {k:'Fecha Entrega',      v:getFechaE()},
-   {k:'Excluidos Polinomio',v:'VEH29, VEH30', note:'siempre omitidos'},
+   {k:'Excluidos Polinomio',v:CONFIG.trucks_excluded.map(n=>`VEH${String(n).padStart(2,'0')}`).join(', '), note:'siempre omitidos'},
    {k:'Slots trucks_order', v:`${CONFIG.trucks_order.length} (hasta ${CONFIG.trucks_order[CONFIG.trucks_order.length-1]})`},
  ];
  document.getElementById('p-rows').innerHTML=paramRows.map(r=>`
