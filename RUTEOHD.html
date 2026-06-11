@@ -452,7 +452,7 @@ async function processFlujo2(){
    });
    const groups={};
    cleanSimpli.forEach(row=>{
-     const v=String(row[sC.vehiculo]||"").trim();
+     const v=String(row[sC.vehiculo]||"").trim().toUpperCase();
      if(!groups[v])groups[v]={rows:[]};
      groups[v].rows.push(row);
    });
@@ -492,7 +492,7 @@ async function processFlujo2(){
    regularTrucks.sort((a,b)=>b.score-a.score);
    const vehicleMap={};
    regularTrucks.forEach((r,idx)=>{
-     r.final_route_to=CONFIG.trucks_order[idx]||`VEH${String(idx+1).padStart(2,'0')}`;
+     r.final_route_to=CONFIG.trucks_order[idx]||`VEH${String(idx+3).padStart(2,'0')}`;
      vehicleMap[r.original_vehicle]=r.final_route_to;
    });
    others.forEach(s=>{s.final_route_to=s.original_vehicle;vehicleMap[s.original_vehicle]=s.final_route_to});
@@ -503,7 +503,8 @@ async function processFlujo2(){
      originalKeys.forEach(k=>{if(!k.startsWith("__EMPTY")&&!["_zona","_fecha","_hora"].includes(k))o[k]=row[k]});
      o["DIA"]=row._fecha; o["HORA"]=row._hora;
      const v=String(row[sC.vehiculo]||"").trim();
-     o["VEH INICIAL"]=v; o["VEH FINAL"]=vehicleMap[v]||v;
+     const vUp=v.toUpperCase();
+     o["VEH INICIAL"]=v; o["VEH FINAL"]=vehicleMap[vUp]||v;
      o["_DOFI"]=row[sC.idRef]; o["_TITULO"]=row[sC.titulo];
      return o;
    });
