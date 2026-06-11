@@ -126,6 +126,7 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 <button class="tab-btn" data-tab="postruteo">Post Ruteo</button>
 <button class="tab-btn" data-tab="exports">Exportar</button>
 <button class="tab-btn" data-tab="correo">Generar Correo</button>
+<button class="tab-btn" data-tab="params">Parámetros</button>
 </div>
 </div>
 <div id="main">
@@ -166,7 +167,6 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 </div>
 </div>
 </div>
-```
 </div>
 <!-- ══ PRERUTEO ══ -->
 <div id="tab-preruteo" class="tab-section panel-sm">
@@ -218,6 +218,37 @@ label.field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter
 <div id="email-empty" style="text-align:center;padding:60px 0;opacity:.25;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px">Sin datos</div>
 <div id="email-preview" style="display:none"></div>
 </div>
+</div>
+</div>
+<!-- ══ PARÁMETROS ══ -->
+<div id="tab-params" class="tab-section panel">
+<div class="grid2" style="width:100%">
+<div class="card" style="display:flex;flex-direction:column;gap:0">
+  <div class="lbl-blue" style="margin-bottom:10px">Configuración Activa</div>
+  <div id="p-rows"></div>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:0">
+  <div class="lbl-blue" style="margin-bottom:10px">Pesos del Polinomio</div>
+  <div id="p-weights"></div>
+  <div class="lbl-blue" style="margin-top:16px;margin-bottom:10px">Multiplicadores de Zona</div>
+  <div id="p-zones"></div>
+</div>
+</div>
+<div class="card" style="width:100%">
+  <div class="lbl-blue" style="margin-bottom:10px">Comunas Extraurbanas &nbsp;<span id="p-comunas-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--textFaint)"></span></div>
+  <div id="p-comunas" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+</div>
+<div class="card" style="width:100%">
+  <div class="lbl-blue" style="margin-bottom:14px">Auditoría del Polinomio</div>
+  <div id="p-audit-empty" style="padding:28px 0;text-align:center;opacity:.28;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Ejecuta el Polinomio para auditar</div>
+  <div id="p-audit-content" style="display:none;flex-direction:column;gap:14px">
+    <div id="p-checks" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div id="p-iso-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+    <div>
+      <div style="font-size:10px;font-weight:600;color:var(--textFaint);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px">Mapeo VEH INICIAL → VEH FINAL</div>
+      <div id="p-map-table" style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-md)"></div>
+    </div>
+  </div>
 </div>
 </div>
 <div id="log-box" style="display:none"></div>
@@ -311,6 +342,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
    document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
    btn.classList.add('active');
    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+   if(btn.dataset.tab==='params') renderParams();
  });
 });
 // ══════════════════════════════════════════════════════
@@ -524,6 +556,7 @@ async function processFlujo2(){
    document.getElementById('m-sum').textContent=sumISO;
    updateExportButtons();
    buildEmailPreview();
+   if(document.getElementById('tab-params').classList.contains('active')) renderParams();
    addLog(`¡Polinomio listo! ${totalVeh} vehículos, ${sumISO} ISOs`,'ok');
  }catch(e){addLog('Error: '+e.message,'err')}finally{
    S.processing=false;
@@ -681,6 +714,171 @@ document.getElementById('btn-copy-html').addEventListener('click',async ()=>{
    }
  }
 });
+// ══════════════════════════════════════════════════════
+//  PARÁMETROS
+// ══════════════════════════════════════════════════════
+function renderParams(){
+ const pv=(document.getElementById('veh-proyectos').value||'VPR01').toUpperCase();
+ const pp=(document.getElementById('veh-postventa').value||'VPV01').toUpperCase();
+ const paramRows=[
+   {k:'Vehículo Proyectos', v:pv,    note:'→ VEH98 en Preola'},
+   {k:'Vehículo Postventa', v:pp,    note:'→ VEH99 en Preola'},
+   {k:'Fecha Picking',      v:getFechaP()},
+   {k:'Fecha Entrega',      v:getFechaE()},
+   {k:'Excluidos Polinomio',v:'VEH29, VEH30', note:'siempre omitidos'},
+   {k:'Slots trucks_order', v:`${CONFIG.trucks_order.length} (hasta ${CONFIG.trucks_order[CONFIG.trucks_order.length-1]})`},
+ ];
+ document.getElementById('p-rows').innerHTML=paramRows.map(r=>`
+   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px solid var(--borderSoft)">
+     <span style="font-size:10px;font-weight:600;color:var(--textFaint);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0">${r.k}</span>
+     <div style="text-align:right">
+       <span style="font-size:11px;font-weight:700;font-family:var(--font-mono)">${r.v}</span>
+       ${r.note?`<div style="font-size:9px;color:var(--textFaint);margin-top:1px">${r.note}</div>`:''}
+     </div>
+   </div>`).join('');
+ const wEntries=[
+   ['Distancia (km)', CONFIG.weights.distance_km],
+   ['Volumen (m3)',   CONFIG.weights.volume_m3],
+   ['ISOs',          CONFIG.weights.iso_count],
+   ['Duración (hr)', CONFIG.weights.duration_hr],
+   ['Cant. Comunas', CONFIG.weights.q_comunas],
+ ];
+ document.getElementById('p-weights').innerHTML=wEntries.map(([lbl,val])=>`
+   <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+     <span style="font-size:10px;color:var(--textSub);min-width:100px;flex-shrink:0">${lbl}</span>
+     <div style="flex:1;background:var(--bgCardAlt);border-radius:2px;height:4px;overflow:hidden">
+       <div style="width:${val*100}%;background:var(--blue);height:4px;border-radius:2px"></div>
+     </div>
+     <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);min-width:28px;text-align:right;color:var(--blue)">${Math.round(val*100)}%</span>
+   </div>`).join('');
+ document.getElementById('p-zones').innerHTML=Object.entries(CONFIG.zone_multiplier).map(([z,m])=>`
+   <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--borderSoft)">
+     <span style="font-size:10px;text-transform:capitalize;color:var(--textSub)">${z}</span>
+     <span style="font-size:11px;font-weight:700;font-family:var(--font-mono);color:${m>1?'var(--orange)':'var(--textFaint)'}">${m}×</span>
+   </div>`).join('');
+ document.getElementById('p-comunas-count').textContent=`(${CONFIG.extraurban_communes.length})`;
+ document.getElementById('p-comunas').innerHTML=CONFIG.extraurban_communes.map(c=>
+   `<span style="background:var(--pasteOrange);color:var(--orange);border:1px solid rgba(234,88,12,0.16);border-radius:var(--r-sm);padding:2px 8px;font-size:10px;font-weight:600">${c}</span>`
+ ).join('');
+ renderParamsAudit(pv,pp);
+}
+
+function renderParamsAudit(pv,pp){
+ const hasData=S.sheetPolinomio.length>0;
+ document.getElementById('p-audit-empty').style.display=hasData?'none':'block';
+ const content=document.getElementById('p-audit-content');
+ content.style.display=hasData?'flex':'none';
+ if(!hasData)return;
+ // ─ duplicados ─
+ const finalNames=S.sheetPolinomio.map(r=>String(r['VEH FINAL']));
+ const seen=new Set(),dups=new Set();
+ finalNames.forEach(n=>{seen.has(n)?dups.add(n):seen.add(n)});
+ // ─ fallback ─
+ const trucksSet=new Set(CONFIG.trucks_order);
+ const fallbacks=S.sheetPolinomio.filter(r=>r['Tipo']==='Camión Regular'&&!trucksSet.has(String(r['VEH FINAL'])));
+ // ─ preola vs base ─
+ let proySci=null,pvSci=null,proySimp=null,pvSimp=null;
+ if(S.dataF1){
+   proySci=S.dataF1.filter(r=>r['TIPO_VISITA']==='PROJECT').length;
+   pvSci  =S.dataF1.filter(r=>r['TIPO_VISITA']==='POST_SALES').length;
+   const rProy=S.sheetPolinomio.find(r=>String(r['VEH INICIAL']).toUpperCase()===pv);
+   const rPv  =S.sheetPolinomio.find(r=>String(r['VEH INICIAL']).toUpperCase()===pp);
+   proySimp=rProy?rProy['Paradas ISO']:null;
+   pvSimp  =rPv  ?rPv  ['Paradas ISO']:null;
+ }
+ // ─ totales ISO ─
+ const regularISOs=S.sheetPolinomio
+   .filter(r=>String(r['VEH INICIAL']).toUpperCase()!==pv&&String(r['VEH INICIAL']).toUpperCase()!==pp)
+   .reduce((a,r)=>a+(r['Paradas ISO']||0),0);
+ const polyTotalISOs=S.sheetPolinomio.reduce((a,r)=>a+(r['Paradas ISO']||0),0);
+ const sciRegular=S.dataF1?S.dataF1.filter(r=>r['TIPO_VISITA']!=='PROJECT'&&r['TIPO_VISITA']!=='POST_SALES').length:null;
+ const sciTotal  =S.dataF1?S.dataF1.length:null;
+ // ─ checks ─
+ const checks=[];
+ checks.push({
+   ok:dups.size===0,
+   text:dups.size===0
+     ?`Sin VEH FINAL duplicados (${seen.size} vehículos únicos en Polinomio)`
+     :`VEH FINAL duplicados: ${[...dups].join(', ')}`
+ });
+ checks.push({
+   ok:fallbacks.length===0,
+   warn:fallbacks.length>0&&dups.size===0,
+   text:fallbacks.length===0
+     ?`Todos los camiones regulares dentro del rango trucks_order`
+     :`${fallbacks.length} camión(es) con nombre fallback (fuera de rango): ${fallbacks.map(r=>r['VEH FINAL']).join(', ')}`
+ });
+ if(S.dataF1){
+   if(proySimp!==null){
+     const ok=proySimp===proySci;
+     checks.push({ok,text:`Proyectos (${pv}): ${proySimp} ISOs en SimpliRoute ${ok?'=':'≠'} ${proySci} PROJECT en Base SCI`});
+   } else {
+     checks.push({ok:false,warn:true,text:`Proyectos: "${pv}" no encontrado en SimpliRoute — verifique el nombre`});
+   }
+   if(pvSimp!==null){
+     const ok=pvSimp===pvSci;
+     checks.push({ok,text:`Postventa (${pp}): ${pvSimp} ISOs en SimpliRoute ${ok?'=':'≠'} ${pvSci} POST_SALES en Base SCI`});
+   } else {
+     checks.push({ok:false,warn:true,text:`Postventa: "${pp}" no encontrado en SimpliRoute — verifique el nombre`});
+   }
+   const okReg=regularISOs===sciRegular;
+   checks.push({ok:okReg,text:`Route To: ${regularISOs} ISOs regulares en Polinomio ${okReg?'=':'≠'} ${sciRegular} regulares en Base SCI`});
+ }
+ document.getElementById('p-checks').innerHTML=checks.map(c=>{
+   const isWarn=c.warn&&c.ok!==false;
+   const color=isWarn?'var(--yellow)':c.ok?'var(--green)':'var(--red)';
+   const bg   =isWarn?'var(--pasteOrange)':c.ok?'var(--pasteGreen)':'var(--pasteRed)';
+   const icon =isWarn?'⚠':c.ok?'✓':'✗';
+   return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r-md);background:${bg}">
+     <span style="font-size:12px;flex-shrink:0;color:${color};font-weight:700;line-height:1.5">${icon}</span>
+     <span style="font-size:11px;color:${color};line-height:1.5">${c.text}</span>
+   </div>`;
+ }).join('');
+ // ─ resumen ISO cards ─
+ const isoCards=[
+   {k:'Route To (Regular)',  v:regularISOs,  sub:S.dataF1?`SCI regular: ${sciRegular}`:null, ok:S.dataF1?regularISOs===sciRegular:null},
+   {k:`Proyectos (${pv})`,  v:proySimp??'—', sub:S.dataF1?`SCI PROJECT: ${proySci}`:null,    ok:S.dataF1&&proySimp!==null?proySimp===proySci:null},
+   {k:`Postventa (${pp})`,  v:pvSimp??'—',   sub:S.dataF1?`SCI POST_SALES: ${pvSci}`:null,   ok:S.dataF1&&pvSimp!==null?pvSimp===pvSci:null},
+   {k:'Total Polinomio',    v:polyTotalISOs, sub:S.dataF1?`SCI total: ${sciTotal}`:null,      ok:null},
+ ];
+ document.getElementById('p-iso-summary').innerHTML=isoCards.map(c=>{
+   const dot=c.ok===null?'':c.ok?'<span style="color:var(--green)"> ✓</span>':'<span style="color:var(--red)"> ✗</span>';
+   return`<div style="padding:10px 12px;background:var(--bgCardAlt);border:1px solid var(--border);border-radius:var(--r-md)">
+     <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--textFaint);margin-bottom:4px">${c.k}</div>
+     <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);letter-spacing:-0.02em">${c.v}${dot}</div>
+     ${c.sub?`<div style="font-size:9px;color:var(--textFaint);margin-top:2px">${c.sub}</div>`:''}
+   </div>`;
+ }).join('');
+ // ─ mapping table ─
+ const thS='padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--textFaint);background:var(--bgCardAlt);border-bottom:1px solid var(--border);white-space:nowrap';
+ const tdS='padding:5px 10px;border-bottom:1px solid var(--borderSoft);font-family:var(--font-mono);font-size:11px';
+ const trs=S.sheetPolinomio.map(r=>{
+   const isDup=dups.has(String(r['VEH FINAL']));
+   const isFb =r['Tipo']==='Camión Regular'&&!trucksSet.has(String(r['VEH FINAL']));
+   const rowBg=isDup?'background:rgba(220,38,38,0.05)':isFb?'background:rgba(234,88,12,0.05)':'';
+   const vfCol=isDup?'color:var(--red);font-weight:700':isFb?'color:var(--orange);font-weight:700':'';
+   return`<tr style="${rowBg}">
+     <td style="${tdS};color:var(--textSub)">${r['VEH INICIAL']}</td>
+     <td style="${tdS};${vfCol}">${r['VEH FINAL']}${isDup?' ⚠':''}${isFb?' ↑':''}</td>
+     <td style="${tdS};color:var(--textFaint)">${r['Tipo']}</td>
+     <td style="${tdS};color:${r['Zona']==='Extraurbano'?'var(--orange)':'var(--textSub)'}">${r['Zona']}</td>
+     <td style="${tdS};text-align:right">${r['Paradas ISO']}</td>
+     <td style="${tdS};text-align:right;color:var(--textFaint)">${Number(r['Score Final']).toFixed(3)}</td>
+   </tr>`;
+ }).join('');
+ document.getElementById('p-map-table').innerHTML=`
+   <table style="width:100%;border-collapse:collapse">
+     <thead><tr>
+       <th style="${thS}">VEH Inicial</th>
+       <th style="${thS}">VEH Final</th>
+       <th style="${thS}">Tipo</th>
+       <th style="${thS}">Zona</th>
+       <th style="${thS};text-align:right">ISOs</th>
+       <th style="${thS};text-align:right">Score</th>
+     </tr></thead>
+     <tbody>${trs}</tbody>
+   </table>`;
+}
 </script>
 </body>
 </html>
