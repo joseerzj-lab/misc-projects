@@ -601,8 +601,6 @@ function downloadRouteTo(){
 }
 function downloadPreola(){
  if(!S.dataF1)return addLog('Carga el archivo base','warn');
- const pv=document.getElementById('veh-proyectos').value||'VPR01';
- const pp=document.getElementById('veh-postventa').value||'VPV01';
  const f=S.dataF1.filter(r=>r['TIPO_VISITA']==='PROJECT'||r['TIPO_VISITA']==='POST_SALES');
  if(!f.length)return addLog('Sin proyectos/post sales','warn');
  const d=f.map(r=>({A:r['ID_REFERENCIA'],B:r['TIPO_VISITA']==='PROJECT'?'VEH98':'VEH99'}));
@@ -803,7 +801,6 @@ function renderParamsAudit(pv,pp){
  });
  checks.push({
    ok:fallbacks.length===0,
-   warn:fallbacks.length>0&&dups.size===0,
    text:fallbacks.length===0
      ?`Todos los camiones regulares dentro del rango trucks_order`
      :`${fallbacks.length} camión(es) con nombre fallback (fuera de rango): ${fallbacks.map(r=>r['VEH FINAL']).join(', ')}`
