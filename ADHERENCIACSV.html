@@ -503,28 +503,62 @@
     reader.readAsText(file, 'UTF-8');
   }
 
+  function parseRow(line, sep) {
+    const r = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === sep && !inQ) { r.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+      else cur += ch;
+    }
+    r.push(cur.trim().replace(/^"|"$/g, ''));
+    return r;
+  }
+
   function parseCSV(text) {
     try {
-      const wb = XLSX.read(text, { type: 'string', raw: false });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      // Strip BOM if present
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
-      if (rows.length === 0) {
+      // Detect separator: semicolon (common in Chile) or comma
+      const firstLine = text.split(/\r?\n/)[0] || '';
+      const sep = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+
+      // Split into lines and parse
+      const lines = text.split(/\r?\n/);
+      const allParsed = [];
+      for (const line of lines) {
+        if (line.trim() === '') continue;
+        allParsed.push(parseRow(line, sep));
+      }
+
+      if (allParsed.length < 2) {
         showMsg('El CSV está vacío o no tiene filas de datos.', 'err');
         return;
       }
 
-      // Find Commerce column (case-insensitive)
-      const headers = Object.keys(rows[0]);
-      const commerceKey = headers.find(h => h.trim().toLowerCase() === 'commerce');
+      const headers = allParsed[0];
+      const dataRows = allParsed.slice(1);
 
-      if (!commerceKey) {
+      // Find Commerce column (case-insensitive)
+      const commerceIdx = headers.findIndex(h => h.trim().toLowerCase() === 'commerce');
+
+      if (commerceIdx === -1) {
         showMsg(`No se encontró la columna "Commerce". Columnas disponibles: ${headers.join(', ')}`, 'err');
         return;
       }
 
+      const commerceKey = headers[commerceIdx];
+
+      // Convert arrays to objects
+      const rows = dataRows.map(row => {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
+        return obj;
+      });
+
       // Filter rows where Commerce starts with "I" (case-insensitive)
-      const ecomm = rows.filter(r => String(r[commerceKey]).trim().toLowerCase().startsWith('i'));
+      const ecomm = rows.filter(r => String(r[commerceKey] ?? '').trim().toLowerCase().startsWith('i'));
 
       filteredData = { headers, rows: ecomm, commerceKey };
 
