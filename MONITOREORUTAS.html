@@ -534,19 +534,26 @@ function parseCSVStandalone(rows) {
 }
 
 /* ═══════ SR API ═══════ */
+const SR_PROXIES=[
+  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+];
 async function fetchSrVisitas(token, date){
   if(!token)throw new Error('Sin token configurado');
   const url=`${SR_BASE}/v1/routes/visits/?planned_date=${date}`;
-  let resp;
-  try{
-    resp=await fetch(url,{headers:{'Authorization':`Token ${token}`,'Accept':'application/json'}});
-  }catch(e){
-    throw new Error('No se puede conectar. Posible bloqueo CORS si abres el archivo localmente.');
+  const attempts=[
+    {url, headers:{'Authorization':`Token ${token}`,'Accept':'application/json'}},
+    ...SR_PROXIES.map(fn=>({url:fn(url), headers:{'Authorization':`Token ${token}`,'x-requested-with':'XMLHttpRequest'}}))
+  ];
+  for(const a of attempts){
+    let resp;
+    try{ resp=await fetch(a.url,{headers:a.headers}); }catch{ continue; }
+    if(resp.status===401||resp.status===403)throw new Error('Token inválido o sin permisos');
+    if(!resp.ok) continue;
+    const data=await resp.json();
+    return Array.isArray(data)?data:(data.results||[]);
   }
-  if(resp.status===401||resp.status===403)throw new Error('Token inválido o sin permisos');
-  if(!resp.ok)throw new Error(`Error ${resp.status} de SimpliRoute`);
-  const data=await resp.json();
-  return Array.isArray(data)?data:(data.results||[]);
+  throw new Error('No se puede conectar con SimpliRoute (directo y proxies fallaron)');
 }
 function parseApiVisits(results){
   if(!results||!results.length)return{byIso:{},byVeh:{}};
