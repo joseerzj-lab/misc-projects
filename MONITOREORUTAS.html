@@ -1424,6 +1424,11 @@ function buildGraficoData() {
 function renderGrafico() {
   const root = document.getElementById('graficoRoot');
   if (!root) return;
+  if (!window.GraficoChart) {
+    root.innerHTML = '<div class="empty-state"><div class="empty-title">Cargando gráfico…</div><div class="empty-body">Espera un momento y vuelve a hacer clic en el tab.</div></div>';
+    setTimeout(renderGrafico, 800);
+    return;
+  }
   window._graficoData = buildGraficoData();
   window._graficoNotes = _vehNotes;
   if (!window._graficoRoot) {
