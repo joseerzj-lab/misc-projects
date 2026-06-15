@@ -16,6 +16,7 @@
 <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script src="https://unpkg.com/recharts@2.1.16/umd/Recharts.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.js"></script>
 <style>
 :root{
@@ -207,7 +208,7 @@ h3{font-size:12px;font-weight:600}
     <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container" id="consultarRoot"></div></div></section>
     <section class="tab-pane" data-pane="resumen"><div class="main-padded"><div class="container-lg" id="resumenRoot"></div></div></section>
     <section class="tab-pane" data-pane="grafico">
-      <div id="graficoRoot" style="width:100%;height:100%;overflow:auto"></div>
+      <div id="graficoRoot" style="width:100%;flex:1;min-height:0;overflow:auto"></div>
     </section>
   </main>
   <div id="imgModal" style="display:none"></div>
@@ -775,6 +776,92 @@ function renderMapSidebar(){
   const cs=el.querySelector('#clearSel'); if(cs)cs.addEventListener('click',()=>{ selectedVeh=null; renderMap(); renderMapSidebar(); });
 }
 
+/* ═══════ BUILD DASHBOARD DATA ═══════ */
+function buildDataForDashboard(){
+  const rows=_csvRows||[];
+  const processed={};
+  const rawRowsByPO={};
+  if(rows.length){
+    rows.forEach(row=>{
+      const commerce=(getKey(row,'Commerce')||'').trim();
+      const patente=(getKey(row,'Patente')||'').trim();
+      if(!commerce.toLowerCase().startsWith('i')||!patente)return;
+      const region=(getKey(row,'Region')||'Sin Región').trim();
+      const estado=(getKey(row,'Estado')||'Sin Estado').trim();
+      const po=(getKey(row,'ParentOrder')||'').trim();if(!po)return;
+      const gestion=(getKey(row,'Gestión')||getKey(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
+      const empresa=(getKey(row,'Empresa')||getKey(row,'Transportista')||'Sin Empresa').trim();
+      if(!rawRowsByPO[po])rawRowsByPO[po]=[];
+      rawRowsByPO[po].push({...row,_empresa:empresa});
+      if(!processed[region])processed[region]={orders:new Set(),estados:{},gestiones:{},patentes:{}};
+      processed[region].orders.add(po);
+      if(!processed[region].estados[estado])processed[region].estados[estado]=new Set();
+      processed[region].estados[estado].add(po);
+      if(!processed[region].gestiones[gestion])processed[region].gestiones[gestion]=0;
+      processed[region].gestiones[gestion]++;
+      const pats=processed[region].patentes;
+      if(!pats[patente])pats[patente]={orders:new Set(),estados:{},gestiones:{}};
+      pats[patente].orders.add(po);
+      if(!pats[patente].estados[estado])pats[patente].estados[estado]=new Set();
+      pats[patente].estados[estado].add(po);
+      if(!pats[patente].gestiones[gestion])pats[patente].gestiones[gestion]=0;
+      pats[patente].gestiones[gestion]++;
+    });
+  } else if(plan&&report){
+    plan.stops.forEach(s=>{
+      const r=getReportRow(s.iso,report);
+      const region=r?.region||'Sin Región';
+      const patente=r?.patente||s.vehFinal;
+      let estado='Planificado';
+      if(r?.estadoNorm==='terminado')estado='Terminado';
+      else if(r?.estadoNorm==='enruta')estado='En Ruta';
+      else if(r?.estadoNorm==='pendiente')estado='Pendiente';
+      const po=s.iso;
+      if(!processed[region])processed[region]={orders:new Set(),estados:{},gestiones:{},patentes:{}};
+      processed[region].orders.add(po);
+      if(!processed[region].estados[estado])processed[region].estados[estado]=new Set();
+      processed[region].estados[estado].add(po);
+      const pats=processed[region].patentes;
+      if(!pats[patente])pats[patente]={orders:new Set(),estados:{},gestiones:{}};
+      pats[patente].orders.add(po);
+      if(!pats[patente].estados[estado])pats[patente].estados[estado]=new Set();
+      pats[patente].estados[estado].add(po);
+    });
+  }
+  const incidenciasByPatente={};
+  Object.entries(rawRowsByPO).forEach(([,poRows])=>{
+    if(!poRows.length)return;
+    const firstRow=poRows[0];
+    const patente=(getKey(firstRow,'Patente')||'').trim();if(!patente)return;
+    const region=(getKey(firstRow,'Region')||'Sin Región').trim();
+    const empresa=firstRow._empresa||'Sin Empresa';
+    const allPend=poRows.every(r=>(getKey(r,'Estado')||'').trim().toLowerCase().includes('pendiente'));
+    if(!allPend)return;
+    if(!incidenciasByPatente[patente])incidenciasByPatente[patente]={patente,region,empresa,totalFotos:0,eventos:[],incidentCount:0};
+    const seenE=new Set();
+    poRows.forEach(row=>{
+      const imgUrl=(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim();
+      const obs=(getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||getKey(row,'Comentario')||'').trim();
+      const iso=(getKey(row,'ParentOrder')||'').trim();
+      const ek=imgUrl+'|'+obs;if(seenE.has(ek))return;seenE.add(ek);
+      const motivo=(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
+      const fotos=imgUrl.split(',').map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim()).filter(s=>s.startsWith('http'));
+      incidenciasByPatente[patente].eventos.push({
+        id:iso+'_'+Math.random().toString(36).substr(2,4),iso,
+        fecha:(getKey(row,'Fechaentregareal')||getKey(row,'Fecha')||'Sin fecha').trim(),
+        motivo:motivo||(imgUrl?'Registro Fotográfico':'Incidencia'),
+        comentario:obs,fotos,region,
+        comuna:(getKey(row,'Localidad')||getKey(row,'Comuna')||'').trim(),
+        estado:(getKey(row,'Estado')||'').trim()
+      });
+      incidenciasByPatente[patente].totalFotos+=fotos.length;
+      incidenciasByPatente[patente].incidentCount++;
+    });
+  });
+  if(!Object.keys(processed).length)return null;
+  return{data:{regions:processed,incidenciasByPatente},rawRows:rows,allRegions:Object.keys(processed).sort()};
+}
+
 /* ═══════ DASHBOARD ═══════ */
 function getKPI() {
   if (plan) return computeKPIs(plan, report);
@@ -783,46 +870,24 @@ function getKPI() {
 }
 function hasData() { return !!(plan || csvData); }
 function renderDashboard(){
-  const el=document.getElementById('dashRoot'); if(!el)return;
-  if(!hasData()){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>'; return; }
-  const kpi=getKPI(); const g=kpi.global;
-  const kpiCards=[
-    {val:g.total, lbl:'Paradas', clr:''},
-    {val:g.terminados, lbl:'Hechas', clr:'var(--green)'},
-    {val:g.enruta, lbl:'En Ruta', clr:'var(--blue)'},
-    {val:g.rebajadas, lbl:'Rebajadas', clr:'var(--red)'},
-    {val:g.pendientes, lbl:'Pendientes', clr:''},
-    {val:g.avance+'%', lbl:'Avance global', clr:''},
-    {val:g.iniciadas, lbl:'Rutas iniciadas', clr:''},
-    {val:Object.keys(kpi.vehicles).length, lbl:'Vehículos', clr:''},
-  ].map(k=>`<div class="kpi-card"><div class="kpi-val"${k.clr?` style="color:${k.clr}"`:''}>${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`).join('');
-  const vehs=Object.values(kpi.vehicles).sort((a,b)=>b.avance-a.avance);
-  const bars=vehs.map(v=>{
-    const pT=v.total?v.terminados/v.total*100:0;
-    const pR=v.total?v.rebajadas/v.total*100:0;
-    const pE=v.total?v.enruta/v.total*100:0;
-    const pP=v.total?v.pendientes/v.total*100:0;
-    return`<div class="bar-row">
-      <div class="bar-label">
-        <span class="num" style="font-size:11px;font-weight:700">${esc(dispName(v))}</span>
-        <span class="text-xs">${esc(_nameMode==='pat'?v.vehFinal:(v.patente||'—'))}</span>
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${pT.toFixed(1)}%;background:var(--green)"></div>
-        <div class="bar-fill" style="width:${pR.toFixed(1)}%;background:var(--red)"></div>
-        <div class="bar-fill" style="width:${pE.toFixed(1)}%;background:var(--blue)"></div>
-        <div class="bar-fill" style="width:${pP.toFixed(1)}%;background:rgba(0,0,0,0.06)"></div>
-      </div>
-      <div class="bar-val">${v.avance}%</div>
-    </div>`;
-  }).join('');
-  el.innerHTML=`<div class="kpi-grid" style="margin-bottom:20px">${kpiCards}</div>
-    <div class="card"><div class="card-header"><h2>Avance por vehículo</h2>
-      <div style="display:flex;gap:10px">
-        ${[['var(--green)','Hechas'],['var(--red)','Rebajadas'],['var(--blue)','En ruta']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--textFaint)"><span style="width:10px;height:10px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
-      </div>
-    </div>
-    <div class="bar-chart">${bars||'<div class="empty-body" style="padding:12px">Sin datos.</div>'}</div></div>`;
+  const el=document.getElementById('dashRoot');if(!el)return;
+  if(!hasData()){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>';
+    return;
+  }
+  const dashData=buildDataForDashboard();
+  if(!dashData){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte para ver el dashboard.</div></div>';
+    return;
+  }
+  if(!window.MR_DashTab){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Cargando…</div></div>';
+    setTimeout(renderDashboard,600);return;
+  }
+  if(!window._dashRoot)window._dashRoot=ReactDOM.createRoot(el);
+  window._dashRoot.render(React.createElement(window.MR_DashTab,{
+    data:dashData.data,rawRows:dashData.rawRows,allRegions:dashData.allRegions
+  }));
 }
 
 /* ═══════ TABLA ═══════ */
@@ -1449,6 +1514,306 @@ function renderGrafico() {
     })
   );
 }
+</script>
+<script type="text/babel">
+(function(){
+const DS={
+  text:'#18181B',textSub:'#52525B',textFaint:'#A1A1AA',textMuted:'#71717A',
+  bg:'#FAFAF9',bgCard:'#FFFFFF',bgCardAlt:'rgba(0,0,0,0.026)',bgHover:'rgba(0,0,0,0.042)',
+  border:'rgba(0,0,0,0.09)',borderSoft:'rgba(0,0,0,0.06)',
+  green:'#16A34A',greenBg:'rgba(22,163,74,0.10)',greenBorder:'rgba(22,163,74,0.22)',
+  red:'#DC2626',redBg:'rgba(220,38,38,0.10)',redBorder:'rgba(220,38,38,0.22)',
+  blue:'#2563EB',blueBg:'rgba(37,99,235,0.08)',blueBorder:'rgba(37,99,235,0.25)',
+  orange:'#EA580C',orangeBg:'rgba(234,88,12,0.08)',orangeBorder:'rgba(234,88,12,0.25)',
+  purple:'#7C3AED',purpleBg:'rgba(124,58,237,0.08)',purpleBorder:'rgba(124,58,237,0.25)',
+  sky:'#0EA5E9',pasteGray:'#F4F4F5',pasteBlue:'#EFF6FF',
+  fontBase:"'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",
+  fontMono:"'Geist Mono','JetBrains Mono',ui-monospace,monospace"
+};
+const ChevDown=window.lucideReact?.ChevronDown||(()=><span>▼</span>);
+const FileDn=window.lucideReact?.FileDown||(()=><span>↓</span>);
+
+function tGrad(pct){const p=Math.max(0,Math.min(100,pct));if(p>=100)return{bg:'rgba(22,163,74,.18)',txt:'#16A34A'};if(p>=90)return{bg:'rgba(202,138,4,.15)',txt:'#CA8A04'};if(p>=50)return{bg:'rgba(234,88,12,.12)',txt:'#EA580C'};return{bg:'rgba(220,38,38,.12)',txt:'#DC2626'};}
+function fPct(v){return parseFloat(v.toFixed(1)).toString().replace('.',',')+' %';}
+function gMotivo3(raw){if(!raw||!raw.trim())return'Transporte No Gestiona';const m=raw.toUpperCase().trim();if(m.includes('SIN MORADOR')||m.includes('MORADOR'))return'Sin Moradores';if(m.includes('DIRECCI')||m.includes('SIN INFORMACI'))return'Problema de Dirección';if(m.includes('SINIESTRO'))return'Siniestro En Calle';if(m.includes('PRODUCTO NO CARGADO')||m.includes('NO CARGADO'))return'Producto No Cargado';if(m.includes('RECHAZ'))return'Cliente Rechaza';return'Transporte No Gestiona';}
+function gMotivo2(m3){return(m3==='Sin Moradores'||m3==='Problema de Dirección'||m3==='Cliente Rechaza')?'Cliente':'Transporte';}
+function getK(row,key){const k=Object.keys(row).find(k=>k.trim().toLowerCase()===key.toLowerCase());return k?row[k]:null;}
+
+function KPICard({title,value,color,progress}){
+  return <div style={{padding:'16px 18px',borderRadius:8,border:`1px solid ${DS.borderSoft}`,background:DS.bgCard,display:'flex',flexDirection:'column',gap:8}}>
+    <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',color:DS.textFaint,fontWeight:700}}>{title}</div>
+    <div style={{fontSize:28,fontWeight:900,color:color||DS.text,fontFamily:DS.fontMono,lineHeight:1}}>{value}</div>
+    {typeof progress==='number'&&<div style={{width:'100%',height:4,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:color||DS.text,borderRadius:99,width:`${Math.min(100,progress)}%`,transition:'width 0.8s'}}/></div>}
+  </div>;
+}
+
+function MRRegionDropdown({allRegions,selected,onChange}){
+  const[open,setOpen]=React.useState(false);
+  const[pos,setPos]=React.useState({top:0,left:0});
+  const btnRef=React.useRef(null);const panelRef=React.useRef(null);
+  const rmR=React.useMemo(()=>allRegions.filter(r=>r.toLowerCase().includes('metropolitana')),[allRegions]);
+  const rxR=React.useMemo(()=>allRegions.filter(r=>!r.toLowerCase().includes('metropolitana')),[allRegions]);
+  const isAll=selected.size===0;
+  const isRM=!isAll&&rmR.length>0&&selected.size===rmR.length&&rmR.every(r=>selected.has(r));
+  const isRX=!isAll&&rxR.length>0&&selected.size===rxR.length&&rxR.every(r=>selected.has(r));
+  const label=isAll?'Todas las regiones':isRM?'RM':isRX?'RX':selected.size===1?[...selected][0]:`${selected.size} regiones`;
+  const isChecked=r=>selected.size===0||selected.has(r);
+  const toggle=r=>onChange(prev=>{const base=prev.size===0?new Set(allRegions):new Set(prev);if(base.has(r)){base.delete(r);if(base.size===0)return new Set();}else{base.add(r);if(base.size===allRegions.length)return new Set();}return base;});
+  const handleOpen=()=>{if(btnRef.current){const rect=btnRef.current.getBoundingClientRect();setPos({top:rect.bottom+4,left:rect.left});}setOpen(o=>!o);};
+  React.useEffect(()=>{const h=e=>{if(panelRef.current&&!panelRef.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target))setOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  const qBtn=(lbl,active,fn)=><button key={lbl} onClick={fn} style={{padding:'3px 10px',borderRadius:99,border:`1px solid ${active?DS.blue:DS.border}`,background:active?DS.blueBg:'transparent',fontSize:9,fontWeight:700,cursor:'pointer',color:active?DS.blue:DS.textSub,fontFamily:DS.fontBase}}>{lbl}</button>;
+  return <div style={{display:'inline-block'}}>
+    <button ref={btnRef} onClick={handleOpen} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:6,border:`1px solid ${DS.border}`,background:DS.bgCardAlt,fontSize:11,fontWeight:700,cursor:'pointer',color:DS.textSub,fontFamily:DS.fontBase}}>
+      Región: <span style={{color:DS.text}}>{label}</span><ChevDown size={12}/>
+    </button>
+    {open&&ReactDOM.createPortal(
+      <div ref={panelRef} style={{position:'fixed',top:pos.top,left:pos.left,zIndex:9990,width:270,background:'#fff',border:`1px solid ${DS.border}`,borderRadius:8,boxShadow:'0 8px 30px rgba(0,0,0,0.15)',overflow:'hidden'}}>
+        <div style={{padding:'8px 12px',borderBottom:`1px solid ${DS.borderSoft}`,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {qBtn('Todas',isAll,()=>onChange(new Set()))}
+          {rmR.length>0&&qBtn('RM',isRM,()=>onChange(new Set(rmR)))}
+          {rxR.length>0&&qBtn('RX',isRX,()=>onChange(new Set(rxR)))}
+        </div>
+        <div style={{maxHeight:260,overflowY:'auto',padding:'4px 0'}}>
+          {allRegions.map(r=>{const active=isChecked(r);return <button key={r} onClick={()=>toggle(r)} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 14px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:11,fontWeight:600,color:DS.text,fontFamily:DS.fontBase,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background=DS.bgHover} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${active?DS.blue:DS.border}`,background:active?DS.blue:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.1s'}}>
+              {active&&<span style={{color:'#fff',fontSize:9,lineHeight:1,fontWeight:900}}>✓</span>}
+            </div>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r}</span>
+          </button>;})}
+        </div>
+      </div>,
+      document.body
+    )}
+  </div>;
+}
+
+function MR_DashTab({data,rawRows,allRegions}){
+  const dashRef=React.useRef(null);
+  const[selRegions,setSelRegions]=React.useState(new Set());
+  const[exporting,setExporting]=React.useState(false);
+  const[excOvr,setExcOvr]=React.useState(new Set());
+  const[motiOvr,setMotiOvr]=React.useState(new Set());
+  const toggleMoti=React.useCallback(tipo=>setMotiOvr(prev=>{const n=new Set(prev);n.has(tipo)?n.delete(tipo):n.add(tipo);return n;}),[]);
+  const deferred=React.useDeferredValue(selRegions);
+  const filteredR=React.useMemo(()=>deferred.size===0?allRegions:allRegions.filter(r=>deferred.has(r)),[deferred,allRegions]);
+
+  const kpis=React.useMemo(()=>{
+    if(!data)return{total:0,terminados:0,enRuta:0,pendientes:0,avance:0};
+    let total=0,terminados=0,enRuta=0,pendientes=0;
+    filteredR.forEach(r=>{const rd=data.regions[r];if(!rd)return;total+=rd.orders.size;Object.keys(rd.estados).forEach(e=>{const v=rd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))terminados+=v;else if(el.includes('en ruta')||el.includes('enruta'))enRuta+=v;else if(el.includes('pendiente'))pendientes+=v;});});
+    return{total,terminados,enRuta,pendientes,avance:total>0?Math.round((terminados/total)*100):0};
+  },[data,filteredR]);
+
+  const critPat=React.useMemo(()=>{
+    if(!data)return[];
+    const pm={};
+    filteredR.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!pm[pat])pm[pat]={patente:pat,total:0,terminados:0,pendientes:0};pm[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))pm[pat].terminados+=v;if(el.includes('pendiente'))pm[pat].pendientes+=v;});});});
+    return Object.values(pm).filter(p=>p.total>0).map(p=>({...p,avance:p.total>0?Math.round((p.terminados/p.total)*100):0})).sort((a,b)=>a.avance-b.avance).slice(0,10);
+  },[data,filteredR]);
+
+  const motivosData=React.useMemo(()=>{
+    if(!rawRows.length)return[];
+    const mm={};
+    rawRows.forEach(row=>{
+      const commerce=(getK(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
+      const region=(getK(row,'Region')||'Sin Región').trim();
+      if(deferred.size>0&&!deferred.has(region))return;
+      const estado=(getK(row,'Estado')||'').toLowerCase();if(!estado.includes('pendiente'))return;
+      const po=(getK(row,'ParentOrder')||'').trim();if(!po)return;
+      const motivo=((getK(row,'Motivo No Entrega')||getK(row,'MotivoNoEntrega')||getK(row,'Motivo')||'').trim())||'Sin motivo';
+      if(!mm[motivo])mm[motivo]=new Set();
+      mm[motivo].add(po);
+    });
+    const total=Object.values(mm).reduce((a,s)=>a+s.size,0);
+    return Object.entries(mm).map(([tipo,poSet])=>({tipo,cantidad:poSet.size,pct:total>0?Math.round((poSet.size/total)*100):0})).sort((a,b)=>b.cantidad-a.cantidad);
+  },[rawRows,deferred]);
+
+  const sectData=React.useMemo(()=>{
+    if(!data)return[];
+    const empMap={};
+    rawRows.forEach(row=>{const region=(getK(row,'Region')||'Sin Región').trim();const emp=(getK(row,'Empresa')||getK(row,'Transportista')||'').trim();if(!empMap[region])empMap[region]=new Set();if(emp)empMap[region].add(emp);});
+    return filteredR.map(r=>{const rd=data.regions[r];if(!rd)return null;let terminados=0,enRuta=0;Object.keys(rd.estados).forEach(e=>{const v=rd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))terminados+=v;if(el.includes('en ruta')||el.includes('enruta'))enRuta+=v;});const total=rd.orders.size;return{region:r,patentes:Object.keys(rd.patentes).length,empresas:empMap[r]?empMap[r].size:0,terminados,enRuta,total,avance:total>0?Math.round((terminados/total)*100):0};}).filter(Boolean);
+  },[data,filteredR,rawRows]);
+
+  const sectPatData=React.useMemo(()=>{
+    if(!data||!rawRows.length)return[];
+    const result={};
+    rawRows.forEach(row=>{
+      const commerce=(getK(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
+      const region=(getK(row,'Region')||'Sin Región').trim();
+      if(deferred.size>0&&!deferred.has(region))return;
+      const patente=(getK(row,'Patente')||'').trim();if(!patente)return;
+      const estado=(getK(row,'Estado')||'Sin Estado').trim();
+      const gestion=(getK(row,'Gestión')||getK(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
+      const po=(getK(row,'ParentOrder')||'').trim();
+      const key=`${region}||${patente}||${gestion}`;
+      if(!result[key])result[key]={region,patente,gestion,orders:new Set(),terminados:new Set(),enRuta:new Set(),pendientes:new Set()};
+      result[key].orders.add(po);
+      const el=estado.toLowerCase();
+      if(el.includes('terminado'))result[key].terminados.add(po);
+      else if(el.includes('en ruta')||el.includes('enruta'))result[key].enRuta.add(po);
+      else if(el.includes('pendiente'))result[key].pendientes.add(po);
+    });
+    return Object.values(result).map(r=>({region:r.region,patente:r.patente,gestion:r.gestion,total:r.orders.size,terminados:r.terminados.size,enRuta:r.enRuta.size,pendientes:r.pendientes.size,avance:r.orders.size>0?Math.round((r.terminados.size/r.orders.size)*100):0})).sort((a,b)=>a.region.localeCompare(b.region)||a.patente.localeCompare(b.patente));
+  },[data,rawRows,deferred]);
+
+  const excData=React.useMemo(()=>{
+    if(!data||!data.incidenciasByPatente)return[];
+    const rows=[];
+    Object.entries(data.incidenciasByPatente).forEach(([pat,inc])=>{
+      if(deferred.size>0&&!deferred.has(inc.region))return;
+      const mm={};
+      inc.eventos.forEach(ev=>{const k=ev.motivo||'Sin motivo';if(!mm[k])mm[k]={ordenes:0,fotos:[],isos:[]};mm[k].ordenes++;mm[k].fotos.push(...ev.fotos);if(ev.iso&&!mm[k].isos.includes(ev.iso))mm[k].isos.push(ev.iso);});
+      Object.entries(mm).forEach(([motivo,md])=>{const m3=gMotivo3(motivo);const m2=gMotivo2(m3);rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos,isos:md.isos,m2,m3});});
+    });
+    return rows.sort((a,b)=>b.ordenes-a.ordenes);
+  },[data,deferred]);
+
+  const exportPDF=async()=>{
+    const el=dashRef.current;if(!el)return;
+    setExporting(true);
+    try{
+      const canvas=await html2canvas(el,{backgroundColor:'#ffffff',scale:1.5,useCORS:true,logging:false,windowWidth:1100,ignoreElements:e=>e.hasAttribute&&e.hasAttribute('data-html2canvas-ignore')});
+      const jpdf=window.jspdf;if(!jpdf){setExporting(false);return;}
+      const{jsPDF}=jpdf;const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const pdfW=pdf.internal.pageSize.getWidth();const pdfH=pdf.internal.pageSize.getHeight();
+      const ratio=pdfW/canvas.width;let sliceY=0;let page=0;
+      while(sliceY<canvas.height){if(page>0)pdf.addPage();const sliceH=Math.min(pdfH/ratio,canvas.height-sliceY);const sc=document.createElement('canvas');sc.width=canvas.width;sc.height=Math.ceil(sliceH);const ctx=sc.getContext('2d');ctx.drawImage(canvas,0,sliceY,canvas.width,Math.ceil(sliceH),0,0,canvas.width,Math.ceil(sliceH));pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pdfW,sliceH*ratio);sliceY+=sliceH;page++;}
+      const fecha=new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+      pdf.save(`Dashboard_Rutas_${fecha}.pdf`);
+    }catch(e){console.error(e);}
+    finally{setExporting(false);}
+  };
+
+  const ST=t=><div style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:DS.textFaint,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${DS.borderSoft}`}}>{t}</div>;
+  const dashBadge=selRegions.size===0?'Global':selRegions.size===1?[...selRegions][0]:`${selRegions.size} regiones`;
+
+  if(!data)return <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:16,opacity:0.35}}><div style={{fontSize:60}}>📊</div><div style={{fontSize:16,fontWeight:700}}>Sin datos procesados</div></div>;
+
+  return <div style={{position:'absolute',inset:0,overflow:'auto',padding:'12px 20px',background:DS.bg,fontFamily:DS.fontBase}}>
+    {/* Sticky toolbar */}
+    <div data-html2canvas-ignore style={{display:'flex',gap:8,alignItems:'center',marginBottom:14,position:'sticky',top:0,zIndex:20,padding:'6px 12px',borderRadius:8,border:`1px solid rgba(0,0,0,0.06)`,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(250,250,249,0.92)'}}>
+      <MRRegionDropdown allRegions={allRegions} selected={selRegions} onChange={setSelRegions}/>
+      <div style={{flex:1}}/>
+      <button onClick={exportPDF} disabled={exporting} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:6,background:'#18181B',color:'#fff',border:'1px solid rgba(0,0,0,0.06)',fontSize:10,fontWeight:700,cursor:exporting?'not-allowed':'pointer',opacity:exporting?0.6:1,fontFamily:DS.fontBase}}>
+        <FileDn size={13}/>{exporting?'Generando...':'Descargar PDF'}
+      </button>
+    </div>
+
+    <div ref={dashRef} style={{maxWidth:1100,margin:'0 auto',display:'flex',flexDirection:'column',gap:18,background:'#fff',padding:24,borderRadius:12,border:`1px solid ${DS.borderSoft}`,boxShadow:'0 4px 20px rgba(0,0,0,0.04)'}}>
+      {/* Header */}
+      <div style={{paddingBottom:14,borderBottom:`1px solid ${DS.borderSoft}`,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:900,color:DS.text,letterSpacing:'-0.03em'}}>Dashboard de Control</div>
+          <div style={{fontSize:10,color:DS.textFaint,marginTop:3}}>{new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+        </div>
+        <span style={{display:'inline-flex',alignItems:'center',fontSize:9,fontWeight:700,padding:'3px 10px',borderRadius:99,background:DS.blueBg,color:DS.blue,border:`1px solid ${DS.blueBorder}`}}>{dashBadge}</span>
+      </div>
+
+      {/* KPI grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        <KPICard title="Total Órdenes (ISO)" value={kpis.total} color={DS.sky}/>
+        <KPICard title="Entregados" value={kpis.terminados} color={DS.green}/>
+        <KPICard title="En Ruta" value={kpis.enRuta} color={DS.orange}/>
+        <KPICard title="Avance %" value={`${kpis.avance}%`} color={kpis.avance>=90?DS.green:kpis.avance>=50?'#CA8A04':DS.red} progress={kpis.avance}/>
+      </div>
+
+      {/* Critical patentes + Motivos */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
+        <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
+          {ST('Top 10 Patentes Críticas')}
+          {critPat.length===0
+            ?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos</div>
+            :<table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
+              <thead><tr>{['Patente','Total','Entregados','Pend.','Avance'].map(h=><th key={h} style={{textAlign:h==='Patente'?'left':'right',padding:'5px 7px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`}}>{h}</th>)}</tr></thead>
+              <tbody>{critPat.map((p,i)=>{const g=tGrad(p.avance);return <tr key={p.patente} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 7px',fontWeight:800,color:DS.text}}>{p.patente}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.textFaint}}>{p.total}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.green,fontWeight:700}}>{p.terminados}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.red,fontWeight:700}}>{p.pendientes}</td><td style={{padding:'6px 7px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,background:g.bg,padding:'2px 7px',borderRadius:99,fontSize:9}}>{p.avance}%</span></td></tr>;})}</tbody>
+            </table>}
+        </div>
+        <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
+          {ST('Motivos de No Entrega')}
+          {motivosData.length===0
+            ?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos de motivos</div>
+            :<div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {motivosData.slice(0,10).map(m=>{const isOvr=motiOvr.has(m.tipo);return <div key={m.tipo} style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:9,fontWeight:700,gap:5}}>
+                  <span style={{color:DS.text,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={m.tipo}>{m.tipo}</span>
+                  <span style={{color:DS.textFaint,flexShrink:0}}>{m.cantidad} · {m.pct}%</span>
+                  <button data-html2canvas-ignore onClick={()=>toggleMoti(m.tipo)} style={{fontSize:8,fontWeight:700,padding:'2px 6px',borderRadius:4,border:`1px solid ${isOvr?'rgba(234,88,12,0.5)':'rgba(37,99,235,0.35)'}`,background:isOvr?DS.orangeBg:DS.blueBg,color:isOvr?DS.orange:DS.blue,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{isOvr?'↩ Revertir':'⇄ Forzar TNG'}</button>
+                </div>
+                <div style={{width:'100%',height:4,background:'rgba(0,0,0,0.05)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:isOvr?DS.orange:DS.red,borderRadius:99,width:`${m.pct}%`,opacity:0.7}}/></div>
+              </div>;})}{motivosData.length>10&&<div style={{fontSize:8,color:DS.textFaint,textAlign:'center',marginTop:3}}>+{motivosData.length-10} motivos más</div>}
+            </div>}
+        </div>
+      </div>
+
+      {/* Excepciones */}
+      {excData.length>0&&<div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
+        {ST(`Detalle de Excepciones · ${excData.length} registros`)}
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
+            <thead><tr>{['Región','Transporte','Patente','Motivo','Responsable','Categoría','Órdenes','ISOs',''].map(h=><th key={h} style={{textAlign:h==='Órdenes'?'right':'left',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+            <tbody>
+              {excData.slice(0,50).map((row,i)=>{const excKey=row.region+'|'+row.patente+'|'+row.motivo;const isOvr=excOvr.has(excKey)||motiOvr.has(row.motivo);const effM2=isOvr?'Transporte':row.m2;const effM3=isOvr?'Transporte No Gestiona':row.m3;const toggleOvr=()=>setExcOvr(prev=>{const n=new Set(prev);n.has(excKey)?n.delete(excKey):n.add(excKey);return n;});return <tr key={i} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}>
+                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:DS.pasteGray,color:DS.textSub,border:`1px solid ${DS.border}`}}>{row.region}</span></td>
+                <td style={{padding:'5px 8px',fontWeight:600,fontSize:10}}>{row.empresa}</td>
+                <td style={{padding:'5px 8px',fontWeight:800,color:DS.text}}>{row.patente}</td>
+                <td style={{padding:'5px 8px',color:DS.text,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td>
+                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:effM2==='Cliente'?DS.blueBg:DS.orangeBg,color:effM2==='Cliente'?DS.blue:DS.orange,border:`1px solid ${effM2==='Cliente'?DS.blueBorder:DS.orangeBorder}`}}>{effM2}</span></td>
+                <td style={{padding:'5px 8px',color:DS.textSub,fontSize:9,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={effM3}>{effM3}</td>
+                <td style={{padding:'5px 8px',textAlign:'right',fontWeight:700,color:DS.orange}}>{row.ordenes}</td>
+                <td style={{padding:'5px 8px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:8,color:DS.textFaint}} title={row.isos&&row.isos.join(', ')}>{row.isos&&row.isos.length>0?row.isos.join(', '):'—'}</td>
+                <td style={{padding:'5px 6px'}} data-html2canvas-ignore><button onClick={toggleOvr} style={{fontSize:8,fontWeight:700,padding:'2px 6px',borderRadius:4,border:`1px solid ${isOvr?'rgba(234,88,12,0.5)':'rgba(37,99,235,0.35)'}`,background:isOvr?DS.orangeBg:DS.blueBg,color:isOvr?DS.orange:DS.blue,cursor:'pointer',whiteSpace:'nowrap'}}>{isOvr?'↩ Revertir':'⇄ Forzar'}</button></td>
+              </tr>;})}
+              {excData.length>50&&<tr><td colSpan={9} style={{padding:'6px 8px',textAlign:'center',fontSize:8,color:DS.textFaint}}>+{excData.length-50} registros más</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>}
+
+      {/* Sectorizado por Región */}
+      <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
+        {ST('Detalle Sectorizado por Región')}
+        {sectData.length===0?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos</div>:
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
+          <thead><tr>{['Región','Patentes','Empresas','Entregados','En Ruta','Total','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'?'left':'right',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`}}>{h}</th>)}</tr></thead>
+          <tbody>{sectData.map((row,i)=>{const g=tGrad(row.avance);return <tr key={row.region} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 8px',fontWeight:700,color:DS.sky}}>{row.region}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textSub}}>{row.patentes}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textSub}}>{row.empresas||'—'}</td><td style={{padding:'6px 8px',textAlign:'right',fontWeight:700,color:DS.green}}>{row.terminados}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.orange}}>{row.enRuta}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textFaint}}>{row.total}</td><td style={{padding:'6px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,fontSize:9}}>{row.avance}%</span></td><td style={{padding:'6px 8px',minWidth:80}}><div style={{width:'100%',height:5,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 0.8s'}}/></div></td></tr>;})}
+          </tbody>
+        </table>}
+      </div>
+
+      {/* Detalle por patente y tipo */}
+      {sectPatData.length>0&&<div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
+        {ST(`Detalle por Patente y Tipo · ${sectPatData.length} combinaciones`)}
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
+            <thead><tr>{['Región','Patente','Tipo','Total','Entregados','En Ruta','Pendientes','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'||h==='Patente'||h==='Tipo'?'left':'right',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+            <tbody>{sectPatData.map((row,i)=>{
+              const g=tGrad(row.avance);
+              const showR=i===0||sectPatData[i-1].region!==row.region;
+              const showP=i===0||sectPatData[i-1].patente!==row.patente||sectPatData[i-1].region!==row.region;
+              return <tr key={i} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.012)'}}>
+                <td style={{padding:'5px 8px',fontWeight:showR?700:400,color:showR?DS.sky:DS.textFaint,fontSize:showR?10:9}}>{showR?row.region:'↳'}</td>
+                <td style={{padding:'5px 8px',fontWeight:showP?800:400,color:showP?DS.text:DS.textFaint}}>{showP?row.patente:''}</td>
+                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:DS.pasteGray,color:DS.textSub,border:`1px solid ${DS.border}`}}>{row.gestion}</span></td>
+                <td style={{padding:'5px 8px',textAlign:'right',color:DS.textFaint}}>{row.total}</td>
+                <td style={{padding:'5px 8px',textAlign:'right',fontWeight:700,color:DS.green}}>{row.terminados}</td>
+                <td style={{padding:'5px 8px',textAlign:'right',color:DS.orange}}>{row.enRuta}</td>
+                <td style={{padding:'5px 8px',textAlign:'right',color:DS.red}}>{row.pendientes}</td>
+                <td style={{padding:'5px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,fontSize:9}}>{row.avance}%</span></td>
+                <td style={{padding:'5px 8px',minWidth:70}}><div style={{width:'100%',height:4,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 0.8s'}}/></div></td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+      </div>}
+
+      <div style={{textAlign:'center',fontSize:8,color:DS.textFaint,paddingTop:8,borderTop:`1px solid ${DS.borderSoft}`}}>Generado el {new Date().toLocaleString('es-CL')}</div>
+    </div>
+  </div>;
+}
+
+window.MR_DashTab = MR_DashTab;
+})();
 </script>
 <script type="text/babel">
 const {
