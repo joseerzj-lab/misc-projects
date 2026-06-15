@@ -742,8 +742,8 @@ function getKPI() {
 function hasData() { return !!(plan || csvData); }
 function renderDashboard(){
   const el=document.getElementById('dashRoot'); if(!el)return;
-  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div><div class="empty-body">Carga la planificación en Configurar.</div></div>'; return; }
-  const kpi=computeKPIs(plan,report); const g=kpi.global;
+  if(!hasData()){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>'; return; }
+  const kpi=getKPI(); const g=kpi.global;
   const kpiCards=[
     {val:g.total, lbl:'Paradas', clr:''},
     {val:g.terminados, lbl:'Hechas', clr:'var(--green)'},
@@ -786,53 +786,101 @@ function renderDashboard(){
 /* ═══════ TABLA ═══════ */
 function renderTabla(){
   const el=document.getElementById('tablaRoot'); if(!el)return;
-  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
-  const q=cleanStr(_tablaFilters.q), estF=_tablaFilters.estado;
-  const stops=plan.stops.filter(s=>{
-    const st=statusOf(s,report).key;
-    if(estF&&st!==estF)return false;
-    if(q){ const r=getReportRow(s.iso,report);
-      if(!(cleanStr(s.iso).includes(q)||cleanStr(s.vehFinal).includes(q)||(r&&cleanStr(r.patente).includes(q))))return false; }
-    return true;
-  });
-  const rows=stops.map(s=>{
-    const st=statusOf(s,report); const r=getReportRow(s.iso,report);
-    return`<tr>
-      <td style="padding:5px 8px" class="num">${esc(s.iso)}</td>
-      <td style="padding:5px 8px" class="num">${esc(s.vehFinal)}</td>
-      <td style="padding:5px 8px">${esc(r?.patente||'—')}</td>
-      <td style="padding:5px 8px"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span></td>
-      <td style="padding:5px 8px;color:var(--textSub)">${esc(r?.motivo3||'—')}</td>
-      <td style="padding:5px 8px;color:var(--textFaint);font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.direccion||'')}</td>
-    </tr>`;
-  }).join('');
-  el.innerHTML=`<div class="tabla-filters">
-    <input class="input" id="tablaQ" placeholder="Buscar ISO, VEH, patente…" value="${esc(_tablaFilters.q)}" style="flex:1;max-width:300px">
-    <select class="input" id="tablaEst" style="width:auto">
-      <option value="">Todos los estados</option>
-      <option value="terminado"${estF==='terminado'?' selected':''}>Terminado</option>
-      <option value="enruta"${estF==='enruta'?' selected':''}>En Ruta</option>
-      <option value="rebajada"${estF==='rebajada'?' selected':''}>Rebajada</option>
-      <option value="pendiente"${estF==='pendiente'?' selected':''}>Pendiente</option>
-      <option value="sindato"${estF==='sindato'?' selected':''}>Sin dato</option>
-    </select>
-    <span class="text-xs">${stops.length} filas</span>
-  </div>
-  <div class="card" style="padding:0;overflow:auto">
+  if(!hasData()){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>';return;}
+  if(plan){
+    const q=cleanStr(_tablaFilters.q), estF=_tablaFilters.estado;
+    const stops=plan.stops.filter(s=>{
+      const st=statusOf(s,report).key;
+      if(estF&&st!==estF)return false;
+      if(q){ const r=getReportRow(s.iso,report);
+        if(!(cleanStr(s.iso).includes(q)||cleanStr(s.vehFinal).includes(q)||(r&&cleanStr(r.patente).includes(q))))return false; }
+      return true;
+    });
+    const rows=stops.map(s=>{
+      const st=statusOf(s,report); const r=getReportRow(s.iso,report);
+      return`<tr>
+        <td style="padding:5px 8px" class="num">${esc(s.iso)}</td>
+        <td style="padding:5px 8px" class="num">${esc(s.vehFinal)}</td>
+        <td style="padding:5px 8px">${esc(r?.patente||'—')}</td>
+        <td style="padding:5px 8px"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span></td>
+        <td style="padding:5px 8px;color:var(--textSub)">${esc(r?.motivo3||'—')}</td>
+        <td style="padding:5px 8px;color:var(--textFaint);font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.direccion||'')}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML=`<div class="tabla-filters">
+      <input class="input" id="tablaQ" placeholder="Buscar ISO, VEH, patente…" value="${esc(_tablaFilters.q)}" style="flex:1;max-width:300px">
+      <select class="input" id="tablaEst" style="width:auto">
+        <option value="">Todos los estados</option>
+        <option value="terminado"${estF==='terminado'?' selected':''}>Terminado</option>
+        <option value="enruta"${estF==='enruta'?' selected':''}>En Ruta</option>
+        <option value="rebajada"${estF==='rebajada'?' selected':''}>Rebajada</option>
+        <option value="pendiente"${estF==='pendiente'?' selected':''}>Pendiente</option>
+        <option value="sindato"${estF==='sindato'?' selected':''}>Sin dato</option>
+      </select>
+      <span class="text-xs">${stops.length} filas</span>
+    </div>
+    <div class="card" style="padding:0;overflow:auto">
+      <table class="dash-table" style="width:100%"><thead><tr>
+        <th style="padding:6px 8px">ISO</th><th style="padding:6px 8px">VEH</th>
+        <th style="padding:6px 8px">Patente</th><th style="padding:6px 8px">Estado</th>
+        <th style="padding:6px 8px">Motivo</th><th style="padding:6px 8px">Dirección</th>
+      </tr></thead><tbody>${rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--textFaint)">Sin resultados</td></tr>'}</tbody></table>
+    </div>`;
+    el.querySelector('#tablaQ').addEventListener('input',e=>{ _tablaFilters.q=e.target.value; clearTimeout(_searchT); _searchT=setTimeout(()=>renderTabla(),180); });
+    el.querySelector('#tablaEst').addEventListener('change',e=>{ _tablaFilters.estado=e.target.value; renderTabla(); });
+    return;
+  }
+  /* CSV-only: table by patente */
+  const kpi = getKPI();
+  const vehs = Object.values(kpi.vehicles).sort((a,b)=>a.patente.localeCompare(b.patente));
+  const rows = vehs.map(v=>`<tr>
+    <td style="padding:5px 8px" class="num">${esc(v.patente)}</td>
+    <td style="padding:5px 8px">${esc(v.region||'—')}</td>
+    <td style="padding:5px 8px">${esc(v.empresa||'—')}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--green)" class="num">${v.terminados}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--blue)" class="num">${v.enruta}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--red)" class="num">${v.rebajadas}</td>
+    <td style="padding:5px 8px;text-align:right" class="num">${v.pendientes}</td>
+    <td style="padding:5px 8px;text-align:right;font-weight:700" class="num">${v.avance}%</td>
+  </tr>`).join('');
+  el.innerHTML=`<div class="card" style="padding:0;overflow:auto">
     <table class="dash-table" style="width:100%"><thead><tr>
-      <th style="padding:6px 8px">ISO</th><th style="padding:6px 8px">VEH</th>
-      <th style="padding:6px 8px">Patente</th><th style="padding:6px 8px">Estado</th>
-      <th style="padding:6px 8px">Motivo</th><th style="padding:6px 8px">Dirección</th>
-    </tr></thead><tbody>${rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--textFaint)">Sin resultados</td></tr>'}</tbody></table>
+      <th style="padding:6px 8px">Patente</th>
+      <th style="padding:6px 8px">Región</th>
+      <th style="padding:6px 8px">Empresa</th>
+      <th style="padding:6px 8px;text-align:right">Hechas</th>
+      <th style="padding:6px 8px;text-align:right">En Ruta</th>
+      <th style="padding:6px 8px;text-align:right">Rebaj.</th>
+      <th style="padding:6px 8px;text-align:right">Pend.</th>
+      <th style="padding:6px 8px;text-align:right">Avance</th>
+    </tr></thead><tbody>${rows||'<tr><td colspan="8" style="padding:16px;text-align:center">Sin datos</td></tr>'}</tbody></table>
   </div>`;
-  el.querySelector('#tablaQ').addEventListener('input',e=>{ _tablaFilters.q=e.target.value; clearTimeout(_searchT); _searchT=setTimeout(()=>renderTabla(),180); });
-  el.querySelector('#tablaEst').addEventListener('change',e=>{ _tablaFilters.estado=e.target.value; renderTabla(); });
 }
 
 /* ═══════ ISOs ACCORDION ═══════ */
 function renderISOsTab(){
   const el=document.getElementById('isosRoot'); if(!el)return;
-  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
+  if(!plan && !csvData){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>';return;}
+  if(!plan && csvData){
+    const vehs = Object.values(csvData.vehicles).sort((a,b)=>a.patente.localeCompare(b.patente));
+    const cards = vehs.map(v=>`
+      <div class="card" style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="num" style="font-size:13px;font-weight:700">${esc(v.patente)}</span>
+          <span class="text-xs">${v.terminados}/${v.total} · ${v.avance}%</span>
+        </div>
+        <div class="progress-bar" style="margin-top:6px">
+          <div class="progress-bar-fill ${v.avance>=80?'green':''}" style="width:${v.avance}%"></div>
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--textFaint)">
+          ${esc(v.region||'—')} · ${esc(v.empresa||'—')}${v.rebajadas?`<span style="color:var(--red)"> · ${v.rebajadas} reb.</span>`:''}
+        </div>
+      </div>`).join('');
+    el.innerHTML=`<div class="main-padded"><div class="container-lg">
+      <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span class="text-xs">${vehs.length} vehículos (modo CSV)</span></div>${cards}</div></div>`;
+    return;
+  }
   const kpi=computeKPIs(plan,report);
   const byVeh={}; plan.stops.forEach(s=>{ (byVeh[s.vehFinal]=byVeh[s.vehFinal]||[]).push(s); });
   const vehKeys=Object.keys(byVeh).sort();
@@ -885,7 +933,52 @@ function openImgModal(src){
 function closeImgModal(){ const m=document.getElementById('imgModal'); m.style.display='none'; m.innerHTML=''; }
 function renderIncidencias(){
   const el=document.getElementById('incRoot'); if(!el)return;
-  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
+  if(!plan && !csvData){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div></div>';return;}
+  if(!plan && csvData){
+    const rebs=[];
+    if(_csvRows){
+      _csvRows.forEach(row=>{
+        const com=String(getKey(row,'Commerce')||'').trim().toUpperCase();if(!com.startsWith('I'))return;
+        const estadoN=normEstado(String(getKey(row,'Estado')||''));if(estadoN!=='pendiente')return;
+        const motiRaw=String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();if(!motiRaw)return;
+        const pat=String(getKey(row,'Patente')||'').trim();
+        rebs.push({
+          iso:String(getKey(row,'ParentOrder')||'').trim(),
+          patente:pat,vehFinal:pat,
+          motivo3:getMotivo3?getMotivo3(motiRaw):motiRaw,
+          motivo2:getMotivo2?getMotivo2(getMotivo3?getMotivo3(motiRaw):motiRaw):'',
+          motivoRaw:motiRaw,
+          comentario:String(getKey(row,'Comentario No Entrega')||'').trim(),
+          imageUrl:String(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim()
+        });
+      });
+    }
+    if(!rebs.length){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin incidencias</div></div>';return;}
+    const byVeh={};rebs.forEach(r=>{(byVeh[r.vehFinal]=byVeh[r.vehFinal]||[]).push(r);});
+    const groups=Object.keys(byVeh).sort().map(veh=>{
+      const items=byVeh[veh];
+      const rowsHtml=items.map(r=>{
+        const foto=r.imageUrl?`<img class="inc-photo" src="${esc(r.imageUrl)}" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy" alt="foto">`:'';
+        return`<div class="inc-row">
+          <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
+            <span class="num" style="font-weight:700">${esc(r.iso)}</span>
+            <span class="pill pill-gray">${esc(r.patente||'—')}</span>
+            <span class="pill pill-red">${esc(r.motivo3)}</span>
+            <span class="text-xs">${esc(r.motivo2)}</span>
+          </div>
+          ${r.motivoRaw?`<div class="text-sm" style="margin-bottom:2px">${esc(r.motivoRaw)}</div>`:''}
+          ${r.comentario?`<div class="text-xs">${esc(r.comentario)}</div>`:''}
+          ${foto}
+        </div>`;
+      }).join('');
+      return`<div class="card" style="margin-bottom:12px">
+        <div class="card-header"><h3>${esc(veh)}</h3><span class="text-xs">${items.length} rebajada${items.length>1?'s':''}</span></div>
+        <div class="inc-group">${rowsHtml}</div></div>`;
+    }).join('');
+    el.innerHTML=`<div class="main-padded"><div class="container-lg">
+      <div style="margin-bottom:12px"><h1>Incidencias · ${rebs.length}</h1></div>${groups}</div></div>`;
+    return;
+  }
   const rebs=rebajadasList();
   if(!rebs.length){
     el.innerHTML='<div class="empty-state"><div class="empty-title">Sin incidencias</div><div class="empty-body">No hay paradas rebajadas en el reporte actual.</div></div>';
