@@ -402,7 +402,7 @@ function normEstado(e){
 function parseReporte(rows){
   const groups={};
   for(const row of rows){
-    const com=String(getKey(row,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('I'))continue;
+    const com=String(getKey(row,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('IK'))continue;
     const iso=String(getKey(row,'ParentOrder')||'').trim(); if(!iso)continue;
     (groups[iso]=groups[iso]||[]).push(row);
   }
@@ -1140,18 +1140,18 @@ test('normEstado SR FAILED',()=>assertEq(normEstado('FAILED'),'pendiente'));
 test('normEstado SR IN_ROUTE',()=>assertEq(normEstado('IN_ROUTE'),'enruta'));
 test('normEstado SR DISPATCHED',()=>assertEq(normEstado('DISPATCHED'),'enruta'));
 test('parseReporte indexa por ISO',()=>{
-  const r=parseReporte([{'Commerce':'IKEA','Region':'RM','ParentOrder':'ISO1','Patente':'ABCD','Estado':'Pendiente','Motivo No Entrega':'Sin moradores','ImageUrl':'http://x/1.jpg'}]);
+  const r=parseReporte([{'Commerce':'IK01','Region':'RM','ParentOrder':'ISO1','Patente':'ABCD','Estado':'Pendiente','Motivo No Entrega':'Sin moradores','ImageUrl':'http://x/1.jpg'}]);
   assertEq(r.byIso['ISO1'].patente,'ABCD'); assertEq(r.byIso['ISO1'].estadoNorm,'pendiente'); assertEq(r.byIso['ISO1'].motivo3,'Sin Moradores');
 });
 test('parseReporte dual-index tolerante',()=>{
-  const r=parseReporte([{'Commerce':'I','ParentOrder':'ISO 1','Estado':'Terminado','Patente':'XX'}]);
+  const r=parseReporte([{'Commerce':'IK01','ParentOrder':'ISO 1','Estado':'Terminado','Patente':'XX'}]);
   assertEq(r.byIso['ISO1']?.estadoNorm,'terminado');
 });
 test('parseReporte dedup no-planificado',()=>{
-  const r=parseReporte([{'Commerce':'I','ParentOrder':'ISO2','Estado':'Planificado'},{'Commerce':'I','ParentOrder':'ISO2','Estado':'Terminado'}]);
+  const r=parseReporte([{'Commerce':'IK01','ParentOrder':'ISO2','Estado':'Planificado'},{'Commerce':'IK01','ParentOrder':'ISO2','Estado':'Terminado'}]);
   assertEq(r.byIso['ISO2'].estadoNorm,'terminado');
 });
-test('parseReporte ignora no-IKEA',()=>assertEq(Object.keys(parseReporte([{'Commerce':'X','ParentOrder':'Z','Estado':'Terminado'}]).byIso).length,0));
+test('parseReporte ignora no-IK',()=>assertEq(Object.keys(parseReporte([{'Commerce':'X','ParentOrder':'Z','Estado':'Terminado'}]).byIso).length,0));
 test('parseApiVisits estructura',()=>{
   const r=parseApiVisits([{title:'ISO001',vehicle_name:'VPV01',driver_name:'Juan',status:'COMPLETED',checkout_time:'10:30:00'}]);
   assertEq(r.byIso['ISO001'].veh,'VPV01');
