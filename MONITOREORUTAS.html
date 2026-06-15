@@ -215,6 +215,9 @@ const PLAN_KEY = 'mr_plan_v1';
 let plan      = null;
 let report    = null;
 let srData    = null;
+let csvData   = null;
+let _csvRows  = null;
+let _nameMode = 'veh';
 let selectedVeh = null;
 let filters   = { region:'', estados:new Set(['terminado','enruta','rebajada','pendiente','sindato']), q:'' };
 let _planRows = null, _matrizRows = null;
@@ -232,6 +235,7 @@ function showToast(msg, type='', ms=2400){
   t._tid=setTimeout(()=>t.className='toast', ms);
 }
 function switchTab(name){
+  switchTab._current = name;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.dataset.pane===name));
   if(name==='mapa'){ renderMapToolbar(); renderMap(); renderMapSidebar(); if(window._map)setTimeout(()=>window._map.invalidateSize(),60); }
@@ -245,9 +249,12 @@ function switchTab(name){
 document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function updateBadges(){
-  const kpi = plan ? computeKPIs(plan, report) : null;
-  document.getElementById('badgeMapa').textContent = kpi ? String(Object.keys(kpi.vehicles).length) : '0';
-  const rebCount = plan ? plan.stops.filter(s=>statusOf(s,report).key==='rebajada').length : 0;
+  const kpi = hasData() ? getKPI() : null;
+  document.getElementById('badgeMapa').textContent = plan
+    ? String(Object.keys(computeKPIs(plan, report).vehicles).length) : '0';
+  const rebCount = plan
+    ? plan.stops.filter(s=>statusOf(s,report).key==='rebajada').length
+    : csvData ? Object.values(csvData.vehicles).reduce((a,v)=>a+v.rebajadas,0) : 0;
   document.getElementById('badgeInc').textContent = String(rebCount);
 }
 
@@ -438,6 +445,57 @@ function parseReporte(rows){
     const isoC=cleanIso(iso); if(isoC!==iso&&!byIso[isoC])byIso[isoC]=entry;
   }
   return{ loadedAt:new Date().toISOString(), byIso };
+}
+function parseCSVStandalone(rows) {
+  const byPat = {};
+  for (const row of rows) {
+    const com = String(getKey(row,'Commerce')||'').trim().toUpperCase();
+    if (!com.startsWith('IK') && !com.startsWith('I')) continue;
+    const pat = String(getKey(row,'Patente')||'').trim(); if (!pat) continue;
+    const iso = String(getKey(row,'ParentOrder')||'').trim(); if (!iso) continue;
+    const region = String(getKey(row,'Region')||'Sin Región').trim();
+    const empresa = String(getKey(row,'Empresa')||getKey(row,'Transportista')||'').trim();
+    const estadoRaw = String(getKey(row,'Estado')||'').trim();
+    const estadoN = normEstado(estadoRaw);
+    const motivoRaw = String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
+    if (!byPat[pat]) byPat[pat] = {
+      patente: pat, region, empresa,
+      isos: new Set(), terminados: new Set(), enruta: new Set(),
+      pendientes: new Set(), rebajadas: new Set(), rows: []
+    };
+    const p = byPat[pat];
+    if (!p.region && region) p.region = region;
+    if (!p.empresa && empresa) p.empresa = empresa;
+    p.isos.add(iso);
+    if (estadoN === 'terminado') p.terminados.add(iso);
+    else if (estadoN === 'enruta') p.enruta.add(iso);
+    else if (estadoN === 'pendiente') {
+      if (motivoRaw) p.rebajadas.add(iso);
+      else p.pendientes.add(iso);
+    }
+    p.rows.push(row);
+  }
+  const vehicles = {};
+  Object.values(byPat).forEach(p => {
+    const total = p.isos.size;
+    const avance = total ? Math.round(p.terminados.size / total * 100) : 0;
+    vehicles[p.patente] = {
+      vehFinal: p.patente, patente: p.patente, region: p.region,
+      empresa: p.empresa, conductor: '',
+      total, terminados: p.terminados.size, enruta: p.enruta.size,
+      rebajadas: p.rebajadas.size, pendientes: p.pendientes.size,
+      avance, hechos: p.terminados.size, iniciada: (p.terminados.size + p.enruta.size + p.rebajadas.size) > 0,
+      tipo: 'Normal'
+    };
+  });
+  const g = { total:0, terminados:0, enruta:0, rebajadas:0, pendientes:0, avance:0, iniciadas:0 };
+  Object.values(vehicles).forEach(v => {
+    g.total += v.total; g.terminados += v.terminados; g.enruta += v.enruta;
+    g.rebajadas += v.rebajadas; g.pendientes += v.pendientes;
+    if (v.iniciada) g.iniciadas++;
+  });
+  g.avance = g.total ? Math.round(g.terminados / g.total * 100) : 0;
+  return { vehicles, global: g, byPat, loadedAt: new Date().toISOString() };
 }
 
 /* ═══════ SR API ═══════ */
@@ -676,6 +734,12 @@ function renderMapSidebar(){
 }
 
 /* ═══════ DASHBOARD ═══════ */
+function getKPI() {
+  if (plan) return computeKPIs(plan, report);
+  if (csvData) return { vehicles: csvData.vehicles, global: csvData.global };
+  return null;
+}
+function hasData() { return !!(plan || csvData); }
 function renderDashboard(){
   const el=document.getElementById('dashRoot'); if(!el)return;
   if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div><div class="empty-body">Carga la planificación en Configurar.</div></div>'; return; }
@@ -1073,12 +1137,24 @@ function renderConfig(){
   document.getElementById('btnSrFetch').addEventListener('click',handleSrFetch);
   wireUpload('upPlan',rows=>{ _planRows=rows; });
   wireUpload('upMatriz',rows=>{ _matrizRows=rows; });
-  wireUpload('upReporte',rows=>{
-    if(!plan){ showToast('Primero guarda la planificación','warn'); return; }
-    report=parseReporte(rows);
-    const n=Object.keys(report.byIso).length;
-    document.getElementById('reporteSummary').textContent=`${n} ISOs · ${new Date(report.loadedAt).toLocaleTimeString('es-CL')}`;
-    showToast('Avance inyectado','ok'); renderMap(); renderMapToolbar(); renderMapSidebar(); updateBadges();
+  wireUpload('upReporte', rows => {
+    _csvRows = rows;
+    if (plan) {
+      report = parseReporte(rows);
+      const n = Object.keys(report.byIso).length;
+      document.getElementById('reporteSummary').textContent =
+        `${n} ISOs · ${new Date(report.loadedAt).toLocaleTimeString('es-CL')}`;
+      showToast('Avance inyectado','ok');
+      renderMap(); renderMapToolbar(); renderMapSidebar(); updateBadges();
+    } else {
+      csvData = parseCSVStandalone(rows);
+      const n = Object.keys(csvData.vehicles).length;
+      document.getElementById('reporteSummary').textContent =
+        `Modo CSV-only · ${n} vehículos · ${Object.values(csvData.vehicles).reduce((a,v)=>a+v.total,0)} ISOs`;
+      showToast('CSV cargado (modo sin planificación)','ok');
+    }
+    updateBadges();
+    if (switchTab._current) switchTab(switchTab._current);
   });
   document.getElementById('btnSavePlan').addEventListener('click',()=>{
     if(!_planRows){ showToast('Falta la planificación','warn'); return; }
