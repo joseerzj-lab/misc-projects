@@ -1861,15 +1861,13 @@ const XIcon      = LR.X          || (()=><span style={{fontSize:10}}>✕</span>)
 function ChartTickV({x,y,payload,notes}){
   const note=notes&&notes[payload.value];
   return <g transform={`translate(${x},${y})`}>
-    <text x={0} y={0} dy={note?2:8} textAnchor="end" fill="#636c76" fontSize={10} fontWeight={note?700:400} transform="rotate(-45)">{payload.value}</text>
-    {note&&<text x={0} y={18} textAnchor="end" fill="#8b5cf6" fontSize={8} transform="rotate(-45)">{note.length>14?note.slice(0,14)+'…':note}</text>}
+    <text x={0} y={0} dy={8} textAnchor="end" fill="#636c76" fontSize={10} fontWeight={note?700:400} transform="rotate(-45)">{payload.value}</text>
   </g>;
 }
 function ChartTickH({x,y,payload,notes}){
   const note=notes&&notes[payload.value];
   return <g>
-    <text x={x-4} y={note?y-5:y} textAnchor="end" dominantBaseline="middle" fill="#636c76" fontSize={10} fontWeight={note?700:400}>{payload.value}</text>
-    {note&&<text x={x-4} y={y+7} textAnchor="end" dominantBaseline="middle" fill="#8b5cf6" fontSize={8}>{note.length>24?note.slice(0,24)+'…':note}</text>}
+    <text x={x-4} y={y} textAnchor="end" dominantBaseline="middle" fill="#636c76" fontSize={10} fontWeight={note?700:400}>{payload.value}</text>
   </g>;
 }
 
@@ -2015,11 +2013,12 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
               return (
                 <button key={d.patente} onClick={()=>toggle(d.patente)}
                   style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',
-                          border:`1px solid ${hidden?'rgba(0,0,0,0.1)':hasNote?'rgba(124,58,237,0.4)':'rgba(37,99,235,0.35)'}`,
-                          background:hidden?'rgba(0,0,0,0.04)':hasNote?'rgba(124,58,237,0.07)':'rgba(37,99,235,0.07)',
-                          color:hidden?'#a1a1aa':hasNote?'#7c3aed':'#2563eb',
-                          opacity:hidden?0.5:1,textDecoration:hidden?'line-through':'none'}}>
-                  {d.patente}
+                          border:`1px solid ${hidden?'rgba(0,0,0,0.1)':'rgba(37,99,235,0.35)'}`,
+                          background:hidden?'rgba(0,0,0,0.04)':'rgba(37,99,235,0.07)',
+                          color:hidden?'#a1a1aa':'#2563eb',
+                          opacity:hidden?0.5:1,textDecoration:hidden?'line-through':'none',
+                          fontStyle:hasNote?'italic':'normal'}}>
+                  {d.patente}{hasNote?' ✎':''}
                 </button>
               );
             })}
@@ -2077,6 +2076,18 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
                 </button>
               </div>
             )}
+            {Object.keys(notes).length > 0 && (
+              <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}}>
+                {Object.entries(notes).map(([veh, note]) => (
+                  <div key={veh} style={{display:'flex',alignItems:'center',gap:3,background:'rgba(0,0,0,0.04)',border:'1px solid rgba(0,0,0,0.1)',borderRadius:4,padding:'2px 7px',fontSize:9,fontFamily:'monospace'}}>
+                    <span style={{fontWeight:800,color:'#18181b'}}>{veh}</span>
+                    <span style={{color:'#a1a1aa'}}>→</span>
+                    <span style={{color:'#52525b',maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{note}</span>
+                    <button onClick={()=>onNoteChange&&onNoteChange(veh,'')} style={{background:'none',border:'none',cursor:'pointer',color:'#a1a1aa',fontSize:10,padding:0,marginLeft:2,lineHeight:1}}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2099,7 +2110,7 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
               {layout === 'vertical'
                 ? <>
                     <XAxis dataKey="patente" interval={0}
-                      height={Object.values(notes).some(v=>v)?100:80}
+                      height={80}
                       tick={<ChartTickV notes={notes}/>}
                       label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:'#636c76',fontSize:10}}/>
                     <YAxis tick={{fontSize:10,fill:'#636c76'}}
@@ -2109,7 +2120,7 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
                     <XAxis type="number" tick={{fontSize:10,fill:'#636c76'}}
                       label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:'#636c76',fontSize:10}}/>
                     <YAxis dataKey="patente" type="category"
-                      width={Object.values(notes).some(v=>v)?105:90}
+                      width={90}
                       tick={<ChartTickH notes={notes}/>}
                       label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:'#636c76',fontSize:10,style:{textAnchor:'middle'}}}/>
                   </>
