@@ -172,6 +172,12 @@ h3{font-size:12px;font-weight:600}
     <div class="header-top">
       <div class="header-brand">Monitoreo de Rutas</div>
       <div id="planStatus" class="text-xs">Sin planificación</div>
+<button id="btnNameToggle" onclick="toggleNameMode()"
+  style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:var(--r-xs);
+         border:1px solid var(--border);background:var(--bgCardAlt);
+         color:var(--textSub);cursor:pointer;font-family:var(--font-base)">
+  VEH → PAT
+</button>
     </div>
     <div class="tabs-container"><div class="tabs-wrapper">
       <button class="tab-btn active" data-tab="configurar">Configurar</button>
@@ -256,6 +262,21 @@ function updateBadges(){
     ? plan.stops.filter(s=>statusOf(s,report).key==='rebajada').length
     : csvData ? Object.values(csvData.vehicles).reduce((a,v)=>a+v.rebajadas,0) : 0;
   document.getElementById('badgeInc').textContent = String(rebCount);
+}
+function dispName(v) {
+  if (typeof v === 'string') return v;
+  if (_nameMode === 'pat' && v.patente) return v.patente;
+  return v.vehFinal || v.patente || '—';
+}
+function toggleNameMode() {
+  _nameMode = _nameMode === 'veh' ? 'pat' : 'veh';
+  const btn = document.getElementById('btnNameToggle');
+  if (btn) btn.textContent = _nameMode === 'veh' ? 'VEH → PAT' : 'PAT → VEH';
+  const active = document.querySelector('.tab-btn.active')?.dataset?.tab;
+  if (active === 'mapa') { renderMap(); renderMapSidebar(); }
+  if (active === 'dashboard') renderDashboard();
+  if (active === 'resumen') renderResumen();
+  renderGrafico();
 }
 
 /* ═══════ SELF-TEST ═══════ */
@@ -721,8 +742,8 @@ function renderMapSidebar(){
   const dispPat=v=>v.patente||(v.conductor?'~'+v.conductor.split(' ')[0]:'—');
   const rows=vehs.map(v=>`<button class="veh-row${selectedVeh===v.vehFinal?' selected':''}" data-veh="${esc(v.vehFinal)}">
     <div class="veh-row-top">
-      <span class="veh-name">${esc(v.vehFinal)}</span>
-      <span style="display:flex;gap:3px;align-items:center">${tipoBadge(v.tipo)}<span class="veh-pat">${esc(dispPat(v))}</span></span>
+      <span class="veh-name">${esc(dispName(v))}</span>
+      <span style="display:flex;gap:3px;align-items:center">${tipoBadge(v.tipo)}<span class="veh-pat">${esc(_nameMode==='pat'?v.vehFinal:(v.patente||v.conductor||'—'))}</span></span>
     </div>
     <div class="veh-row-top"><span class="text-xs">${v.terminados}/${v.total}${v.rebajadas>0?` · <span style="color:var(--red)">${v.rebajadas} reb.</span>`:''} · ${v.iniciada?'en curso':'sin iniciar'}</span>
       <span class="num text-sm">${v.avance}%</span></div>
@@ -762,8 +783,8 @@ function renderDashboard(){
     const pP=v.total?v.pendientes/v.total*100:0;
     return`<div class="bar-row">
       <div class="bar-label">
-        <span class="num" style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.vehFinal)}</span>
-        <span class="text-xs">${esc(v.patente||'—')}</span>
+        <span class="num" style="font-size:11px;font-weight:700">${esc(dispName(v))}</span>
+        <span class="text-xs">${esc(_nameMode==='pat'?v.vehFinal:(v.patente||'—'))}</span>
       </div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${pT.toFixed(1)}%;background:var(--green)"></div>
