@@ -207,8 +207,8 @@ h3{font-size:12px;font-weight:600}
     <section class="tab-pane" data-pane="incidencias"><div class="main-padded"><div class="container-lg" id="incRoot"></div></div></section>
     <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container" id="consultarRoot"></div></div></section>
     <section class="tab-pane" data-pane="resumen"><div class="main-padded"><div class="container-lg" id="resumenRoot"></div></div></section>
-    <section class="tab-pane" data-pane="grafico">
-      <div id="graficoRoot" style="width:100%;flex:1;min-height:0;overflow:auto"></div>
+    <section class="tab-pane" data-pane="grafico" style="position:relative;overflow:hidden">
+      <div id="graficoRoot" style="position:absolute;inset:0;overflow:auto"></div>
     </section>
   </main>
   <div id="imgModal" style="display:none"></div>
@@ -614,8 +614,9 @@ function computeKPIs(p, rep){
   const vehicles={}, global={total:0,terminados:0,enruta:0,rebajadas:0,pendientes:0,sindato:0,iniciadas:0};
   const bump=(o,st)=>o[st==='terminado'?'terminados':st==='enruta'?'enruta':st==='rebajada'?'rebajadas':st==='pendiente'?'pendientes':'sindato']++;
   (p?p.stops:[]).forEach(s=>{
-    const st=statusOf(s,rep).key;
     const r=getReportRow(s.iso,rep);
+    if(r&&!r.patente)return; // Excluir ISOs con datos pero sin patente
+    const st=statusOf(s,rep).key;
     const v=vehicles[s.vehFinal]=vehicles[s.vehFinal]||{
       vehFinal:s.vehFinal,patente:'',region:'',conductor:'',tipo:getVehType(s.vehFinal),
       total:0,terminados:0,enruta:0,rebajadas:0,pendientes:0,sindato:0
@@ -1816,11 +1817,17 @@ window.MR_DashTab = MR_DashTab;
 })();
 </script>
 <script type="text/babel">
-const {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip: RTooltip, Legend, ResponsiveContainer, LabelList
-} = window.Recharts || {};
-const { FileDown, EyeOff, Eye, Settings, X: XIcon } = window.lucideReact || {};
+(function(){
+const RC = window.Recharts || {};
+const BarChart = RC.BarChart, Bar = RC.Bar, XAxis = RC.XAxis, YAxis = RC.YAxis,
+      CartesianGrid = RC.CartesianGrid, RTooltip = RC.Tooltip, Legend = RC.Legend,
+      ResponsiveContainer = RC.ResponsiveContainer, LabelList = RC.LabelList;
+const LR = window.lucideReact || {};
+const FileDown   = LR.FileDown   || (()=><span style={{fontSize:10}}>↓</span>);
+const EyeOff     = LR.EyeOff     || (()=><span style={{fontSize:10}}>⊘</span>);
+const Eye        = LR.Eye        || (()=><span style={{fontSize:10}}>◉</span>);
+const SettingsIc = LR.Settings   || (()=><span style={{fontSize:10}}>⚙</span>);
+const XIcon      = LR.X          || (()=><span style={{fontSize:10}}>✕</span>);
 
 window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChange }) {
   const [layout, setLayout] = React.useState('vertical');
@@ -1835,6 +1842,14 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
   const [showNotesPaste, setShowNotesPaste] = React.useState(false);
   const [notesPasteRaw, setNotesPasteRaw] = React.useState('');
   const chartRef = React.useRef(null);
+
+  if (!BarChart || !ResponsiveContainer) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',minHeight:300,flexDirection:'column',gap:8,color:'#71717a'}}>
+      <div style={{fontSize:28}}>⚠️</div>
+      <div style={{fontWeight:700,fontSize:13}}>Recharts no disponible</div>
+      <div style={{fontSize:11}}>Verifica tu conexión y recarga la página</div>
+    </div>
+  );
 
   const visible = React.useMemo(
     () => data.filter(d => !hiddenKeys.has(d.patente)),
@@ -1916,7 +1931,7 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
                   border:'none',cursor:'pointer',fontFamily:'inherit',
                   background:showSettings?'rgba(124,58,237,0.1)':'rgba(0,0,0,0.04)',
                   color:showSettings?'#7c3aed':'#a1a1aa'}}>
-          <Settings size={12}/> Config
+          <SettingsIc size={12}/> Config
         </button>
         <div style={{flex:1}}/>
         <button onClick={()=>exportImg('download')}
@@ -2073,6 +2088,7 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
     </div>
   );
 };
+})();
 </script>
 </body>
 </html>
