@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoreo de Rutas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<style>
+:root{
+  --bg:#FAFAF9;--bgCard:#FFFFFF;--bgCardAlt:rgba(0,0,0,0.026);--bgHover:rgba(0,0,0,0.042);
+  --text:#18181B;--textSub:#52525B;--textFaint:#A1A1AA;
+  --border:rgba(0,0,0,0.09);--borderSoft:rgba(0,0,0,0.06);--borderFocus:#2563EB;
+  --blue:#2563EB;--blueHover:#1D4ED8;--accentBg:rgba(37,99,235,0.06);
+  --red:#DC2626;--green:#16A34A;--orange:#EA580C;--yellow:#CA8A04;--purple:#7C3AED;
+  --pasteBlue:#EFF6FF;--pasteRed:#FEF2F2;--pasteGreen:#F0FDF4;--pasteOrange:#FFF7ED;
+  --pasteGray:#F4F4F5;--pastePurple:#F5F3FF;
+  --font-base:'Plus Jakarta Sans','Helvetica Neue',system-ui,-apple-system,sans-serif;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);--shadow-sm:0 1px 4px rgba(0,0,0,0.05);
+  --shadow-md:0 2px 8px rgba(0,0,0,0.06);--shadow-lg:0 8px 24px rgba(0,0,0,0.07);
+  --t-fast:0.12s ease;--t-normal:0.20s ease;--t-slow:0.28s cubic-bezier(0.16,1,0.3,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-base);font-size:12px;line-height:1.55;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body.app-layout{display:flex;flex-direction:column;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.14);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.26)}
+h1{font-size:17px;font-weight:700;letter-spacing:-0.01em}
+h2{font-size:14px;font-weight:700;letter-spacing:-0.01em}
+h3{font-size:12px;font-weight:600}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--textFaint)}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.text-xs{font-size:10px;color:var(--textFaint)}
+.text-sm{font-size:11px;color:var(--textSub)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 12px;border:1px solid transparent;border-radius:var(--r-md);font-family:var(--font-base);font-size:11px;font-weight:500;line-height:1;cursor:pointer;outline:none;white-space:nowrap;user-select:none;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast),transform 0.10s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(0) scale(0.98)}
+.btn:disabled{opacity:0.32;cursor:not-allowed}
+.btn-primary{background:#18181B;color:#fff;border-color:rgba(0,0,0,0.06)}
+.btn-primary:hover:not(:disabled){background:#27272A}
+.btn-secondary{background:var(--bgCardAlt);color:var(--text);border-color:var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--bgHover)}
+.btn-danger{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.18)}
+.btn-danger:hover:not(:disabled){background:rgba(220,38,38,0.12)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-block{width:100%;padding:9px;font-size:12px;font-weight:600;background:#18181B;color:#fff;border-radius:var(--r-md);border:1px solid rgba(0,0,0,0.08);cursor:pointer}
+.btn-block:hover:not(:disabled){background:#27272A}
+.btn-block:disabled{opacity:0.32;cursor:not-allowed}
+.header{background:var(--bgCard);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:44px;border-bottom:1px solid var(--borderSoft);gap:12px}
+.header-brand{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.01em;white-space:nowrap}
+.tabs-container{display:flex;padding:0 8px;overflow-x:auto}
+.tabs-wrapper{display:flex;align-items:flex-end;min-width:max-content}
+.tab-btn{display:flex;align-items:center;gap:5px;padding:7px 12px;border:none;border-bottom:2px solid transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;background:transparent;color:var(--textFaint);font-family:var(--font-base);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;margin-bottom:-1px;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast)}
+.tab-btn:hover{color:var(--textSub);background:var(--bgHover)}
+.tab-btn.active{color:var(--text);font-weight:600;border-bottom-color:var(--text);background:transparent}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 4px;border-radius:3px;font-size:9px;font-weight:700;font-family:var(--font-mono);background:var(--pasteGray);color:var(--textSub);border:1px solid var(--border)}
+.main-content{flex:1;overflow:hidden;position:relative}
+.tab-pane{display:none;width:100%;height:100%;overflow-y:auto}
+.tab-pane.active{display:flex;flex-direction:column}
+.main-padded{flex:1;padding:20px;overflow-y:auto}
+.container{width:100%;max-width:900px;margin:0 auto}
+.container-lg{width:100%;max-width:1200px;margin:0 auto}
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px}
+.card-header{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.param-section{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:10px}
+.param-section-header{padding:10px 14px;border-bottom:1px solid var(--borderSoft);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bgCardAlt)}
+.param-section-body{padding:14px}
+.input{width:100%;padding:6px 10px;background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-base);font-size:11px;line-height:1.4;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.input:focus{border-color:var(--borderFocus);box-shadow:0 0 0 2.5px rgba(37,99,235,0.10)}
+.input::placeholder{color:var(--textFaint)}
+.upload-zone{border:1px dashed var(--border);border-radius:var(--r-lg);padding:18px 16px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--bgCardAlt);transition:background var(--t-normal),border-color var(--t-normal)}
+.upload-zone:hover,.upload-zone.drag{background:var(--accentBg);border-color:rgba(37,99,235,0.35)}
+.upload-zone.loaded{border-style:solid;border-color:rgba(22,163,74,0.30);background:var(--pasteGreen)}
+.upload-filename{font-size:11px;font-weight:600;color:var(--textSub);word-break:break-all;max-width:260px}
+.stat-chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border:1px solid var(--border);border-radius:var(--r-xs);background:var(--bgCard)}
+.stat-chip-val{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text)}
+.stat-chip-val.blue{color:var(--blue)}.stat-chip-val.green{color:var(--green)}
+.stat-chip-val.red{color:var(--red)}.stat-chip-val.orange{color:var(--orange)}
+.stat-chip-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint)}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:var(--r-xs);font-family:var(--font-mono);font-size:10px;font-weight:600;border:1px solid;white-space:nowrap;letter-spacing:0.02em}
+.pill-gray{background:var(--pasteGray);color:var(--textSub);border-color:var(--border)}
+.pill-blue{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.20)}
+.pill-green{background:var(--pasteGreen);color:var(--green);border-color:rgba(22,163,74,0.20)}
+.pill-red{background:var(--pasteRed);color:var(--red);border-color:rgba(220,38,38,0.20)}
+.pill-purple{background:var(--pastePurple);color:var(--purple);border-color:rgba(124,58,237,0.20)}
+.stats-bar{display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid var(--borderSoft);gap:5px;flex-wrap:wrap;background:var(--bgCardAlt);flex-shrink:0}
+.progress-bar{width:100%;height:3px;background:var(--borderSoft);border-radius:2px;overflow:hidden}
+.progress-bar-fill{height:100%;background:var(--text);border-radius:2px;transition:width 0.3s ease}
+.progress-bar-fill.green{background:var(--green)}
+.dash-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11px}
+.dash-table thead th{background:#FAFAFA;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+.dash-table tbody td{border-bottom:1px solid var(--borderSoft)}
+.dash-table tbody tr:hover{background:rgba(0,0,0,0.016)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:10px;padding:40px;text-align:center}
+.empty-title{font-size:13px;font-weight:600;color:var(--textSub)}
+.empty-body{font-size:11px;color:var(--textFaint);max-width:280px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#18181B;color:#F4F4F5;border:1px solid rgba(255,255,255,0.08);padding:8px 16px;border-radius:var(--r-md);font-size:11px;font-weight:600;letter-spacing:0.01em;box-shadow:var(--shadow-lg);z-index:2000;white-space:nowrap;pointer-events:none;transition:transform var(--t-slow)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.toast-ok{background:#14532D}.toast.toast-error{background:#7F1D1D}.toast.toast-warn{background:#78350F}
+/* Map */
+.map-layout{display:grid;grid-template-columns:320px 1fr;height:100%;overflow:hidden}
+@media (max-width:900px){.map-layout{grid-template-columns:1fr}}
+.map-sidebar{border-right:1px solid var(--border);overflow-y:auto;background:var(--bgCard);display:flex;flex-direction:column}
+.map-container{position:relative;background:#eef0f2;display:flex;flex-direction:column;overflow:hidden}
+.map-toolbar{display:flex;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--bgCard);flex-wrap:wrap;flex-shrink:0;z-index:500}
+#leafmap{flex:1;position:relative}
+.veh-row{width:100%;display:flex;flex-direction:column;gap:6px;padding:10px 14px;border:none;border-bottom:1px solid var(--borderSoft);background:transparent;cursor:pointer;text-align:left;transition:background var(--t-fast)}
+.veh-row:hover{background:var(--bgHover)}
+.veh-row.selected{background:var(--accentBg)}
+.veh-row-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.veh-name{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--text)}
+.veh-pat{font-family:var(--font-mono);font-size:10px;color:var(--textFaint)}
+.est-toggle{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--border);border-radius:var(--r-xs);font-size:10px;font-weight:600;color:var(--textFaint);cursor:pointer;user-select:none;background:var(--bgCard);transition:all var(--t-fast)}
+.est-toggle.on{color:var(--text);border-color:rgba(0,0,0,0.18)}
+.est-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.leaflet-popup-content{font-family:var(--font-base);font-size:11px;margin:10px 12px}
+.rebaja-card{border:1px solid rgba(220,38,38,0.20);background:var(--pasteRed);border-radius:var(--r-md);padding:10px 12px}
+.rebaja-photo{max-width:100%;border-radius:var(--r-sm);margin-top:6px;border:1px solid var(--border)}
+/* Dashboard */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.kpi-card{background:var(--bgCard);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px}
+.kpi-val{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--text);line-height:1;margin-bottom:4px}
+.kpi-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--textFaint)}
+.bar-chart{display:flex;flex-direction:column}
+.bar-row{display:grid;grid-template-columns:160px 1fr 44px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--borderSoft)}
+.bar-row:last-child{border-bottom:none}
+.bar-label{display:flex;flex-direction:column;gap:1px;min-width:0}
+.bar-track{display:flex;height:9px;background:var(--borderSoft);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;transition:width 0.3s}
+.bar-val{font-family:var(--font-mono);font-size:11px;font-weight:700;text-align:right}
+/* Tabla */
+.tabla-filters{display:flex;gap:8px;align-items:center;padding-bottom:10px;flex-wrap:wrap;margin-bottom:10px}
+/* ISOs accordion */
+.accord-hdr{width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:none;background:transparent;cursor:pointer;text-align:left;border-radius:var(--r-lg)}
+.accord-hdr:hover{background:var(--bgHover)}
+.accord-body{padding:6px 8px;border-top:1px solid var(--borderSoft);display:flex;flex-direction:column;gap:1px}
+.iso-row{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:var(--r-sm)}
+.iso-row:hover{background:var(--bgHover)}
+/* Incidencias */
+.inc-group{display:flex;flex-direction:column}
+.inc-row{padding:10px 0;border-bottom:1px solid var(--borderSoft)}
+.inc-row:last-child{border-bottom:none}
+.inc-photo{max-width:200px;border-radius:var(--r-sm);margin-top:6px;border:1px solid var(--border);display:block;cursor:pointer}
+/* SR Config */
+.sr-config{display:grid;grid-template-columns:1fr 160px auto;gap:10px;align-items:end}
+@media (max-width:600px){.sr-config{grid-template-columns:1fr}}
+/* Image modal */
+#imgModal{position:fixed;inset:0;z-index:2500;align-items:center;justify-content:center;background:rgba(0,0,0,0.85)}
+.img-overlay-content{position:relative;z-index:1;padding:8px}
+.img-overlay-close{position:absolute;top:-14px;right:-14px;width:30px;height:30px;border-radius:50%;background:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:2;box-shadow:var(--shadow-md)}
+</style>
+</head>
+<body class="app-layout">
+  <header class="header">
+    <div class="header-top">
+      <div class="header-brand">Monitoreo de Rutas</div>
+      <div id="planStatus" class="text-xs">Sin planificación</div>
+    </div>
+    <div class="tabs-container"><div class="tabs-wrapper">
+      <button class="tab-btn active" data-tab="configurar">Configurar</button>
+      <button class="tab-btn" data-tab="mapa">Mapa <span id="badgeMapa" class="tab-badge">0</span></button>
+      <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="tabla">Tabla</button>
+      <button class="tab-btn" data-tab="isos">ISOs</button>
+      <button class="tab-btn" data-tab="incidencias">Incidencias <span id="badgeInc" class="tab-badge">0</span></button>
+      <button class="tab-btn" data-tab="consultar">Consultar</button>
+      <button class="tab-btn" data-tab="resumen">Resumen</button>
+    </div></div>
+  </header>
+  <main class="main-content">
+    <section class="tab-pane active" data-pane="configurar"><div class="main-padded"><div class="container" id="configRoot"></div></div></section>
+    <section class="tab-pane" data-pane="mapa"><div class="map-layout">
+      <aside class="map-sidebar" id="mapSidebar"></aside>
+      <div class="map-container">
+        <div class="map-toolbar" id="mapToolbar"></div>
+        <div id="leafmap"></div>
+      </div>
+    </div></section>
+    <section class="tab-pane" data-pane="dashboard"><div class="main-padded"><div class="container-lg" id="dashRoot"></div></div></section>
+    <section class="tab-pane" data-pane="tabla"><div class="main-padded"><div class="container-lg" id="tablaRoot"></div></div></section>
+    <section class="tab-pane" data-pane="isos"><div class="main-padded"><div class="container-lg" id="isosRoot"></div></div></section>
+    <section class="tab-pane" data-pane="incidencias"><div class="main-padded"><div class="container-lg" id="incRoot"></div></div></section>
+    <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container" id="consultarRoot"></div></div></section>
+    <section class="tab-pane" data-pane="resumen"><div class="main-padded"><div class="container-lg" id="resumenRoot"></div></div></section>
+  </main>
+  <div id="imgModal" style="display:none"></div>
+  <div class="toast"></div>
+<script>
+/* ═══════ STATE ═══════ */
+const SR_BASE = 'https://app.simpliroute.com';
+const SR_TOKEN_KEY = 'mr_sr_token';
+const PLAN_KEY = 'mr_plan_v1';
+
+let plan      = null;
+let report    = null;
+let srData    = null;
+let selectedVeh = null;
+let filters   = { region:'', estados:new Set(['terminado','enruta','rebajada','pendiente','sindato']), q:'' };
+let _planRows = null, _matrizRows = null;
+let _searchT  = null;
+let _isosExpanded = new Set();
+let _tablaFilters = { q:'', estado:'' };
+let _consultarQ = '';
+let _srToken = '';
+let _srDate = '';
+
+/* ═══════ UI BÁSICO ═══════ */
+function showToast(msg, type='', ms=2400){
+  const t=document.querySelector('.toast'); t.textContent=msg;
+  t.className='toast show'+(type?' toast-'+type:''); clearTimeout(t._tid);
+  t._tid=setTimeout(()=>t.className='toast', ms);
+}
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.dataset.pane===name));
+  if(name==='mapa'){ renderMapToolbar(); renderMap(); renderMapSidebar(); if(window._map)setTimeout(()=>window._map.invalidateSize(),60); }
+  if(name==='resumen') renderResumen();
+  if(name==='dashboard') renderDashboard();
+  if(name==='tabla') renderTabla();
+  if(name==='isos') renderISOsTab();
+  if(name==='incidencias') renderIncidencias();
+  if(name==='consultar') renderConsultar();
+}
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function updateBadges(){
+  const kpi = plan ? computeKPIs(plan, report) : null;
+  document.getElementById('badgeMapa').textContent = kpi ? String(Object.keys(kpi.vehicles).length) : '0';
+  const rebCount = plan ? plan.stops.filter(s=>statusOf(s,report).key==='rebajada').length : 0;
+  document.getElementById('badgeInc').textContent = String(rebCount);
+}
+
+/* ═══════ SELF-TEST ═══════ */
+const TESTS=[];
+function test(name,fn){TESTS.push({name,fn});}
+function assertEq(a,b,msg){ if(JSON.stringify(a)!==JSON.stringify(b)) throw new Error((msg||'')+` expected ${JSON.stringify(b)} got ${JSON.stringify(a)}`); }
+function runSelfTests(){
+  let pass=0,fail=0; const out=[];
+  for(const t of TESTS){ try{t.fn();pass++;out.push('✓ '+t.name);}catch(e){fail++;out.push('✗ '+t.name+' — '+e.message);} }
+  console.log(out.join('\n')); console.log(`\n${pass} passed, ${fail} failed`);
+  if(location.hash.includes('selftest')){
+    const b=document.createElement('div');
+    b.style.cssText='position:fixed;top:8px;right:8px;z-index:3000;background:#18181B;color:#fff;font:11px/1.5 monospace;padding:10px;border-radius:6px;max-width:420px;max-height:90vh;overflow:auto;white-space:pre-wrap';
+    b.textContent=out.join('\n')+`\n\n${pass} passed, ${fail} failed`;
+    document.body.appendChild(b);
+  }
+  return{pass,fail};
+}
+
+/* ═══════ PARSING UTILS ═══════ */
+function detectSep(line){ const s=(line.match(/;/g)||[]).length, c=(line.match(/,/g)||[]).length; return s>=c?';':','; }
+function parseRow(line,sep){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){const ch=line[i];
+    if(ch==='"'){ if(q&&line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+    else if(ch===sep&&!q){ out.push(cur);cur=''; } else cur+=ch; }
+  out.push(cur); return out.map(s=>s.trim());
+}
+function getKey(row,key){ const k=Object.keys(row).find(k=>k.trim().toLowerCase()===key.toLowerCase()); return k?row[k]:null; }
+function findCol(row,variants){ const keys=Object.keys(row);
+  return keys.find(k=>variants.some(v=>k.toLowerCase().trim()===v.toLowerCase())) ||
+         keys.find(k=>variants.some(v=>k.toLowerCase().includes(v.toLowerCase()))) || null; }
+function cleanStr(s){ return s?String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim():''; }
+function parseNum(v){ if(typeof v==='number')return v; let s=String(v).trim();
+  if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(',','.');
+  return parseFloat(s)||0; }
+function toSecs(v){ if(v==null||v==='')return NaN; const s=String(v).trim();
+  const m=s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(!m)return NaN;
+  return (+m[1])*3600+(+m[2])*60+(+(m[3]||0)); }
+function cleanIso(s){ return s?String(s).trim().toUpperCase().replace(/\s+/g,''):''; }
+function getReportRow(iso,rep){
+  if(!rep||!rep.byIso)return null;
+  return rep.byIso[iso]||rep.byIso[cleanIso(iso)]||null;
+}
+function parseCheckoutDt(val){
+  if(!val||val==='')return null;
+  if(val instanceof Date)return isNaN(val.getTime())?null:val;
+  const s=String(val).trim();
+  const d=new Date(s); if(!isNaN(d.getTime()))return d;
+  const m=s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(m){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate(),+m[1],+m[2],+(m[3]||0)); }
+  return null;
+}
+function fmtTime(dt){ if(!dt)return'—'; return dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
+
+/* ═══════ MOTIVOS ═══════ */
+function getMotivo3(raw){
+  if(!raw||!raw.trim())return'Transporte No Gestiona';
+  const m=raw.toUpperCase().trim();
+  if(m.includes('SIN MORADOR')||m.includes('MORADOR'))return'Sin Moradores';
+  if(m.includes('DIRECCI')||m.includes('SIN INFORMACI'))return'Problema de Dirección';
+  if(m.includes('SINIESTRO'))return'Siniestro En Calle';
+  if(m.includes('PRODUCTO NO CARGADO')||m.includes('NO CARGADO'))return'Producto No Cargado';
+  if(m.includes('RECHAZ'))return'Cliente Rechaza';
+  return'Transporte No Gestiona';
+}
+function getMotivo2(m3){ return(m3==='Sin Moradores'||m3==='Problema de Dirección'||m3==='Cliente Rechaza')?'Cliente':'Transporte'; }
+function getVehType(v){
+  const u=String(v||'').toUpperCase();
+  if(u.includes('AUX'))return'VAUX';
+  if(/VPR|\bPR\d+|\bPROY/i.test(u))return'VPR';
+  if(/VPV|\bPV\d+|\bPOSTV/i.test(u))return'VPV';
+  return'Normal';
+}
+
+/* ═══════ PLAN PARSER ═══════ */
+function comunaFromDir(dir){
+  if(!dir)return''; const parts=String(dir).split(',').map(p=>p.trim()).filter(Boolean);
+  if(!parts.length)return'';
+  const last=cleanStr(parts[parts.length-1]);
+  if(last==='CHILE'&&parts.length>=2)return cleanStr(parts[parts.length-2]);
+  return last;
+}
+function parsePlan(rows){
+  if(!rows||!rows.length)return[];
+  const k={
+    veh:findCol(rows[0],['vehículo','vehiculo','vehicle','ruta']),
+    iso:findCol(rows[0],['título','titulo','title','iso','parentorder']),
+    lat:findCol(rows[0],['latitud','lat','latitude','y','coord_y']),
+    lng:findCol(rows[0],['longitud','lng','lon','longitude','x','coord_x']),
+    dir:findCol(rows[0],['dirección','direccion','address']),
+    eta:findCol(rows[0],['tiempo estimado de llegada','eta','hora']),
+    ord:findCol(rows[0],['orden','parada','secuencia','stop','sequence'])
+  };
+  const stops=[];
+  for(const r of rows){
+    const iso=String((k.iso?r[k.iso]:'')||'').trim();
+    const isoU=cleanStr(iso);
+    if(!iso||isoU==='INICIO'||isoU==='FIN'||isoU==='INICIO/FIN')continue;
+    const lat=k.lat?parseNum(r[k.lat]):NaN, lng=k.lng?parseNum(r[k.lng]):NaN;
+    if(!lat||!lng||isNaN(lat)||isNaN(lng))continue;
+    const dir=k.dir?String(r[k.dir]||''):'';
+    stops.push({ iso, vehInicial:String((k.veh?r[k.veh]:'')||'').trim().toUpperCase(),
+      vehFinal:'', lat, lng, direccion:dir, comuna:comunaFromDir(dir),
+      orden:k.ord?parseNum(r[k.ord]):NaN, eta:k.eta?String(r[k.eta]||''):'' });
+  }
+  const byVeh={}; stops.forEach((s,i)=>{ (byVeh[s.vehInicial]=byVeh[s.vehInicial]||[]).push({s,i}); });
+  Object.values(byVeh).forEach(arr=>{
+    const hasOrd=arr.every(x=>!isNaN(x.s.orden));
+    arr.sort((a,b)=>hasOrd?a.s.orden-b.s.orden:(toSecs(a.s.eta)||a.i)-(toSecs(b.s.eta)||b.i));
+    arr.forEach((x,idx)=>x.s.orden=idx+1);
+  });
+  stops.sort((a,b)=>a.vehInicial.localeCompare(b.vehInicial)||a.orden-b.orden);
+  return stops;
+}
+
+/* ═══════ MATRIZ RTE TO ═══════ */
+function buildConvMap(rows){
+  const map={}; if(!rows||!rows.length)return map;
+  const cVini=findCol(rows[0],['v inicial','v_inicial','veh inicial','veh_inicial','vehículo inicial','vehiculo inicial']);
+  const cVfin=findCol(rows[0],['v final','v_final','veh final','veh_final','vehículo final','vehiculo final']);
+  rows.forEach(r=>{ const a=r[cVini]; if(a)map[String(a).trim().toUpperCase()]=String(r[cVfin]||'').trim().toUpperCase(); });
+  return map;
+}
+function applyMatriz(stops,convMap){
+  stops.forEach(s=>{ s.vehFinal=(convMap&&convMap[s.vehInicial])||s.vehInicial; });
+}
+
+/* ═══════ BUILD + PERSIST ═══════ */
+function buildPlan(planRows,matrizRows){
+  const stops=parsePlan(planRows);
+  applyMatriz(stops,buildConvMap(matrizRows));
+  const vehicles={};
+  stops.forEach(s=>{ const v=vehicles[s.vehFinal]=vehicles[s.vehFinal]||{vehFinal:s.vehFinal,vehIniciales:new Set(),stopCount:0};
+    v.vehIniciales.add(s.vehInicial); v.stopCount++; });
+  Object.values(vehicles).forEach(v=>v.vehIniciales=[...v.vehIniciales]);
+  return{ savedAt:new Date().toISOString(), stops, vehicles };
+}
+function savePlan(p){
+  try{ localStorage.setItem(PLAN_KEY,LZString.compressToUTF16(JSON.stringify(p))); }
+  catch(e){ showToast('No se pudo guardar (espacio)','error'); }
+}
+function loadPlan(){
+  const raw=localStorage.getItem(PLAN_KEY); if(!raw)return;
+  try{ plan=JSON.parse(LZString.decompressFromUTF16(raw)); }catch(e){ plan=null; }
+  updatePlanStatus();
+}
+function clearPlan(){ localStorage.removeItem(PLAN_KEY); plan=null; report=null; srData=null; selectedVeh=null; updatePlanStatus(); updateBadges(); }
+function updatePlanStatus(){
+  const el=document.getElementById('planStatus');
+  el.textContent=plan?`${plan.stops.length} paradas · ${Object.keys(plan.vehicles).length} veh · ${new Date(plan.savedAt).toLocaleString('es-CL')}`:'Sin planificación';
+}
+
+/* ═══════ REPORTE PARSER ═══════ */
+function normEstado(e){
+  const s=(e||'').toLowerCase().replace(/[\s_-]/g,'');
+  if(/terminado|complet|entregado|success|delivered/.test(s))return'terminado';
+  if(/enruta|inroute|inprogress|dispatched/.test(s))return'enruta';
+  if(/pendiente|pending|failed|noentregado|notdelivered/.test(s))return'pendiente';
+  return'';
+}
+function parseReporte(rows){
+  const groups={};
+  for(const row of rows){
+    const com=String(getKey(row,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('I'))continue;
+    const iso=String(getKey(row,'ParentOrder')||'').trim(); if(!iso)continue;
+    (groups[iso]=groups[iso]||[]).push(row);
+  }
+  const byIso={};
+  for(const iso in groups){
+    let rs=groups[iso];
+    if(rs.length>1){ const eff=rs.filter(r=>!(getKey(r,'Estado')||'').toLowerCase().includes('planificado')); if(eff.length)rs=eff; }
+    const row=rs.find(r=>normEstado(getKey(r,'Estado'))==='terminado')
+            ||rs.find(r=>normEstado(getKey(r,'Estado'))==='pendiente')||rs[0];
+    const estado=String(getKey(row,'Estado')||'').trim();
+    const motivoRaw=String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
+    const motivo3=getMotivo3(motivoRaw);
+    const entry={
+      patente:String(getKey(row,'Patente')||'').trim(),
+      region:String(getKey(row,'Region')||'').trim(),
+      empresa:String(getKey(row,'Empresa')||getKey(row,'Transportista')||'').trim(),
+      estado, estadoNorm:normEstado(estado), motivoRaw, motivo3, motivo2:getMotivo2(motivo3),
+      comentario:String(getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'').trim(),
+      imageUrl:String(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim()
+    };
+    byIso[iso]=entry;
+    const isoC=cleanIso(iso); if(isoC!==iso&&!byIso[isoC])byIso[isoC]=entry;
+  }
+  return{ loadedAt:new Date().toISOString(), byIso };
+}
+
+/* ═══════ SR API ═══════ */
+async function fetchSrVisitas(token, date){
+  if(!token)throw new Error('Sin token configurado');
+  const url=`${SR_BASE}/v1/routes/visits/?planned_date=${date}`;
+  let resp;
+  try{
+    resp=await fetch(url,{headers:{'Authorization':`Token ${token}`,'Accept':'application/json'}});
+  }catch(e){
+    throw new Error('No se puede conectar. Posible bloqueo CORS si abres el archivo localmente.');
+  }
+  if(resp.status===401||resp.status===403)throw new Error('Token inválido o sin permisos');
+  if(!resp.ok)throw new Error(`Error ${resp.status} de SimpliRoute`);
+  const data=await resp.json();
+  return Array.isArray(data)?data:(data.results||[]);
+}
+function parseApiVisits(results){
+  if(!results||!results.length)return{byIso:{},byVeh:{}};
+  const byIso={},byVeh={};
+  for(const v of results){
+    const isoRaw=String(v.title||v.tracking_id||'').trim(); if(!isoRaw)continue;
+    const iso=cleanIso(isoRaw);
+    const veh=String(v.vehicle_name||'').trim().toUpperCase();
+    const con=String(v.driver_name||'').trim();
+    const co=v.checkout_time||'';
+    const est=String(v.status||'').trim();
+    if(!byIso[iso])byIso[iso]={veh,con,checkout:co,est,obs:''};
+    if(veh){
+      if(!byVeh[veh])byVeh[veh]={veh,conductor:con,tipo:getVehType(veh),isos:[]};
+      if(!byVeh[veh].conductor&&con)byVeh[veh].conductor=con;
+      byVeh[veh].isos.push({iso,checkout:co,est});
+    }
+  }
+  return{byIso,byVeh};
+}
+
+/* ═══════ JOIN + KPIs ═══════ */
+const STATUS={
+  terminado:{key:'terminado',label:'Terminado',color:'#16A34A'},
+  enruta:   {key:'enruta',   label:'En Ruta',  color:'#2563EB'},
+  rebajada: {key:'rebajada', label:'Rebajada', color:'#DC2626'},
+  pendiente:{key:'pendiente',label:'Pendiente',color:'#A1A1AA'},
+  sindato:  {key:'sindato',  label:'Sin dato', color:'#D4D4D8'}
+};
+function statusOf(stop, rep){
+  const r=getReportRow(stop.iso,rep);
+  if(r&&r.estadoNorm){
+    if(r.estadoNorm==='terminado')return STATUS.terminado;
+    if(r.estadoNorm==='enruta')return STATUS.enruta;
+    if(r.estadoNorm==='pendiente')return(r.motivoRaw&&r.motivoRaw.trim())?STATUS.rebajada:STATUS.pendiente;
+  }
+  const a=srData&&srData.byIso&&srData.byIso[cleanIso(stop.iso)];
+  if(a){
+    if(a.checkout)return STATUS.terminado;
+    const en=normEstado(a.est);
+    if(en==='terminado')return STATUS.terminado;
+    if(en==='enruta')return STATUS.enruta;
+    if(en==='pendiente')return STATUS.pendiente;
+  }
+  return STATUS.sindato;
+}
+function computeKPIs(p, rep){
+  const patCounts={};
+  (p?p.stops:[]).forEach(s=>{
+    const r=getReportRow(s.iso,rep);
+    if(r&&r.patente){
+      if(!patCounts[s.vehFinal])patCounts[s.vehFinal]={};
+      patCounts[s.vehFinal][r.patente]=(patCounts[s.vehFinal][r.patente]||0)+1;
+    }
+  });
+  const domPat=vf=>{ const c=patCounts[vf]; if(!c)return''; return Object.keys(c).reduce((b,p)=>(!b||c[p]>c[b])?p:b,''); };
+  const vehicles={}, global={total:0,terminados:0,enruta:0,rebajadas:0,pendientes:0,sindato:0,iniciadas:0};
+  const bump=(o,st)=>o[st==='terminado'?'terminados':st==='enruta'?'enruta':st==='rebajada'?'rebajadas':st==='pendiente'?'pendientes':'sindato']++;
+  (p?p.stops:[]).forEach(s=>{
+    const st=statusOf(s,rep).key;
+    const r=getReportRow(s.iso,rep);
+    const v=vehicles[s.vehFinal]=vehicles[s.vehFinal]||{
+      vehFinal:s.vehFinal,patente:'',region:'',conductor:'',tipo:getVehType(s.vehFinal),
+      total:0,terminados:0,enruta:0,rebajadas:0,pendientes:0,sindato:0
+    };
+    v.total++; bump(v,st);
+    if(r&&r.region&&!v.region)v.region=r.region;
+    global.total++; bump(global,st);
+  });
+  Object.values(vehicles).forEach(v=>{
+    v.patente=domPat(v.vehFinal);
+    if(srData&&srData.byVeh&&srData.byVeh[v.vehFinal]){
+      const sv=srData.byVeh[v.vehFinal];
+      if(!v.conductor)v.conductor=sv.conductor||'';
+    }
+    v.hechos=v.terminados;
+    v.avance=v.total?Math.round(v.terminados/v.total*100):0;
+    v.iniciada=(v.terminados+v.enruta+v.rebajadas)>0;
+  });
+  global.iniciadas=Object.values(vehicles).filter(v=>v.iniciada).length;
+  global.avance=global.total?Math.round(global.terminados/global.total*100):0;
+  return{vehicles,global};
+}
+function computePvAdherencia(vehFinal){
+  if(!srData||!srData.byVeh||!srData.byVeh[vehFinal]||!plan)return null;
+  const stops=plan.stops.filter(s=>s.vehFinal===vehFinal);
+  const srVeh=srData.byVeh[vehFinal];
+  const coMap={};
+  srVeh.isos.forEach(item=>{ const dt=parseCheckoutDt(item.checkout); if(dt)coMap[item.iso]=dt; });
+  const withCo=stops
+    .map(s=>({iso:cleanIso(s.iso),parT:s.orden,dt:coMap[cleanIso(s.iso)]}))
+    .filter(x=>x.dt).sort((a,b)=>a.dt-b.dt);
+  withCo.forEach((x,i)=>x.idxR=i+1);
+  const byPlan=[...withCo].sort((a,b)=>(a.parT||0)-(b.parT||0));
+  byPlan.forEach((x,i)=>x.expectedR=i+1);
+  const n=withCo.length; let c0=0,c1=0,c3=0;
+  withCo.forEach(x=>{ const d=Math.abs(x.idxR-x.expectedR); if(d===0)c0++; if(d<=1)c1++; if(d<=3)c3++; });
+  const pct=(v,t)=>t?Math.round(v/t*100)+'%':'—';
+  return{ n, total:stops.length,
+    primer:withCo[0]?fmtTime(withCo[0].dt):'—', ultimo:withCo[n-1]?fmtTime(withCo[n-1].dt):'—',
+    h0:pct(c0,n), h1:pct(c1,n), h3:pct(c3,n),
+    cumple:n>0&&c0===n?'Cumple':'No cumple' };
+}
+
+/* ═══════ FILTROS ═══════ */
+function visibleStops(){
+  if(!plan)return[];
+  return plan.stops.filter(s=>{
+    const st=statusOf(s,report).key; if(!filters.estados.has(st))return false;
+    if(filters.region){ const r=getReportRow(s.iso,report); if(!r||r.region!==filters.region)return false; }
+    if(filters.q){ const q=cleanStr(filters.q); const r=getReportRow(s.iso,report);
+      if(!(cleanStr(s.iso).includes(q)||(r&&cleanStr(r.patente).includes(q))||cleanStr(s.vehFinal).includes(q)))return false; }
+    return true;
+  });
+}
+
+/* ═══════ MAPA ═══════ */
+function initMap(){
+  if(window._map)return;
+  window._canvas=L.canvas({padding:0.5});
+  window._map=L.map('leafmap',{preferCanvas:true,renderer:window._canvas}).setView([-33.45,-70.66],11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(window._map);
+  window._layerStops=L.layerGroup().addTo(window._map);
+  window._layerLines=L.layerGroup().addTo(window._map);
+}
+function renderMap(){
+  if(!plan)return;
+  initMap();
+  window._layerStops.clearLayers(); window._layerLines.clearLayers();
+  const kpi=computeKPIs(plan,report);
+  const stopsVis=visibleStops();
+  const byVeh={}; stopsVis.forEach(s=>{ (byVeh[s.vehFinal]=byVeh[s.vehFinal]||[]).push(s); });
+  Object.entries(byVeh).forEach(([veh,stops])=>{
+    if(selectedVeh&&veh!==selectedVeh)return;
+    const ordered=[...stops].sort((a,b)=>a.orden-b.orden);
+    const pts=ordered.map(s=>[s.lat,s.lng]);
+    if(pts.length>1)L.polyline(pts,{color:'#52525B',weight:selectedVeh?2.5:1.2,opacity:selectedVeh?0.7:0.30}).addTo(window._layerLines);
+    ordered.forEach(s=>{
+      const st=statusOf(s,report);
+      const m=L.circleMarker([s.lat,s.lng],{radius:selectedVeh?6:4,color:'#fff',weight:1,
+        fillColor:st.color,fillOpacity:0.95,renderer:window._canvas});
+      m.bindPopup(popupHtml(s,st,kpi.vehicles[veh]));
+      window._layerStops.addLayer(m);
+    });
+  });
+  const all=stopsVis.filter(s=>!selectedVeh||s.vehFinal===selectedVeh).map(s=>[s.lat,s.lng]);
+  if(all.length)window._map.fitBounds(all,{padding:[40,40],maxZoom:14});
+  document.getElementById('badgeMapa').textContent=String(Object.keys(computeKPIs(plan,report).vehicles).length);
+}
+function popupHtml(s,st){
+  const r=getReportRow(s.iso,report);
+  const a=srData&&srData.byIso&&srData.byIso[cleanIso(s.iso)];
+  const tipo=getVehType(s.vehFinal);
+  const pat=r&&r.patente?r.patente:'';
+  const tipoBadge=tipo!=='Normal'?` <span class="pill pill-${tipo==='VAUX'?'gray':tipo==='VPR'?'blue':'purple'}">${tipo}</span>`:'';
+  const head=`<div style="font-weight:700;margin-bottom:2px">${esc(s.iso)}</div>
+    <div style="color:var(--textFaint);font-size:10px;margin-bottom:6px">${esc(s.vehFinal)}${pat?' · '+esc(pat):''} · parada ${s.orden}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span>${tipoBadge}</div>`;
+  const eta=s.eta?`<div style="margin-top:5px;font-size:10px;color:var(--textFaint)">ETA plan: <b>${esc(s.eta)}</b></div>`:'';
+  const coVal=a&&a.checkout?a.checkout:'';
+  const coLine=coVal?`<div style="margin-top:2px;font-size:10px;color:var(--green)">Checkout: <b>${esc(coVal)}</b></div>`:'';
+  const dir=s.direccion?`<div style="margin-top:6px;font-size:10px;color:var(--textSub)">${esc(s.direccion)}</div>`:'';
+  let rebaja='';
+  if(st.key==='rebajada'&&r){
+    const foto=r.imageUrl?`<img class="rebaja-photo" src="${esc(r.imageUrl)}" alt="foto" loading="lazy">`:'';
+    rebaja=`<div class="rebaja-card" style="margin-top:8px">
+      <div style="font-weight:700;color:var(--red);font-size:10px;text-transform:uppercase;letter-spacing:.05em">Rebajada · ${esc(r.motivo3)} <span style="opacity:.7">(${esc(r.motivo2)})</span></div>
+      ${r.motivoRaw?`<div style="font-size:11px;margin-top:3px">${esc(r.motivoRaw)}</div>`:''}
+      ${r.comentario?`<div style="font-size:10px;color:var(--textSub);margin-top:3px">${esc(r.comentario)}</div>`:''}
+      ${foto}</div>`;
+  }
+  return`<div style="min-width:200px;max-width:260px">${head}${eta}${coLine}${dir}${rebaja}</div>`;
+}
+function renderMapToolbar(){
+  const el=document.getElementById('mapToolbar'); if(!el)return;
+  if(!plan){ el.innerHTML=''; return; }
+  const regions=new Set();
+  if(report)Object.values(report.byIso).forEach(r=>{ if(r.region)regions.add(r.region); });
+  const regOpts=['<option value="">Todas las regiones</option>',...[...regions].sort().map(r=>`<option value="${esc(r)}"${filters.region===r?' selected':''}>${esc(r)}</option>`)].join('');
+  const estDefs=[['terminado','Hechas','#16A34A'],['enruta','En ruta','#2563EB'],['rebajada','Rebajadas','#DC2626'],['pendiente','Pendientes','#A1A1AA'],['sindato','Sin dato','#D4D4D8']];
+  const toggles=estDefs.map(([k,l,c])=>`<span class="est-toggle${filters.estados.has(k)?' on':''}" data-est="${k}"><span class="est-dot" style="background:${c}"></span>${l}</span>`).join('');
+  el.innerHTML=`<select class="input" id="fRegion" style="max-width:180px;width:auto">${regOpts}</select>
+    ${toggles}
+    <input class="input" id="fSearch" placeholder="VEH / patente / ISO…" style="max-width:220px;margin-left:auto" value="${esc(filters.q)}">`;
+  el.querySelector('#fRegion').addEventListener('change',e=>{ filters.region=e.target.value; renderMap(); renderMapSidebar(); });
+  el.querySelectorAll('.est-toggle').forEach(t=>t.addEventListener('click',()=>{
+    const k=t.dataset.est; if(filters.estados.has(k))filters.estados.delete(k); else filters.estados.add(k);
+    renderMapToolbar(); renderMap(); renderMapSidebar(); }));
+  el.querySelector('#fSearch').addEventListener('input',e=>{ filters.q=e.target.value;
+    clearTimeout(_searchT); _searchT=setTimeout(()=>{ renderMap(); renderMapSidebar(); },180); });
+}
+function renderMapSidebar(){
+  const el=document.getElementById('mapSidebar'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div><div class="empty-body">Carga la planificación en Configurar.</div></div>'; return; }
+  const kpi=computeKPIs(plan,report); const g=kpi.global;
+  const stats=`<div class="stats-bar">
+    <span class="stat-chip"><span class="stat-chip-val">${g.total}</span><span class="stat-chip-lbl">Paradas</span></span>
+    <span class="stat-chip"><span class="stat-chip-val green">${g.terminados}</span><span class="stat-chip-lbl">Hechas</span></span>
+    <span class="stat-chip"><span class="stat-chip-val red">${g.rebajadas}</span><span class="stat-chip-lbl">Rebaj.</span></span>
+    <span class="stat-chip"><span class="stat-chip-val">${g.avance}%</span><span class="stat-chip-lbl">Avance</span></span></div>`;
+  const vehs=Object.values(kpi.vehicles).sort((a,b)=>a.vehFinal.localeCompare(b.vehFinal));
+  const tipoBadge=t=>t==='Normal'?'':
+    t==='VAUX'?'<span class="pill pill-gray" style="font-size:9px;padding:0 4px">AUX</span>':
+    t==='VPR' ?'<span class="pill pill-blue" style="font-size:9px;padding:0 4px">PR</span>':
+               '<span class="pill pill-purple" style="font-size:9px;padding:0 4px">PV</span>';
+  const dispPat=v=>v.patente||(v.conductor?'~'+v.conductor.split(' ')[0]:'—');
+  const rows=vehs.map(v=>`<button class="veh-row${selectedVeh===v.vehFinal?' selected':''}" data-veh="${esc(v.vehFinal)}">
+    <div class="veh-row-top">
+      <span class="veh-name">${esc(v.vehFinal)}</span>
+      <span style="display:flex;gap:3px;align-items:center">${tipoBadge(v.tipo)}<span class="veh-pat">${esc(dispPat(v))}</span></span>
+    </div>
+    <div class="veh-row-top"><span class="text-xs">${v.terminados}/${v.total}${v.rebajadas>0?` · <span style="color:var(--red)">${v.rebajadas} reb.</span>`:''} · ${v.iniciada?'en curso':'sin iniciar'}</span>
+      <span class="num text-sm">${v.avance}%</span></div>
+    <div class="progress-bar"><div class="progress-bar-fill ${v.avance>=80?'green':''}" style="width:${v.avance}%"></div></div>
+  </button>`).join('');
+  el.innerHTML=stats+`<div style="padding:6px 10px">${selectedVeh?'<button class="btn btn-sm btn-secondary" id="clearSel">← Ver todas</button>':'<span class="section-label">Vehículos · '+vehs.length+'</span>'}</div>`+rows;
+  el.querySelectorAll('.veh-row').forEach(b=>b.addEventListener('click',()=>{ selectedVeh=(selectedVeh===b.dataset.veh)?null:b.dataset.veh; renderMap(); renderMapSidebar(); }));
+  const cs=el.querySelector('#clearSel'); if(cs)cs.addEventListener('click',()=>{ selectedVeh=null; renderMap(); renderMapSidebar(); });
+}
+
+/* ═══════ DASHBOARD ═══════ */
+function renderDashboard(){
+  const el=document.getElementById('dashRoot'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div><div class="empty-body">Carga la planificación en Configurar.</div></div>'; return; }
+  const kpi=computeKPIs(plan,report); const g=kpi.global;
+  const kpiCards=[
+    {val:g.total, lbl:'Paradas', clr:''},
+    {val:g.terminados, lbl:'Hechas', clr:'var(--green)'},
+    {val:g.enruta, lbl:'En Ruta', clr:'var(--blue)'},
+    {val:g.rebajadas, lbl:'Rebajadas', clr:'var(--red)'},
+    {val:g.pendientes, lbl:'Pendientes', clr:''},
+    {val:g.avance+'%', lbl:'Avance global', clr:''},
+    {val:g.iniciadas, lbl:'Rutas iniciadas', clr:''},
+    {val:Object.keys(kpi.vehicles).length, lbl:'Vehículos', clr:''},
+  ].map(k=>`<div class="kpi-card"><div class="kpi-val"${k.clr?` style="color:${k.clr}"`:''}>${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`).join('');
+  const vehs=Object.values(kpi.vehicles).sort((a,b)=>b.avance-a.avance);
+  const bars=vehs.map(v=>{
+    const pT=v.total?v.terminados/v.total*100:0;
+    const pR=v.total?v.rebajadas/v.total*100:0;
+    const pE=v.total?v.enruta/v.total*100:0;
+    const pP=v.total?v.pendientes/v.total*100:0;
+    return`<div class="bar-row">
+      <div class="bar-label">
+        <span class="num" style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.vehFinal)}</span>
+        <span class="text-xs">${esc(v.patente||'—')}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pT.toFixed(1)}%;background:var(--green)"></div>
+        <div class="bar-fill" style="width:${pR.toFixed(1)}%;background:var(--red)"></div>
+        <div class="bar-fill" style="width:${pE.toFixed(1)}%;background:var(--blue)"></div>
+        <div class="bar-fill" style="width:${pP.toFixed(1)}%;background:rgba(0,0,0,0.06)"></div>
+      </div>
+      <div class="bar-val">${v.avance}%</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="kpi-grid" style="margin-bottom:20px">${kpiCards}</div>
+    <div class="card"><div class="card-header"><h2>Avance por vehículo</h2>
+      <div style="display:flex;gap:10px">
+        ${[['var(--green)','Hechas'],['var(--red)','Rebajadas'],['var(--blue)','En ruta']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--textFaint)"><span style="width:10px;height:10px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
+      </div>
+    </div>
+    <div class="bar-chart">${bars||'<div class="empty-body" style="padding:12px">Sin datos.</div>'}</div></div>`;
+}
+
+/* ═══════ TABLA ═══════ */
+function renderTabla(){
+  const el=document.getElementById('tablaRoot'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
+  const q=cleanStr(_tablaFilters.q), estF=_tablaFilters.estado;
+  const stops=plan.stops.filter(s=>{
+    const st=statusOf(s,report).key;
+    if(estF&&st!==estF)return false;
+    if(q){ const r=getReportRow(s.iso,report);
+      if(!(cleanStr(s.iso).includes(q)||cleanStr(s.vehFinal).includes(q)||(r&&cleanStr(r.patente).includes(q))))return false; }
+    return true;
+  });
+  const rows=stops.map(s=>{
+    const st=statusOf(s,report); const r=getReportRow(s.iso,report);
+    return`<tr>
+      <td style="padding:5px 8px" class="num">${esc(s.iso)}</td>
+      <td style="padding:5px 8px" class="num">${esc(s.vehFinal)}</td>
+      <td style="padding:5px 8px">${esc(r?.patente||'—')}</td>
+      <td style="padding:5px 8px"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span></td>
+      <td style="padding:5px 8px;color:var(--textSub)">${esc(r?.motivo3||'—')}</td>
+      <td style="padding:5px 8px;color:var(--textFaint);font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.direccion||'')}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div class="tabla-filters">
+    <input class="input" id="tablaQ" placeholder="Buscar ISO, VEH, patente…" value="${esc(_tablaFilters.q)}" style="flex:1;max-width:300px">
+    <select class="input" id="tablaEst" style="width:auto">
+      <option value="">Todos los estados</option>
+      <option value="terminado"${estF==='terminado'?' selected':''}>Terminado</option>
+      <option value="enruta"${estF==='enruta'?' selected':''}>En Ruta</option>
+      <option value="rebajada"${estF==='rebajada'?' selected':''}>Rebajada</option>
+      <option value="pendiente"${estF==='pendiente'?' selected':''}>Pendiente</option>
+      <option value="sindato"${estF==='sindato'?' selected':''}>Sin dato</option>
+    </select>
+    <span class="text-xs">${stops.length} filas</span>
+  </div>
+  <div class="card" style="padding:0;overflow:auto">
+    <table class="dash-table" style="width:100%"><thead><tr>
+      <th style="padding:6px 8px">ISO</th><th style="padding:6px 8px">VEH</th>
+      <th style="padding:6px 8px">Patente</th><th style="padding:6px 8px">Estado</th>
+      <th style="padding:6px 8px">Motivo</th><th style="padding:6px 8px">Dirección</th>
+    </tr></thead><tbody>${rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--textFaint)">Sin resultados</td></tr>'}</tbody></table>
+  </div>`;
+  el.querySelector('#tablaQ').addEventListener('input',e=>{ _tablaFilters.q=e.target.value; clearTimeout(_searchT); _searchT=setTimeout(()=>renderTabla(),180); });
+  el.querySelector('#tablaEst').addEventListener('change',e=>{ _tablaFilters.estado=e.target.value; renderTabla(); });
+}
+
+/* ═══════ ISOs ACCORDION ═══════ */
+function renderISOsTab(){
+  const el=document.getElementById('isosRoot'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
+  const kpi=computeKPIs(plan,report);
+  const byVeh={}; plan.stops.forEach(s=>{ (byVeh[s.vehFinal]=byVeh[s.vehFinal]||[]).push(s); });
+  const vehKeys=Object.keys(byVeh).sort();
+  const sections=vehKeys.map(veh=>{
+    const stops=byVeh[veh].sort((a,b)=>a.orden-b.orden);
+    const v=kpi.vehicles[veh]||{};
+    const isOpen=_isosExpanded.has(veh);
+    const stRows=stops.map(s=>{
+      const st=statusOf(s,report); const r=getReportRow(s.iso,report);
+      return`<div class="iso-row">
+        <span class="num" style="font-size:11px;min-width:110px">${esc(s.iso)}</span>
+        <span class="text-xs" style="min-width:30px;color:var(--textFaint)">#${s.orden}</span>
+        <span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span>
+        ${r?.motivoRaw?`<span class="text-xs">${esc(r.motivo3)}</span>`:''}
+      </div>`;
+    }).join('');
+    return`<div class="card" style="margin-bottom:8px;padding:0">
+      <button class="accord-hdr" data-veh="${esc(veh)}">
+        <span class="veh-name">${esc(veh)}</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span class="text-xs">${v.terminados||0}/${v.total||0} · ${v.avance||0}%</span>
+          ${v.rebajadas?`<span class="pill pill-red">${v.rebajadas} reb.</span>`:''}
+          <span style="color:var(--textFaint);font-size:12px">${isOpen?'▲':'▼'}</span>
+        </span>
+      </button>
+      ${isOpen?`<div class="accord-body">${stRows||'<div class="text-xs" style="padding:8px">Sin paradas.</div>'}</div>`:''}
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
+    <button class="btn btn-secondary btn-sm" id="expandAll">Expandir todo</button>
+    <button class="btn btn-secondary btn-sm" id="collapseAll">Colapsar</button>
+    <span class="text-xs" style="margin-left:auto">${plan.stops.length} paradas · ${vehKeys.length} vehículos</span>
+  </div>${sections}`;
+  el.querySelectorAll('.accord-hdr').forEach(b=>b.addEventListener('click',()=>{
+    const v=b.dataset.veh; if(_isosExpanded.has(v))_isosExpanded.delete(v); else _isosExpanded.add(v); renderISOsTab();
+  }));
+  el.querySelector('#expandAll').addEventListener('click',()=>{ vehKeys.forEach(v=>_isosExpanded.add(v)); renderISOsTab(); });
+  el.querySelector('#collapseAll').addEventListener('click',()=>{ _isosExpanded.clear(); renderISOsTab(); });
+}
+
+/* ═══════ INCIDENCIAS ═══════ */
+function openImgModal(src){
+  const m=document.getElementById('imgModal');
+  m.innerHTML=`<div class="img-overlay-content">
+    <button class="img-overlay-close" onclick="closeImgModal()">✕</button>
+    <img src="${esc(src)}" style="max-width:90vw;max-height:85vh;border-radius:4px;display:block" loading="lazy">
+  </div>`;
+  m.style.display='flex'; m.onclick=e=>{ if(e.target===m)closeImgModal(); };
+}
+function closeImgModal(){ const m=document.getElementById('imgModal'); m.style.display='none'; m.innerHTML=''; }
+function renderIncidencias(){
+  const el=document.getElementById('incRoot'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div></div>'; return; }
+  const rebs=rebajadasList();
+  if(!rebs.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin incidencias</div><div class="empty-body">No hay paradas rebajadas en el reporte actual.</div></div>';
+    return;
+  }
+  const byVeh={}; rebs.forEach(r=>{ (byVeh[r.vehFinal]=byVeh[r.vehFinal]||[]).push(r); });
+  const groups=Object.keys(byVeh).sort().map(veh=>{
+    const items=byVeh[veh];
+    const rows=items.map(r=>{
+      const foto=r.imageUrl?`<img class="inc-photo" src="${esc(r.imageUrl)}" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy" alt="foto">`:'';
+      return`<div class="inc-row">
+        <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
+          <span class="num" style="font-weight:700">${esc(r.iso)}</span>
+          <span class="pill pill-gray">${esc(r.patente||'—')}</span>
+          <span class="pill pill-red">${esc(r.motivo3)}</span>
+          <span class="text-xs">${esc(r.motivo2)}</span>
+        </div>
+        ${r.motivoRaw?`<div class="text-sm" style="margin-bottom:2px">${esc(r.motivoRaw)}</div>`:''}
+        ${r.comentario?`<div class="text-xs">${esc(r.comentario)}</div>`:''}
+        ${foto}
+      </div>`;
+    }).join('');
+    return`<div class="card" style="margin-bottom:12px"><div class="card-header"><h3>${esc(veh)}</h3><span class="text-xs">${items.length} rebajada${items.length>1?'s':''}</span></div>
+      <div class="inc-group">${rows}</div></div>`;
+  }).join('');
+  el.innerHTML=`<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+    <h1>Incidencias · ${rebs.length}</h1>
+    <button class="btn btn-secondary btn-sm" onclick="copyRebajadas(rebajadasList())">Copiar TSV</button>
+  </div>${groups}`;
+}
+
+/* ═══════ CONSULTAR ═══════ */
+function renderConsultar(){
+  const el=document.getElementById('consultarRoot'); if(!el)return;
+  let resultHtml='';
+  if(_consultarQ&&plan){
+    const stop=plan.stops.find(s=>cleanIso(s.iso)===cleanIso(_consultarQ));
+    if(!stop){
+      resultHtml=`<div class="card" style="margin-top:12px"><div class="empty-body">No hay parada con ISO "${esc(_consultarQ)}" en la planificación.</div></div>`;
+    } else {
+      const st=statusOf(stop,report); const r=getReportRow(stop.iso,report);
+      const a=srData&&srData.byIso&&srData.byIso[cleanIso(stop.iso)];
+      const foto=r?.imageUrl?`<img src="${esc(r.imageUrl)}" style="max-width:100%;border-radius:var(--r-md);border:1px solid var(--border);margin-top:10px;cursor:pointer" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy">`:'';
+      resultHtml=`<div class="card" style="margin-top:12px">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+          <span style="font-size:16px;font-weight:700;font-family:var(--font-mono)">${esc(stop.iso)}</span>
+          <span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+          <div><div class="section-label" style="margin-bottom:3px">Vehículo</div><div class="num" style="font-size:13px">${esc(stop.vehFinal)}</div></div>
+          <div><div class="section-label" style="margin-bottom:3px">Patente</div><div>${esc(r?.patente||'—')}</div></div>
+          <div><div class="section-label" style="margin-bottom:3px">Parada</div><div class="num">#${stop.orden}</div></div>
+          <div><div class="section-label" style="margin-bottom:3px">ETA plan</div><div>${esc(stop.eta||'—')}</div></div>
+          ${a?.checkout?`<div><div class="section-label" style="margin-bottom:3px">Checkout</div><div class="num" style="color:var(--green)">${esc(a.checkout)}</div></div>`:''}
+          ${r?.empresa?`<div><div class="section-label" style="margin-bottom:3px">Empresa</div><div>${esc(r.empresa)}</div></div>`:''}
+        </div>
+        ${stop.direccion?`<div style="margin-bottom:10px"><div class="section-label" style="margin-bottom:3px">Dirección</div><div class="text-sm">${esc(stop.direccion)}</div></div>`:''}
+        ${r?.motivoRaw?`<div class="rebaja-card">
+          <div style="font-weight:700;color:var(--red);font-size:11px;margin-bottom:4px">${esc(r.motivo3)} · <span style="opacity:.7">${esc(r.motivo2)}</span></div>
+          <div class="text-sm">${esc(r.motivoRaw)}</div>
+          ${r.comentario?`<div class="text-xs" style="margin-top:3px">${esc(r.comentario)}</div>`:''}
+          ${foto}
+        </div>`:foto}
+      </div>`;
+    }
+  }
+  el.innerHTML=`<h1 style="margin-bottom:12px">Consultar ISO</h1>
+    <div style="display:flex;gap:8px">
+      <input class="input" id="cq" placeholder="ISO o número de orden…" value="${esc(_consultarQ)}" style="flex:1;max-width:360px">
+      <button class="btn btn-primary" id="btnCQ">Buscar</button>
+    </div>${resultHtml}`;
+  const search=()=>{ _consultarQ=el.querySelector('#cq').value.trim(); renderConsultar(); };
+  el.querySelector('#btnCQ').addEventListener('click',search);
+  el.querySelector('#cq').addEventListener('keydown',e=>{ if(e.key==='Enter')search(); });
+  if(_consultarQ)el.querySelector('#cq').blur();
+}
+
+/* ═══════ RESUMEN ═══════ */
+function rebajadasList(){
+  const out=[]; if(!plan||!report)return out;
+  plan.stops.forEach(s=>{ if(statusOf(s,report).key==='rebajada'){
+    const r=getReportRow(s.iso,report); if(!r)return;
+    out.push({iso:s.iso,vehFinal:s.vehFinal,patente:r.patente,comuna:s.comuna,region:r.region,
+      motivo3:r.motivo3,motivo2:r.motivo2,motivoRaw:r.motivoRaw,comentario:r.comentario,imageUrl:r.imageUrl});
+  }});
+  return out.sort((a,b)=>a.vehFinal.localeCompare(b.vehFinal));
+}
+function renderResumen(){
+  const el=document.getElementById('resumenRoot'); if(!el)return;
+  if(!plan){ el.innerHTML='<div class="empty-state"><div class="empty-title">Sin planificación</div><div class="empty-body">Carga la planificación para ver el resumen.</div></div>'; return; }
+  const kpi=computeKPIs(plan,report);
+  const vehs=Object.values(kpi.vehicles).sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||'')||a.vehFinal.localeCompare(b.vehFinal));
+  const tipoCell=t=>t==='Normal'?'<span class="text-xs">—</span>':
+    t==='VAUX'?'<span class="pill pill-gray">VAUX</span>':
+    t==='VPR' ?'<span class="pill pill-blue">VPR</span>':
+               '<span class="pill pill-purple">VPV</span>';
+  const head=['Tipo','Región','Patente/Cond.','VEH FINAL','Total','Hechas','En Ruta','Rebaj.','Pend.','Avance'];
+  const body=vehs.map(v=>`<tr>
+    <td style="padding:5px 8px">${tipoCell(v.tipo)}</td>
+    <td style="padding:5px 8px">${esc(v.region||'—')}</td>
+    <td style="padding:5px 8px;font-weight:700">${esc(v.patente||v.conductor||'—')}</td>
+    <td style="padding:5px 8px" class="num">${esc(v.vehFinal)}</td>
+    <td style="padding:5px 8px;text-align:right" class="num">${v.total}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--green)" class="num">${v.terminados}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--blue)" class="num">${v.enruta}</td>
+    <td style="padding:5px 8px;text-align:right;color:var(--red)" class="num">${v.rebajadas}</td>
+    <td style="padding:5px 8px;text-align:right" class="num">${v.pendientes}</td>
+    <td style="padding:5px 8px;text-align:right;font-weight:700" class="num">${v.avance}%</td></tr>`).join('');
+  const reb=rebajadasList();
+  const rebRows=reb.map(r=>`<tr>
+    <td style="padding:5px 8px" class="num">${esc(r.iso)}</td>
+    <td style="padding:5px 8px" class="num">${esc(r.vehFinal)}</td>
+    <td style="padding:5px 8px">${esc(r.patente||'—')}</td>
+    <td style="padding:5px 8px">${esc(r.motivo3)}</td>
+    <td style="padding:5px 8px"><span class="pill pill-gray">${esc(r.motivo2)}</span></td>
+    <td style="padding:5px 8px;color:var(--textSub)">${esc(r.motivoRaw||r.comentario||'')}</td></tr>`).join('');
+  const pvVehs=vehs.filter(v=>v.tipo==='VPV'||v.tipo==='VPR');
+  let pvSection='';
+  if(pvVehs.length&&srData){
+    const pvRows=pvVehs.map(v=>{
+      const adh=computePvAdherencia(v.vehFinal);
+      if(!adh)return`<tr><td class="num" style="padding:5px 8px">${esc(v.vehFinal)}</td><td colspan="8" style="padding:5px 8px;color:var(--textFaint)">Sin checkouts en SimpliRoute API</td></tr>`;
+      return`<tr>
+        <td style="padding:5px 8px" class="num">${esc(v.vehFinal)}</td>
+        <td style="padding:5px 8px">${esc(v.conductor||'—')}</td>
+        <td style="padding:5px 8px;text-align:right" class="num">${adh.n}/${adh.total}</td>
+        <td style="padding:5px 8px" class="num">${esc(adh.primer)}</td>
+        <td style="padding:5px 8px" class="num">${esc(adh.ultimo)}</td>
+        <td style="padding:5px 8px;text-align:right" class="num">${esc(adh.h0)}</td>
+        <td style="padding:5px 8px;text-align:right" class="num">${esc(adh.h1)}</td>
+        <td style="padding:5px 8px;text-align:right" class="num">${esc(adh.h3)}</td>
+        <td style="padding:5px 8px"><span class="pill ${adh.cumple==='Cumple'?'pill-green':'pill-red'}">${adh.cumple}</span></td></tr>`;
+    }).join('');
+    pvSection=`<div class="card" style="margin-top:16px"><div class="card-header"><h2>Adherencia Postventa / Proyectos</h2></div>
+      <div style="overflow:auto"><table class="dash-table"><thead><tr>${['VEH','Conductor','Co/Plan','Primer Co.','Último Co.','Holgura ±0','Holgura ±1','Holgura ±3','Cumple'].map(h=>`<th style="padding:6px 8px">${h}</th>`).join('')}</tr></thead><tbody>${pvRows}</tbody></table></div></div>`;
+  }
+  el.innerHTML=`
+    <div class="card" style="margin-bottom:16px"><div class="card-header"><h2>Resumen por vehículo</h2>
+      <button class="btn btn-secondary btn-sm" id="expResumen">Exportar XLSX</button></div>
+      <div style="overflow:auto"><table class="dash-table"><thead><tr>${head.map(h=>`<th style="padding:6px 8px;text-align:${['Tipo','Región','Patente/Cond.','VEH FINAL'].includes(h)?'left':'right'}">${h}</th>`).join('')}</tr></thead><tbody>${body||''}</tbody></table></div></div>
+    <div class="card"><div class="card-header"><h2>Rebajadas · ${reb.length}</h2>
+      <button class="btn btn-secondary btn-sm" id="copyReb"${reb.length?'':' disabled'}>Copiar TSV</button></div>
+      ${reb.length?`<div style="overflow:auto"><table class="dash-table"><thead><tr>${['ISO','VEH','Patente','Motivo','Cat.','Detalle'].map(h=>`<th style="padding:6px 8px">${h}</th>`).join('')}</tr></thead><tbody>${rebRows}</tbody></table></div>`:'<div class="empty-body" style="padding:12px">Sin rebajadas (o sin reporte cargado).</div>'}</div>
+    ${pvSection}`;
+  el.querySelector('#expResumen').addEventListener('click',()=>exportResumenXlsx(vehs));
+  const cr=el.querySelector('#copyReb'); if(cr&&reb.length)cr.addEventListener('click',()=>copyRebajadas(reb));
+}
+function exportResumenXlsx(vehs){
+  const aoa=[['Tipo','Región','Patente/Conductor','VEH FINAL','Total','Hechas','En Ruta','Rebajadas','Pendientes','Avance %'],
+    ...vehs.map(v=>[v.tipo,v.region,v.patente||v.conductor,v.vehFinal,v.total,v.terminados,v.enruta,v.rebajadas,v.pendientes,v.avance])];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Resumen');
+  XLSX.writeFile(wb,'monitoreo_resumen.xlsx'); showToast('Exportado','ok');
+}
+function copyRebajadas(reb){
+  let t='ISO\tVEH FINAL\tPatente\tMotivo 3\tMotivo 2\tDetalle\n';
+  reb.forEach(r=>t+=`${r.iso}\t${r.vehFinal}\t${r.patente}\t${r.motivo3}\t${r.motivo2}\t${r.motivoRaw||r.comentario||''}\n`);
+  navigator.clipboard?.writeText(t).then(()=>showToast('Copiado','ok'));
+}
+
+/* ═══════ CONFIGURAR (UI) ═══════ */
+function readFile(file){
+  return new Promise((resolve,reject)=>{
+    const name=file.name.toLowerCase(); const fr=new FileReader();
+    fr.onerror=()=>reject(new Error('lectura'));
+    if(name.endsWith('.csv')||name.endsWith('.txt')){
+      fr.onload=()=>{ const text=String(fr.result).replace(/^﻿/,''); const lines=text.split(/\r?\n/).filter(l=>l.trim());
+        if(!lines.length)return resolve([]);
+        const sep=detectSep(lines[0]); const headers=parseRow(lines[0],sep);
+        const rows=lines.slice(1).map(l=>{ const c=parseRow(l,sep); const o={}; headers.forEach((h,i)=>o[h]=c[i]!=null?c[i]:''); return o; });
+        resolve(rows); };
+      fr.readAsText(file,'UTF-8');
+    } else {
+      fr.onload=()=>{ const wb=XLSX.read(new Uint8Array(fr.result),{type:'array'});
+        const planSheet=wb.SheetNames.find(n=>n.toLowerCase().trim()==='plan');
+        const sh=wb.Sheets[planSheet||wb.SheetNames[0]]; resolve(XLSX.utils.sheet_to_json(sh,{defval:''})); };
+      fr.readAsArrayBuffer(file);
+    }
+  });
+}
+function makeUpload(id,label,hint){
+  return`<div class="param-section"><div class="param-section-header"><span class="section-label">${label}</span><span id="${id}_badge" class="text-xs"></span></div>
+    <div class="param-section-body"><label class="upload-zone" id="${id}">
+      <div class="upload-filename" id="${id}_name">${hint}</div>
+      <input type="file" accept=".csv,.xlsx,.xls,.txt" style="display:none"></label></div></div>`;
+}
+function wireUpload(id,onFile){
+  const zone=document.getElementById(id); const input=zone.querySelector('input');
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);});
+  input.addEventListener('change',()=>{if(input.files[0])handle(input.files[0]);});
+  async function handle(f){ try{ const rows=await readFile(f); onFile(rows,f.name);
+    document.getElementById(id+'_name').textContent=f.name; zone.classList.add('loaded');
+    document.getElementById(id+'_badge').textContent=`${rows.length} filas`; }
+    catch(e){ showToast('Error leyendo '+f.name,'error'); } }
+}
+async function handleSrFetch(){
+  const token=document.getElementById('srToken').value.trim();
+  const date=document.getElementById('srDate').value;
+  if(!token||!date){ showToast('Ingresa token y fecha','warn'); return; }
+  _srToken=token; _srDate=date;
+  localStorage.setItem(SR_TOKEN_KEY,token);
+  const statusEl=document.getElementById('srStatus');
+  statusEl.textContent='Cargando…';
+  document.getElementById('btnSrFetch').disabled=true;
+  try{
+    const results=await fetchSrVisitas(token,date);
+    srData=parseApiVisits(results);
+    const n=Object.keys(srData.byIso).length, nv=Object.keys(srData.byVeh).length;
+    statusEl.textContent=`${n} visitas · ${nv} vehículos · ${date}`;
+    showToast('Visitas cargadas','ok');
+    renderMap(); renderMapToolbar(); renderMapSidebar(); updateBadges();
+  }catch(e){
+    statusEl.textContent=`Error: ${e.message}`;
+    showToast('Error al cargar visitas','error');
+  }finally{
+    document.getElementById('btnSrFetch').disabled=false;
+  }
+}
+function renderConfig(){
+  const el=document.getElementById('configRoot');
+  const todayStr=new Date().toISOString().slice(0,10);
+  if(!_srDate)_srDate=todayStr;
+  el.innerHTML=`
+    <h1 style="margin-bottom:16px">Configurar</h1>
+    <div class="card" style="margin-bottom:16px"><div class="card-header"><h2>SimpliRoute API</h2></div>
+      <div class="sr-config">
+        <div>
+          <div class="section-label" style="margin-bottom:4px">Token de acceso</div>
+          <input class="input" id="srToken" type="password" placeholder="Token…" value="${esc(_srToken)}" autocomplete="off">
+        </div>
+        <div>
+          <div class="section-label" style="margin-bottom:4px">Fecha</div>
+          <input class="input" id="srDate" type="date" value="${esc(_srDate)}">
+        </div>
+        <button class="btn btn-primary" id="btnSrFetch">Cargar visitas</button>
+      </div>
+      <div id="srStatus" class="text-xs" style="margin-top:8px"></div>
+    </div>
+    <div class="card" style="margin-bottom:16px"><div class="card-header"><h2>Planificación</h2>
+      <button class="btn btn-danger btn-sm" id="btnClear">Borrar plan</button></div>
+      ${makeUpload('upPlan','Planificación SimpliRoute','Export con Latitud / Longitud por ISO (CSV o XLSX)')}
+      ${makeUpload('upMatriz','Matriz RTE TO','V Inicial → V Final (opcional)')}
+      <button class="btn-block" id="btnSavePlan" style="margin-top:6px">Guardar planificación</button>
+      <div id="planSummary" class="text-sm" style="margin-top:8px"></div></div>
+    <div class="card"><div class="card-header"><h2>Reporte Rutas</h2></div>
+      ${makeUpload('upReporte','CSV de avance','CSV de reporte rutas con Commerce, ParentOrder, Estado…')}
+      <div id="reporteSummary" class="text-sm" style="margin-top:8px"></div></div>`;
+  document.getElementById('btnSrFetch').addEventListener('click',handleSrFetch);
+  wireUpload('upPlan',rows=>{ _planRows=rows; });
+  wireUpload('upMatriz',rows=>{ _matrizRows=rows; });
+  wireUpload('upReporte',rows=>{
+    if(!plan){ showToast('Primero guarda la planificación','warn'); return; }
+    report=parseReporte(rows);
+    const n=Object.keys(report.byIso).length;
+    document.getElementById('reporteSummary').textContent=`${n} ISOs · ${new Date(report.loadedAt).toLocaleTimeString('es-CL')}`;
+    showToast('Avance inyectado','ok'); renderMap(); renderMapToolbar(); renderMapSidebar(); updateBadges();
+  });
+  document.getElementById('btnSavePlan').addEventListener('click',()=>{
+    if(!_planRows){ showToast('Falta la planificación','warn'); return; }
+    plan=buildPlan(_planRows,_matrizRows||[]); savePlan(plan); updatePlanStatus(); updateBadges();
+    document.getElementById('planSummary').textContent=`${plan.stops.length} paradas · ${Object.keys(plan.vehicles).length} vehículos guardados`;
+    showToast('Planificación guardada','ok');
+  });
+  document.getElementById('btnClear').addEventListener('click',()=>{
+    if(confirm('¿Borrar la planificación guardada?')){ clearPlan(); renderConfig(); showToast('Plan borrado'); }
+  });
+  if(plan){ const ps=document.getElementById('planSummary'); if(ps)ps.textContent=`Plan en memoria: ${plan.stops.length} paradas · ${Object.keys(plan.vehicles).length} vehículos`; }
+}
+
+/* ═══════ TESTS ═══════ */
+test('detectSep prefiere ;',()=>assertEq(detectSep('a;b;c'),';'));
+test('detectSep cae a ,',()=>assertEq(detectSep('a,b,c'),','));
+test('parseRow respeta comillas',()=>assertEq(parseRow('"x;y";z',';'),['x;y','z']));
+test('getKey case-insensitive',()=>assertEq(getKey({'Patente':'AB'},'patente'),'AB'));
+test('findCol por inclusión',()=>assertEq(findCol({'Latitud Y':1},['latitud','lat']),'Latitud Y'));
+test('cleanStr normaliza acentos',()=>assertEq(cleanStr(' Peñá '),'PENA'));
+test('parseNum coma decimal',()=>assertEq(parseNum('1.234,5'),1234.5));
+test('toSecs HH:MM:SS',()=>assertEq(toSecs('01:02:03'),3723));
+test('cleanIso normaliza espacios',()=>assertEq(cleanIso(' iso 123 '),'ISO123'));
+test('getReportRow tolerante case+espacios',()=>{
+  const rep={byIso:{'ISO123':{estadoNorm:'terminado'}}};
+  assertEq(getReportRow('ISO 123',rep)?.estadoNorm,'terminado');
+  assertEq(getReportRow('iso123',rep)?.estadoNorm,'terminado');
+});
+test('getVehType VAUX',()=>assertEq(getVehType('VEH01AUX'),'VAUX'));
+test('getVehType VPR',()=>assertEq(getVehType('VPR03'),'VPR'));
+test('getVehType VPV',()=>assertEq(getVehType('VPV01'),'VPV'));
+test('getVehType Normal',()=>assertEq(getVehType('VEH07'),'Normal'));
+test('motivo vacío → Transporte No Gestiona',()=>assertEq(getMotivo3(''),'Transporte No Gestiona'));
+test('morador → Sin Moradores',()=>assertEq(getMotivo3('CLIENTE SIN MORADORES'),'Sin Moradores'));
+test('direcci → Problema de Dirección',()=>assertEq(getMotivo3('Problema DIRECCION'),'Problema de Dirección'));
+test('rechaz → Cliente Rechaza',()=>assertEq(getMotivo3('Cliente RECHAZA pedido'),'Cliente Rechaza'));
+test('siniestro → Siniestro En Calle',()=>assertEq(getMotivo3('SINIESTRO'),'Siniestro En Calle'));
+test('m2 cliente',()=>assertEq(getMotivo2('Sin Moradores'),'Cliente'));
+test('m2 transporte',()=>assertEq(getMotivo2('Producto No Cargado'),'Transporte'));
+test('parsePlan extrae stop con coords',()=>{
+  const s=parsePlan([{'Vehículo':'VEH01','Título':'ISO9','Latitud':'-33,5','Longitud':'-70,6','Dirección':'CALLE 1, MAIPU, CHILE','ETA':'10:00:00'}]);
+  assertEq(s.length,1); assertEq(s[0].iso,'ISO9'); assertEq(s[0].vehInicial,'VEH01');
+  assertEq(s[0].lat,-33.5); assertEq(s[0].lng,-70.6); assertEq(s[0].comuna,'MAIPU');
+});
+test('parsePlan descarta sin coords',()=>assertEq(parsePlan([{'Vehículo':'VEH01','Título':'INICIO','Dirección':'BODEGA'}]).length,0));
+test('parsePlan ordena por ETA',()=>{
+  const s=parsePlan([
+    {'Vehículo':'V1','Título':'B','Latitud':'-33.4','Longitud':'-70.5','ETA':'12:00:00'},
+    {'Vehículo':'V1','Título':'A','Latitud':'-33.4','Longitud':'-70.5','ETA':'09:00:00'}]);
+  assertEq(s.filter(x=>x.vehInicial==='V1').map(x=>[x.iso,x.orden]),[['A',1],['B',2]]);
+});
+test('buildConvMap mapea V Inicial→V Final',()=>assertEq(buildConvMap([{'V Inicial':'VEH01','V Final':'VEH50'}])['VEH01'],'VEH50'));
+test('applyMatriz fallback a vehInicial',()=>{
+  const stops=[{vehInicial:'VEH01',vehFinal:''},{vehInicial:'VEH09',vehFinal:''}];
+  applyMatriz(stops,{'VEH01':'VEH50'}); assertEq(stops.map(s=>s.vehFinal),['VEH50','VEH09']);
+});
+test('buildPlan agrega vehicles',()=>{
+  const p=buildPlan([{'Vehículo':'VEH01','Título':'ISO1','Latitud':'-33.4','Longitud':'-70.5','ETA':'09:00:00'}],[{'V Inicial':'VEH01','V Final':'VEH50'}]);
+  assertEq(p.stops.length,1); assertEq(p.stops[0].vehFinal,'VEH50');
+  assertEq(Object.keys(p.vehicles),['VEH50']); assertEq(p.vehicles['VEH50'].stopCount,1);
+});
+test('roundtrip compresión',()=>{
+  const p=buildPlan([{'Vehículo':'V1','Título':'I1','Latitud':'-33.4','Longitud':'-70.5'}],[]);
+  const r=JSON.parse(LZString.decompressFromUTF16(LZString.compressToUTF16(JSON.stringify(p))));
+  assertEq(r.stops[0].iso,'I1');
+});
+test('normEstado español',()=>{ assertEq(normEstado('Terminado'),'terminado'); assertEq(normEstado('En Ruta'),'enruta'); assertEq(normEstado('Pendiente'),'pendiente'); });
+test('normEstado SR COMPLETED',()=>assertEq(normEstado('COMPLETED'),'terminado'));
+test('normEstado SR FAILED',()=>assertEq(normEstado('FAILED'),'pendiente'));
+test('normEstado SR IN_ROUTE',()=>assertEq(normEstado('IN_ROUTE'),'enruta'));
+test('normEstado SR DISPATCHED',()=>assertEq(normEstado('DISPATCHED'),'enruta'));
+test('parseReporte indexa por ISO',()=>{
+  const r=parseReporte([{'Commerce':'IKEA','Region':'RM','ParentOrder':'ISO1','Patente':'ABCD','Estado':'Pendiente','Motivo No Entrega':'Sin moradores','ImageUrl':'http://x/1.jpg'}]);
+  assertEq(r.byIso['ISO1'].patente,'ABCD'); assertEq(r.byIso['ISO1'].estadoNorm,'pendiente'); assertEq(r.byIso['ISO1'].motivo3,'Sin Moradores');
+});
+test('parseReporte dual-index tolerante',()=>{
+  const r=parseReporte([{'Commerce':'I','ParentOrder':'ISO 1','Estado':'Terminado','Patente':'XX'}]);
+  assertEq(r.byIso['ISO1']?.estadoNorm,'terminado');
+});
+test('parseReporte dedup no-planificado',()=>{
+  const r=parseReporte([{'Commerce':'I','ParentOrder':'ISO2','Estado':'Planificado'},{'Commerce':'I','ParentOrder':'ISO2','Estado':'Terminado'}]);
+  assertEq(r.byIso['ISO2'].estadoNorm,'terminado');
+});
+test('parseReporte ignora no-IKEA',()=>assertEq(Object.keys(parseReporte([{'Commerce':'X','ParentOrder':'Z','Estado':'Terminado'}]).byIso).length,0));
+test('parseApiVisits estructura',()=>{
+  const r=parseApiVisits([{title:'ISO001',vehicle_name:'VPV01',driver_name:'Juan',status:'COMPLETED',checkout_time:'10:30:00'}]);
+  assertEq(r.byIso['ISO001'].veh,'VPV01');
+  assertEq(r.byVeh['VPV01'].conductor,'Juan');
+  assertEq(r.byVeh['VPV01'].tipo,'VPV');
+});
+test('statusOf terminado',()=>assertEq(statusOf({iso:'I'},{byIso:{I:{estadoNorm:'terminado'}}}).key,'terminado'));
+test('statusOf enruta',()=>assertEq(statusOf({iso:'I'},{byIso:{I:{estadoNorm:'enruta'}}}).key,'enruta'));
+test('statusOf rebajada',()=>assertEq(statusOf({iso:'I'},{byIso:{I:{estadoNorm:'pendiente',motivoRaw:'Sin moradores'}}}).key,'rebajada'));
+test('statusOf pendiente sin motivo',()=>assertEq(statusOf({iso:'I'},{byIso:{I:{estadoNorm:'pendiente',motivoRaw:''}}}).key,'pendiente'));
+test('statusOf sin dato',()=>assertEq(statusOf({iso:'I'},{byIso:{}}).key,'sindato'));
+test('computeKPIs patente dominante',()=>{
+  const p={stops:[{iso:'A',vehFinal:'V1'},{iso:'B',vehFinal:'V1'},{iso:'C',vehFinal:'V1'}]};
+  const r={byIso:{A:{estadoNorm:'terminado',patente:'PP1'},B:{estadoNorm:'pendiente',motivoRaw:'rechaza',patente:'PP1'},C:{estadoNorm:'pendiente',motivoRaw:'',patente:'PP2'}}};
+  const k=computeKPIs(p,r).vehicles['V1'];
+  assertEq([k.total,k.terminados,k.rebajadas,k.pendientes,k.avance],[3,1,1,1,33]);
+  assertEq(k.patente,'PP1');
+});
+
+/* ═══════ BOOT ═══════ */
+window.addEventListener('DOMContentLoaded',()=>{
+  _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
+  loadPlan(); renderConfig(); runSelfTests();
+});
+</script>
+</body>
+</html>
