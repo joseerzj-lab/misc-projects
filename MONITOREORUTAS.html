@@ -224,6 +224,7 @@ let srData    = null;
 let csvData   = null;
 let _csvRows  = null;
 let _nameMode = 'veh';
+let _vehNotes = {};
 let selectedVeh = null;
 let filters   = { region:'', estados:new Set(['terminado','enruta','rebajada','pendiente','sindato']), q:'' };
 let _planRows = null, _matrizRows = null;
@@ -277,6 +278,18 @@ function toggleNameMode() {
   if (active === 'dashboard') renderDashboard();
   if (active === 'resumen') renderResumen();
   if (typeof renderGrafico === 'function') renderGrafico();
+}
+function setVehNote(veh, note) {
+  if (note.trim()) _vehNotes[veh] = note.trim();
+  else delete _vehNotes[veh];
+  const active = document.querySelector('.tab-btn.active')?.dataset?.tab;
+  if (active === 'resumen') renderResumen();
+}
+function copyVehNotesTable() {
+  const vehs = hasData() ? Object.values(getKPI().vehicles) : [];
+  let t = 'VEH/Patente\tNota\n';
+  vehs.forEach(v => { const n = _vehNotes[v.vehFinal]; if(n) t += `${dispName(v)}\t${n}\n`; });
+  navigator.clipboard?.writeText(t).then(()=>showToast('Notas copiadas','ok'));
 }
 
 /* ═══════ SELF-TEST ═══════ */
@@ -1022,7 +1035,10 @@ function renderIncidencias(){
         ${foto}
       </div>`;
     }).join('');
-    return`<div class="card" style="margin-bottom:12px"><div class="card-header"><h3>${esc(veh)}</h3><span class="text-xs">${items.length} rebajada${items.length>1?'s':''}</span></div>
+    return`<div class="card" style="margin-bottom:12px"><div class="card-header"><h3>${esc(veh)}</h3><input value="${esc(_vehNotes[veh]||'')}"
+      onchange="setVehNote('${esc(veh)}',this.value)"
+      placeholder="Nota para este vehículo…"
+      style="flex:1;max-width:200px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--r-xs);font-size:10px;background:transparent;color:var(--text);outline:none;font-family:var(--font-base)"><span class="text-xs">${items.length} rebajada${items.length>1?'s':''}</span></div>
       <div class="inc-group">${rows}</div></div>`;
   }).join('');
   el.innerHTML=`<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
@@ -1096,7 +1112,7 @@ function renderResumen(){
     t==='VAUX'?'<span class="pill pill-gray">VAUX</span>':
     t==='VPR' ?'<span class="pill pill-blue">VPR</span>':
                '<span class="pill pill-purple">VPV</span>';
-  const head=['Tipo','Región','Patente/Cond.','VEH FINAL','Total','Hechas','En Ruta','Rebaj.','Pend.','Avance'];
+  const head=['Tipo','Región','Nombre','Alt.','Total','Hechas','En Ruta','Rebaj.','Pend.','Avance','Nota'];
   const body=vehs.map(v=>`<tr>
     <td style="padding:5px 8px">${tipoCell(v.tipo)}</td>
     <td style="padding:5px 8px">${esc(v.region||'—')}</td>
@@ -1107,7 +1123,14 @@ function renderResumen(){
     <td style="padding:5px 8px;text-align:right;color:var(--blue)" class="num">${v.enruta}</td>
     <td style="padding:5px 8px;text-align:right;color:var(--red)" class="num">${v.rebajadas}</td>
     <td style="padding:5px 8px;text-align:right" class="num">${v.pendientes}</td>
-    <td style="padding:5px 8px;text-align:right;font-weight:700" class="num">${v.avance}%</td></tr>`).join('');
+    <td style="padding:5px 8px;text-align:right;font-weight:700" class="num">${v.avance}%</td>
+    <td style="padding:4px 8px;min-width:180px"><input
+      value="${esc(_vehNotes[v.vehFinal]||'')}"
+      onchange="setVehNote('${esc(v.vehFinal)}',this.value)"
+      placeholder="Nota…"
+      style="width:100%;padding:3px 6px;border:1px solid var(--border);border-radius:var(--r-xs);font-size:10px;font-family:var(--font-base);background:transparent;color:var(--text);outline:none"
+      onfocus="this.style.borderColor='var(--borderFocus)'"
+      onblur="this.style.borderColor='var(--border)'"></td></tr>`).join('');
   const reb=rebajadasList();
   const rebRows=reb.map(r=>`<tr>
     <td style="padding:5px 8px" class="num">${esc(r.iso)}</td>
@@ -1138,8 +1161,8 @@ function renderResumen(){
   }
   el.innerHTML=`
     <div class="card" style="margin-bottom:16px"><div class="card-header"><h2>Resumen por vehículo</h2>
-      <button class="btn btn-secondary btn-sm" id="expResumen">Exportar XLSX</button></div>
-      <div style="overflow:auto"><table class="dash-table"><thead><tr>${head.map(h=>`<th style="padding:6px 8px;text-align:${['Tipo','Región','Patente/Cond.','VEH FINAL'].includes(h)?'left':'right'}">${h}</th>`).join('')}</tr></thead><tbody>${body||''}</tbody></table></div></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-secondary btn-sm" onclick="copyVehNotesTable()">Copiar Notas</button><button class="btn btn-secondary btn-sm" id="expResumen">Exportar XLSX</button></div></div>
+      <div style="overflow:auto"><table class="dash-table"><thead><tr>${head.map(h=>`<th style="padding:6px 8px;text-align:${['Tipo','Región','Nombre','Alt.','Nota'].includes(h)?'left':'right'}">${h}</th>`).join('')}</tr></thead><tbody>${body||''}</tbody></table></div></div>
     <div class="card"><div class="card-header"><h2>Rebajadas · ${reb.length}</h2>
       <button class="btn btn-secondary btn-sm" id="copyReb"${reb.length?'':' disabled'}>Copiar TSV</button></div>
       ${reb.length?`<div style="overflow:auto"><table class="dash-table"><thead><tr>${['ISO','VEH','Patente','Motivo','Cat.','Detalle'].map(h=>`<th style="padding:6px 8px">${h}</th>`).join('')}</tr></thead><tbody>${rebRows}</tbody></table></div>`:'<div class="empty-body" style="padding:12px">Sin rebajadas (o sin reporte cargado).</div>'}</div>
