@@ -276,7 +276,7 @@ function toggleNameMode() {
   if (active === 'mapa') { renderMap(); renderMapSidebar(); }
   if (active === 'dashboard') renderDashboard();
   if (active === 'resumen') renderResumen();
-  renderGrafico();
+  if (typeof renderGrafico === 'function') renderGrafico();
 }
 
 /* ═══════ SELF-TEST ═══════ */
