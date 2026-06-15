@@ -704,7 +704,7 @@ function popupHtml(s,st){
   const pat=r&&r.patente?r.patente:'';
   const tipoBadge=tipo!=='Normal'?` <span class="pill pill-${tipo==='VAUX'?'gray':tipo==='VPR'?'blue':'purple'}">${tipo}</span>`:'';
   const head=`<div style="font-weight:700;margin-bottom:2px">${esc(s.iso)}</div>
-    <div style="color:var(--textFaint);font-size:10px;margin-bottom:6px">${esc(s.vehFinal)}${pat?' · '+esc(pat):''} · parada ${s.orden}</div>
+    <div style="color:var(--textFaint);font-size:10px;margin-bottom:6px">${esc(_nameMode==='pat'?(pat||s.vehFinal):s.vehFinal)}${(_nameMode==='pat'?s.vehFinal:(pat||''))?' · '+esc(_nameMode==='pat'?s.vehFinal:(pat||'')):''} · parada ${s.orden}</div>
     <div style="display:flex;gap:4px;flex-wrap:wrap"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span>${tipoBadge}</div>`;
   const eta=s.eta?`<div style="margin-top:5px;font-size:10px;color:var(--textFaint)">ETA plan: <b>${esc(s.eta)}</b></div>`:'';
   const coVal=a&&a.checkout?a.checkout:'';
@@ -1117,8 +1117,8 @@ function renderResumen(){
   const body=vehs.map(v=>`<tr>
     <td style="padding:5px 8px">${tipoCell(v.tipo)}</td>
     <td style="padding:5px 8px">${esc(v.region||'—')}</td>
-    <td style="padding:5px 8px;font-weight:700">${esc(v.patente||v.conductor||'—')}</td>
-    <td style="padding:5px 8px" class="num">${esc(v.vehFinal)}</td>
+    <td style="padding:5px 8px;font-weight:700">${esc(dispName(v))}</td>
+    <td style="padding:5px 8px" class="num">${esc(_nameMode==='pat'?v.vehFinal:(v.patente||v.conductor||'—'))}</td>
     <td style="padding:5px 8px;text-align:right" class="num">${v.total}</td>
     <td style="padding:5px 8px;text-align:right;color:var(--green)" class="num">${v.terminados}</td>
     <td style="padding:5px 8px;text-align:right;color:var(--blue)" class="num">${v.enruta}</td>
