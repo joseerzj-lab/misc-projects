@@ -1486,8 +1486,7 @@ function buildGraficoData() {
       altName: _nameMode === 'pat' ? v.vehFinal : (v.patente || ''),
       Terminado: v.terminados,
       'En Ruta': v.enruta,
-      Rebajada: v.rebajadas,
-      Pendiente: v.pendientes,
+      Pendiente: v.pendientes + (v.rebajadas || 0),
       total: v.total,
       avance: v.avance,
       dummy: 0.05,
@@ -2095,9 +2094,8 @@ window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChang
                 labelFormatter={label=>{const d=visible.find(x=>x.patente===label);const n=notes[label];const base=d?.altName?`${label} (${d.altName})`:label;return n?`${base} — ${n}`:base;}}/>
               {showLegend && <Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:16,fontSize:11}}/>}
               <Bar dataKey="Terminado" stackId="s" fill="#22c55e" radius={[0,0,0,0]} barSize={barSize}/>
-              <Bar dataKey="Rebajada"  stackId="s" fill="#f97316" radius={[0,0,0,0]} barSize={barSize}/>
-              <Bar dataKey="Pendiente" stackId="s" fill="#eab308" radius={[0,0,0,0]} barSize={barSize}/>
-              <Bar dataKey="En Ruta"   stackId="s" fill="#ef4444" radius={[4,4,0,0]} barSize={barSize}/>
+              <Bar dataKey="En Ruta"   stackId="s" fill="#ef4444" radius={[0,0,0,0]} barSize={barSize}/>
+              <Bar dataKey="Pendiente" stackId="s" fill="#eab308" radius={[4,4,0,0]} barSize={barSize}/>
               <Bar dataKey="dummy" stackId="s" fill="transparent" isAnimationActive={false} barSize={barSize}>
                 {showLabels && <LabelList dataKey="avance"
                   position={layout==='horizontal'?'right':'top'}
