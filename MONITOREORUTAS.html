@@ -252,6 +252,7 @@ function switchTab(name){
   if(name==='isos') renderISOsTab();
   if(name==='incidencias') renderIncidencias();
   if(name==='consultar') renderConsultar();
+  if(name==='grafico') renderGrafico();
 }
 document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -1400,6 +1401,301 @@ window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
   loadPlan(); renderConfig(); runSelfTests();
 });
+
+function buildGraficoData() {
+  const kpi = hasData() ? getKPI() : null;
+  if (!kpi) return [];
+  return Object.values(kpi.vehicles)
+    .map(v => ({
+      patente: dispName(v),
+      altName: _nameMode === 'pat' ? v.vehFinal : (v.patente || ''),
+      Terminado: v.terminados,
+      'En Ruta': v.enruta,
+      Rebajada: v.rebajadas,
+      Pendiente: v.pendientes,
+      total: v.total,
+      avance: v.avance,
+      region: v.region || ''
+    }))
+    .filter(d => d.total > 0)
+    .sort((a, b) => b.total - a.total);
+}
+
+function renderGrafico() {
+  const root = document.getElementById('graficoRoot');
+  if (!root) return;
+  window._graficoData = buildGraficoData();
+  window._graficoNotes = _vehNotes;
+  if (!window._graficoRoot) {
+    window._graficoRoot = ReactDOM.createRoot(root);
+  }
+  window._graficoRoot.render(
+    React.createElement(window.GraficoChart, {
+      data: window._graficoData,
+      notes: window._graficoNotes,
+      onNoteChange: (veh, note) => { setVehNote(veh, note); renderGrafico(); }
+    })
+  );
+}
+</script>
+<script type="text/babel">
+const {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip: RTooltip, Legend, ResponsiveContainer, LabelList
+} = window.Recharts || {};
+const { FileDown, EyeOff, Eye, Settings, X: XIcon } = window.lucideReact || {};
+
+window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChange }) {
+  const [layout, setLayout] = React.useState('vertical');
+  const [hiddenKeys, setHiddenKeys] = React.useState(new Set());
+  const [barSize, setBarSize] = React.useState(32);
+  const [showLabels, setShowLabels] = React.useState(true);
+  const [showGrid, setShowGrid] = React.useState(true);
+  const [showLegend, setShowLegend] = React.useState(true);
+  const [showSettings, setShowSettings] = React.useState(false);
+  const [showPanel, setShowPanel] = React.useState(false);
+  const [panelSearch, setPanelSearch] = React.useState('');
+  const [showNotesPaste, setShowNotesPaste] = React.useState(false);
+  const [notesPasteRaw, setNotesPasteRaw] = React.useState('');
+  const chartRef = React.useRef(null);
+
+  const visible = React.useMemo(
+    () => data.filter(d => !hiddenKeys.has(d.patente)),
+    [data, hiddenKeys]
+  );
+
+  const toggle = key => setHiddenKeys(prev => {
+    const n = new Set(prev);
+    n.has(key) ? n.delete(key) : n.add(key);
+    return n;
+  });
+
+  const exportImg = async (mode = 'download') => {
+    const el = chartRef.current; if (!el) return;
+    const EXPORT_W = 1200;
+    const saved = { pos: el.style.position, left: el.style.left, top: el.style.top, width: el.style.width };
+    const restore = () => { el.style.position = saved.pos; el.style.left = saved.left; el.style.top = saved.top; el.style.width = saved.width; };
+    try {
+      el.style.position = 'fixed'; el.style.left = '0'; el.style.top = '0'; el.style.width = EXPORT_W + 'px';
+      await new Promise(r => setTimeout(r, 200));
+      const canvas = await html2canvas(el, { backgroundColor: '#fff', scale: 2, useCORS: true, logging: false, windowWidth: EXPORT_W });
+      restore();
+      if (mode === 'copy') {
+        canvas.toBlob(blob => { if (blob) navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); });
+      } else {
+        const link = document.createElement('a'); link.download = 'grafico_rutas.png'; link.href = canvas.toDataURL('image/png'); link.click();
+      }
+    } catch(e) { restore(); }
+  };
+
+  const applyNotesPaste = () => {
+    const lines = notesPasteRaw.split(/\r?\n/).filter(l => l.trim());
+    lines.forEach(l => {
+      const sep = l.includes('\t') ? '\t' : ',';
+      const parts = l.split(sep);
+      const veh = (parts[0] || '').trim();
+      const note = (parts.slice(1).join(sep) || '').trim();
+      if (veh && onNoteChange) onNoteChange(veh, note);
+    });
+    setShowNotesPaste(false); setNotesPasteRaw('');
+  };
+
+  const chartH = layout === 'horizontal' ? Math.max(500, visible.length * (barSize + 8) + 100) : 560;
+
+  const fmt = v => v != null ? v + '%' : '';
+
+  if (!data.length) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'80%',opacity:0.35,flexDirection:'column',gap:12}}>
+      <div style={{fontSize:56}}>📊</div>
+      <div style={{fontWeight:700,fontSize:16}}>Sin datos para graficar</div>
+      <div style={{fontSize:12,color:'#a1a1aa'}}>Carga un plan o CSV en Configurar</div>
+    </div>
+  );
+
+  return (
+    <div style={{fontFamily:"'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",padding:'12px 16px',display:'flex',flexDirection:'column',gap:10,minHeight:'100%'}}>
+      <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',padding:'6px 10px',borderRadius:8,border:'1px solid rgba(0,0,0,0.07)',background:'rgba(250,250,249,0.95)',boxShadow:'0 2px 8px rgba(0,0,0,0.05)'}}>
+        <div style={{display:'flex',background:'rgba(0,0,0,0.05)',borderRadius:6,padding:3,gap:2}}>
+          {[['vertical','Barras ↕'],['horizontal','Barras →']].map(([l,lbl])=>(
+            <button key={l} onClick={()=>setLayout(l)}
+              style={{padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:700,border:'none',cursor:'pointer',
+                      background:layout===l?'#fff':'transparent',color:layout===l?'#2563eb':'#a1a1aa',
+                      boxShadow:layout===l?'0 1px 3px rgba(0,0,0,0.12)':'none',fontFamily:'inherit'}}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <div style={{width:1,height:20,background:'rgba(0,0,0,0.1)',margin:'0 4px'}}/>
+        <button onClick={()=>setShowPanel(p=>!p)}
+          style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
+                  border:'none',cursor:'pointer',fontFamily:'inherit',
+                  background:showPanel||hiddenKeys.size>0?'rgba(37,99,235,0.1)':'rgba(0,0,0,0.04)',
+                  color:showPanel||hiddenKeys.size>0?'#2563eb':'#a1a1aa'}}>
+          {hiddenKeys.size > 0 ? <EyeOff size={12}/> : <Eye size={12}/>}
+          {' '}Ocultar{hiddenKeys.size>0?` (${hiddenKeys.size})`:''}
+        </button>
+        <button onClick={()=>setShowSettings(p=>!p)}
+          style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
+                  border:'none',cursor:'pointer',fontFamily:'inherit',
+                  background:showSettings?'rgba(124,58,237,0.1)':'rgba(0,0,0,0.04)',
+                  color:showSettings?'#7c3aed':'#a1a1aa'}}>
+          <Settings size={12}/> Config
+        </button>
+        <div style={{flex:1}}/>
+        <button onClick={()=>exportImg('download')}
+          style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
+                  border:'1px solid rgba(0,0,0,0.1)',background:'rgba(0,0,0,0.03)',color:'#52525b',cursor:'pointer',fontFamily:'inherit'}}>
+          <FileDown size={12}/> PNG
+        </button>
+        <button onClick={()=>exportImg('copy')}
+          style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
+                  border:'1px solid rgba(0,0,0,0.1)',background:'rgba(0,0,0,0.03)',color:'#52525b',cursor:'pointer',fontFamily:'inherit'}}>
+          Copiar img
+        </button>
+      </div>
+
+      {showPanel && (
+        <div style={{padding:'8px 12px',borderRadius:8,border:'1px solid rgba(0,0,0,0.08)',background:'rgba(249,250,251,0.98)',display:'flex',flexDirection:'column',gap:6}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:'#a1a1aa'}}>Visibilidad:</span>
+            <button onClick={()=>setHiddenKeys(new Set())}
+              style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(22,163,74,0.4)',background:'rgba(22,163,74,0.08)',color:'#16a34a',cursor:'pointer',fontFamily:'inherit'}}>
+              Mostrar todo
+            </button>
+            <button onClick={()=>setHiddenKeys(new Set(data.map(d=>d.patente)))}
+              style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(220,38,38,0.4)',background:'rgba(220,38,38,0.06)',color:'#dc2626',cursor:'pointer',fontFamily:'inherit'}}>
+              Ocultar todo
+            </button>
+            <span style={{fontSize:9,color:'#a1a1aa'}}>{data.length - hiddenKeys.size} de {data.length} visibles</span>
+            <div style={{marginLeft:'auto'}}>
+              <input value={panelSearch} onChange={e=>setPanelSearch(e.target.value)}
+                placeholder="Buscar…" style={{padding:'2px 8px',borderRadius:4,border:'1px solid rgba(0,0,0,0.1)',fontSize:9,fontFamily:'inherit',outline:'none',width:120}}/>
+            </div>
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:90,overflowY:'auto'}}>
+            {data.filter(d => !panelSearch || d.patente.toLowerCase().includes(panelSearch.toLowerCase())).map(d => {
+              const hidden = hiddenKeys.has(d.patente);
+              const hasNote = !!(notes[d.patente] || (d.altName && notes[d.altName]));
+              return (
+                <button key={d.patente} onClick={()=>toggle(d.patente)}
+                  style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',
+                          border:`1px solid ${hidden?'rgba(0,0,0,0.1)':hasNote?'rgba(124,58,237,0.4)':'rgba(37,99,235,0.35)'}`,
+                          background:hidden?'rgba(0,0,0,0.04)':hasNote?'rgba(124,58,237,0.07)':'rgba(37,99,235,0.07)',
+                          color:hidden?'#a1a1aa':hasNote?'#7c3aed':'#2563eb',
+                          opacity:hidden?0.5:1,textDecoration:hidden?'line-through':'none'}}>
+                  {d.patente}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid rgba(124,58,237,0.2)',background:'rgba(250,248,255,0.98)',display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:'#7c3aed'}}>Configuración</span>
+            <button onClick={()=>setShowSettings(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#a1a1aa',lineHeight:1}}><XIcon size={14}/></button>
+          </div>
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>Tamaño barras</span>
+              <div style={{display:'flex',gap:3}}>
+                {[['XS',16],['S',24],['M',32],['L',48],['XL',64]].map(([lbl,sz])=>(
+                  <button key={sz} onClick={()=>setBarSize(sz)}
+                    style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:'inherit',
+                            background:barSize===sz?'#7c3aed':'rgba(0,0,0,0.05)',
+                            color:barSize===sz?'#fff':'#a1a1aa'}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            {[['Mostrar % completado', showLabels, setShowLabels],
+              ['Mostrar leyenda', showLegend, setShowLegend],
+              ['Mostrar grilla', showGrid, setShowGrid]].map(([lbl,val,setter])=>(
+              <div key={lbl} style={{display:'flex',flexDirection:'column',gap:4}}>
+                <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>{lbl}</span>
+                <button onClick={()=>setter(p=>!p)}
+                  style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:'inherit',
+                          background:val?'#7c3aed':'rgba(0,0,0,0.05)',color:val?'#fff':'#a1a1aa'}}>{val?'ON':'OFF'}</button>
+              </div>
+            ))}
+          </div>
+          <div style={{borderTop:'1px solid rgba(124,58,237,0.15)',paddingTop:8,display:'flex',flexDirection:'column',gap:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>
+                Notas por vehículo
+              </span>
+              <button onClick={()=>setShowNotesPaste(p=>!p)}
+                style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'1px solid rgba(124,58,237,0.3)',background:'rgba(124,58,237,0.07)',color:'#7c3aed',cursor:'pointer',fontFamily:'inherit'}}>
+                Pegar tabla
+              </button>
+            </div>
+            {showNotesPaste && (
+              <div style={{display:'flex',gap:6}}>
+                <textarea value={notesPasteRaw} onChange={e=>setNotesPasteRaw(e.target.value)}
+                  placeholder={'VPV01\tJuan Pérez\nVPV02\tPedro Rojas'}
+                  style={{flex:1,height:60,padding:6,borderRadius:4,border:'1px solid rgba(124,58,237,0.25)',fontSize:9,fontFamily:'monospace',outline:'none',resize:'none'}}/>
+                <button onClick={applyNotesPaste}
+                  style={{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(124,58,237,0.4)',background:'rgba(124,58,237,0.1)',color:'#7c3aed',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                  Aplicar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div ref={chartRef} style={{background:'#fff',borderRadius:10,border:'1px solid rgba(0,0,0,0.08)',padding:'12px 16px'}}>
+        <div style={{textAlign:'center',marginBottom:8,fontSize:15,fontWeight:800,color:'#18181b',letterSpacing:'-0.02em'}}>
+          Estado de Vehículos / Patentes — {visible.length} mostrados
+        </div>
+        <div style={{width:'100%',height:chartH,overflow:layout==='horizontal'?'visible':'auto'}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={visible}
+              layout={layout === 'horizontal' ? 'vertical' : 'horizontal'}
+              margin={layout === 'horizontal'
+                ? {top:10, right:80, left:110, bottom:10}
+                : {top:30, right:20, left:20, bottom:80}}
+              barCategoryGap="20%">
+              {showGrid && <CartesianGrid strokeDasharray="3 3" opacity={0.12}
+                horizontal={layout==='vertical'} vertical={layout==='horizontal'}/>}
+              {layout === 'vertical'
+                ? <>
+                    <XAxis dataKey="patente" angle={-40} textAnchor="end" height={80} interval={0}
+                      tick={{fontSize:10,fill:'#71717a'}}/>
+                    <YAxis tick={{fontSize:10,fill:'#71717a'}} label={{value:'ISOs',angle:-90,position:'insideLeft',fill:'#a1a1aa',fontSize:10}}/>
+                  </>
+                : <>
+                    <XAxis type="number" tick={{fontSize:10,fill:'#71717a'}} label={{value:'ISOs',position:'insideBottom',offset:-5,fill:'#a1a1aa',fontSize:10}}/>
+                    <YAxis dataKey="patente" type="category" width={110} tick={{fontSize:10,fill:'#71717a'}}/>
+                  </>
+              }
+              <RTooltip
+                cursor={{fill:'rgba(0,0,0,0.03)'}}
+                contentStyle={{borderRadius:6,border:'1px solid rgba(0,0,0,0.09)',fontSize:11,fontWeight:700}}
+                formatter={(value,name)=>[value,name]}
+                labelFormatter={label=>{const d=visible.find(x=>x.patente===label);return d?.altName?`${label} (${d.altName})`:label;}}/>
+              {showLegend && <Legend wrapperStyle={{fontSize:11,paddingTop:8}}/>}
+              <Bar dataKey="Terminado" stackId="s" fill="#16a34a" barSize={barSize}/>
+              <Bar dataKey="En Ruta"   stackId="s" fill="#2563eb" barSize={barSize}/>
+              <Bar dataKey="Rebajada"  stackId="s" fill="#dc2626" barSize={barSize}/>
+              <Bar dataKey="Pendiente" stackId="s" fill="#d4d4d8" barSize={barSize}>
+                {showLabels && (
+                  <LabelList dataKey="avance"
+                    position={layout==='horizontal'?'right':'top'}
+                    offset={6}
+                    formatter={fmt}
+                    style={{fill:'#18181b',fontSize:10,fontWeight:800}}/>
+                )}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
 </script>
 </body>
 </html>
