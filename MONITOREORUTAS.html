@@ -12,7 +12,6 @@
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script src="https://unpkg.com/recharts@2.1.16/umd/Recharts.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1696,10 +1695,9 @@ test('computeKPIs patente dominante',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
   loadPlan(); renderConfig(); runSelfTests(); setTabHelp('configurar');
-  // Red de seguridad: si tras 8s React/Babel no compilaron los componentes
-  // (p.ej. sin conexión a los CDN), avisamos en vez de dejar "Cargando…" para siempre.
+  // Red de seguridad: si tras 8s React o Recharts no cargaron desde CDN, avisamos.
   setTimeout(()=>{
-    const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo carga React, Babel y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
+    const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo requiere React y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
     if(!window.MR_DashTab){ const d=document.getElementById('dashRoot'); if(d)d.innerHTML=msg; }
     if(!window.GraficoChart){ const g=document.getElementById('graficoRoot'); if(g)g.innerHTML=msg; }
   },8000);
@@ -1745,601 +1743,2092 @@ function renderGrafico() {
   );
 }
 </script>
-<script type="text/babel">
-(function(){
-const DS={
-  text:'#18181B',textSub:'#52525B',textFaint:'#A1A1AA',textMuted:'#71717A',
-  bg:'#FAFAF9',bgCard:'#FFFFFF',bgCardAlt:'rgba(0,0,0,0.026)',bgHover:'rgba(0,0,0,0.042)',
-  border:'rgba(0,0,0,0.09)',borderSoft:'rgba(0,0,0,0.06)',
-  green:'#16A34A',greenBg:'rgba(22,163,74,0.10)',greenBorder:'rgba(22,163,74,0.22)',
-  red:'#DC2626',redBg:'rgba(220,38,38,0.10)',redBorder:'rgba(220,38,38,0.22)',
-  blue:'#2563EB',blueBg:'rgba(37,99,235,0.08)',blueBorder:'rgba(37,99,235,0.25)',
-  orange:'#EA580C',orangeBg:'rgba(234,88,12,0.08)',orangeBorder:'rgba(234,88,12,0.25)',
-  purple:'#7C3AED',purpleBg:'rgba(124,58,237,0.08)',purpleBorder:'rgba(124,58,237,0.25)',
-  sky:'#0EA5E9',pasteGray:'#F4F4F5',pasteBlue:'#EFF6FF',
-  fontBase:"'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",
-  fontMono:"'Geist Mono','JetBrains Mono',ui-monospace,monospace"
-};
-const ChevDown=window.lucideReact?.ChevronDown||(()=><span>▼</span>);
-const FileDn=window.lucideReact?.FileDown||(()=><span>↓</span>);
-
-function tGrad(pct){const p=Math.max(0,Math.min(100,pct));if(p>=100)return{bg:'rgba(22,163,74,.18)',txt:'#16A34A'};if(p>=90)return{bg:'rgba(202,138,4,.15)',txt:'#CA8A04'};if(p>=50)return{bg:'rgba(234,88,12,.12)',txt:'#EA580C'};return{bg:'rgba(220,38,38,.12)',txt:'#DC2626'};}
-function fPct(v){return parseFloat(v.toFixed(1)).toString().replace('.',',')+' %';}
-function gMotivo3(raw){if(!raw||!raw.trim())return'Transporte No Gestiona';const m=raw.toUpperCase().trim();if(m.includes('SIN MORADOR')||m.includes('MORADOR'))return'Sin Moradores';if(m.includes('DIRECCI')||m.includes('SIN INFORMACI'))return'Problema de Dirección';if(m.includes('SINIESTRO'))return'Siniestro En Calle';if(m.includes('PRODUCTO NO CARGADO')||m.includes('NO CARGADO'))return'Producto No Cargado';if(m.includes('RECHAZ'))return'Cliente Rechaza';return'Transporte No Gestiona';}
-function gMotivo2(m3){return(m3==='Sin Moradores'||m3==='Problema de Dirección'||m3==='Cliente Rechaza')?'Cliente':'Transporte';}
-function getK(row,key){const k=Object.keys(row).find(k=>k.trim().toLowerCase()===key.toLowerCase());return k?row[k]:null;}
-
-function KPICard({title,value,color,progress}){
-  return <div style={{padding:'16px 18px',borderRadius:8,border:`1px solid ${DS.borderSoft}`,background:DS.bgCard,display:'flex',flexDirection:'column',gap:8}}>
-    <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',color:DS.textFaint,fontWeight:700}}>{title}</div>
-    <div style={{fontSize:28,fontWeight:900,color:color||DS.text,fontFamily:DS.fontMono,lineHeight:1}}>{value}</div>
-    {typeof progress==='number'&&<div style={{width:'100%',height:4,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:color||DS.text,borderRadius:99,width:`${Math.min(100,progress)}%`,transition:'width 0.8s'}}/></div>}
-  </div>;
-}
-
-function MRRegionDropdown({allRegions,selected,onChange}){
-  const[open,setOpen]=React.useState(false);
-  const[pos,setPos]=React.useState({top:0,left:0});
-  const btnRef=React.useRef(null);const panelRef=React.useRef(null);
-  const rmR=React.useMemo(()=>allRegions.filter(r=>r.toLowerCase().includes('metropolitana')),[allRegions]);
-  const rxR=React.useMemo(()=>allRegions.filter(r=>!r.toLowerCase().includes('metropolitana')),[allRegions]);
-  const isAll=selected.size===0;
-  const isRM=!isAll&&rmR.length>0&&selected.size===rmR.length&&rmR.every(r=>selected.has(r));
-  const isRX=!isAll&&rxR.length>0&&selected.size===rxR.length&&rxR.every(r=>selected.has(r));
-  const label=isAll?'Todas las regiones':isRM?'RM':isRX?'RX':selected.size===1?[...selected][0]:`${selected.size} regiones`;
-  const isChecked=r=>selected.size===0||selected.has(r);
-  const toggle=r=>onChange(prev=>{const base=prev.size===0?new Set(allRegions):new Set(prev);if(base.has(r)){base.delete(r);if(base.size===0)return new Set();}else{base.add(r);if(base.size===allRegions.length)return new Set();}return base;});
-  const handleOpen=()=>{if(btnRef.current){const rect=btnRef.current.getBoundingClientRect();setPos({top:rect.bottom+4,left:rect.left});}setOpen(o=>!o);};
-  React.useEffect(()=>{const h=e=>{if(panelRef.current&&!panelRef.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target))setOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
-  const qBtn=(lbl,active,fn)=><button key={lbl} onClick={fn} style={{padding:'3px 10px',borderRadius:99,border:`1px solid ${active?DS.blue:DS.border}`,background:active?DS.blueBg:'transparent',fontSize:9,fontWeight:700,cursor:'pointer',color:active?DS.blue:DS.textSub,fontFamily:DS.fontBase}}>{lbl}</button>;
-  return <div style={{display:'inline-block'}}>
-    <button ref={btnRef} onClick={handleOpen} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:6,border:`1px solid ${DS.border}`,background:DS.bgCardAlt,fontSize:11,fontWeight:700,cursor:'pointer',color:DS.textSub,fontFamily:DS.fontBase}}>
-      Región: <span style={{color:DS.text}}>{label}</span><ChevDown size={12}/>
-    </button>
-    {open&&ReactDOM.createPortal(
-      <div ref={panelRef} style={{position:'fixed',top:pos.top,left:pos.left,zIndex:9990,width:270,background:'#fff',border:`1px solid ${DS.border}`,borderRadius:8,boxShadow:'0 8px 30px rgba(0,0,0,0.15)',overflow:'hidden'}}>
-        <div style={{padding:'8px 12px',borderBottom:`1px solid ${DS.borderSoft}`,display:'flex',gap:6,flexWrap:'wrap'}}>
-          {qBtn('Todas',isAll,()=>onChange(new Set()))}
-          {rmR.length>0&&qBtn('RM',isRM,()=>onChange(new Set(rmR)))}
-          {rxR.length>0&&qBtn('RX',isRX,()=>onChange(new Set(rxR)))}
-        </div>
-        <div style={{maxHeight:260,overflowY:'auto',padding:'4px 0'}}>
-          {allRegions.map(r=>{const active=isChecked(r);return <button key={r} onClick={()=>toggle(r)} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 14px',width:'100%',border:'none',background:'transparent',cursor:'pointer',fontSize:11,fontWeight:600,color:DS.text,fontFamily:DS.fontBase,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background=DS.bgHover} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-            <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${active?DS.blue:DS.border}`,background:active?DS.blue:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.1s'}}>
-              {active&&<span style={{color:'#fff',fontSize:9,lineHeight:1,fontWeight:900}}>✓</span>}
-            </div>
-            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r}</span>
-          </button>;})}
-        </div>
-      </div>,
-      document.body
-    )}
-  </div>;
-}
-
-function MR_DashTab({data,rawRows,allRegions}){
-  const dashRef=React.useRef(null);
-  const[selRegions,setSelRegions]=React.useState(new Set());
-  const[exporting,setExporting]=React.useState(false);
-  const[excOvr,setExcOvr]=React.useState(new Set());
-  const[motiOvr,setMotiOvr]=React.useState(new Set());
-  const toggleMoti=React.useCallback(tipo=>setMotiOvr(prev=>{const n=new Set(prev);n.has(tipo)?n.delete(tipo):n.add(tipo);return n;}),[]);
-  const deferred=React.useDeferredValue(selRegions);
-  const filteredR=React.useMemo(()=>deferred.size===0?allRegions:allRegions.filter(r=>deferred.has(r)),[deferred,allRegions]);
-
-  const kpis=React.useMemo(()=>{
-    if(!data)return{total:0,terminados:0,enRuta:0,pendientes:0,avance:0};
-    let total=0,terminados=0,enRuta=0,pendientes=0;
-    filteredR.forEach(r=>{const rd=data.regions[r];if(!rd)return;total+=rd.orders.size;Object.keys(rd.estados).forEach(e=>{const v=rd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))terminados+=v;else if(el.includes('en ruta')||el.includes('enruta'))enRuta+=v;else if(el.includes('pendiente'))pendientes+=v;});});
-    return{total,terminados,enRuta,pendientes,avance:total>0?Math.round((terminados/total)*100):0};
-  },[data,filteredR]);
-
-  const critPat=React.useMemo(()=>{
-    if(!data)return[];
-    const pm={};
-    filteredR.forEach(r=>{const rd=data.regions[r];if(!rd)return;Object.entries(rd.patentes).forEach(([pat,pd])=>{if(!pm[pat])pm[pat]={patente:pat,total:0,terminados:0,pendientes:0};pm[pat].total+=pd.orders.size;Object.keys(pd.estados).forEach(e=>{const v=pd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))pm[pat].terminados+=v;if(el.includes('pendiente'))pm[pat].pendientes+=v;});});});
-    return Object.values(pm).filter(p=>p.total>0).map(p=>({...p,avance:p.total>0?Math.round((p.terminados/p.total)*100):0})).sort((a,b)=>a.avance-b.avance).slice(0,10);
-  },[data,filteredR]);
-
-  const motivosData=React.useMemo(()=>{
-    if(!rawRows.length)return[];
-    const mm={};
-    rawRows.forEach(row=>{
-      const commerce=(getK(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
-      const region=(getK(row,'Region')||'Sin Región').trim();
-      if(deferred.size>0&&!deferred.has(region))return;
-      const estado=(getK(row,'Estado')||'').toLowerCase();if(!estado.includes('pendiente'))return;
-      const po=(getK(row,'ParentOrder')||'').trim();if(!po)return;
-      const motivo=((getK(row,'Motivo No Entrega')||getK(row,'MotivoNoEntrega')||getK(row,'Motivo')||'').trim())||'Sin motivo';
-      if(!mm[motivo])mm[motivo]=new Set();
-      mm[motivo].add(po);
-    });
-    const total=Object.values(mm).reduce((a,s)=>a+s.size,0);
-    return Object.entries(mm).map(([tipo,poSet])=>({tipo,cantidad:poSet.size,pct:total>0?Math.round((poSet.size/total)*100):0})).sort((a,b)=>b.cantidad-a.cantidad);
-  },[rawRows,deferred]);
-
-  const sectData=React.useMemo(()=>{
-    if(!data)return[];
-    const empMap={};
-    rawRows.forEach(row=>{const region=(getK(row,'Region')||'Sin Región').trim();const emp=(getK(row,'Empresa')||getK(row,'Transportista')||'').trim();if(!empMap[region])empMap[region]=new Set();if(emp)empMap[region].add(emp);});
-    return filteredR.map(r=>{const rd=data.regions[r];if(!rd)return null;let terminados=0,enRuta=0;Object.keys(rd.estados).forEach(e=>{const v=rd.estados[e].size;const el=e.toLowerCase();if(el.includes('terminado'))terminados+=v;if(el.includes('en ruta')||el.includes('enruta'))enRuta+=v;});const total=rd.orders.size;return{region:r,patentes:Object.keys(rd.patentes).length,empresas:empMap[r]?empMap[r].size:0,terminados,enRuta,total,avance:total>0?Math.round((terminados/total)*100):0};}).filter(Boolean);
-  },[data,filteredR,rawRows]);
-
-  const sectPatData=React.useMemo(()=>{
-    if(!data||!rawRows.length)return[];
-    const result={};
-    rawRows.forEach(row=>{
-      const commerce=(getK(row,'Commerce')||'').trim();if(!commerce.toLowerCase().startsWith('i'))return;
-      const region=(getK(row,'Region')||'Sin Región').trim();
-      if(deferred.size>0&&!deferred.has(region))return;
-      const patente=(getK(row,'Patente')||'').trim();if(!patente)return;
-      const estado=(getK(row,'Estado')||'Sin Estado').trim();
-      const gestion=(getK(row,'Gestión')||getK(row,'GESTIÓN')||'DIRECTO').trim().toUpperCase();
-      const po=(getK(row,'ParentOrder')||'').trim();
-      const key=`${region}||${patente}||${gestion}`;
-      if(!result[key])result[key]={region,patente,gestion,orders:new Set(),terminados:new Set(),enRuta:new Set(),pendientes:new Set()};
-      result[key].orders.add(po);
-      const el=estado.toLowerCase();
-      if(el.includes('terminado'))result[key].terminados.add(po);
-      else if(el.includes('en ruta')||el.includes('enruta'))result[key].enRuta.add(po);
-      else if(el.includes('pendiente'))result[key].pendientes.add(po);
-    });
-    return Object.values(result).map(r=>({region:r.region,patente:r.patente,gestion:r.gestion,total:r.orders.size,terminados:r.terminados.size,enRuta:r.enRuta.size,pendientes:r.pendientes.size,avance:r.orders.size>0?Math.round((r.terminados.size/r.orders.size)*100):0})).sort((a,b)=>a.region.localeCompare(b.region)||a.patente.localeCompare(b.patente));
-  },[data,rawRows,deferred]);
-
-  const excData=React.useMemo(()=>{
-    if(!data||!data.incidenciasByPatente)return[];
-    const rows=[];
-    Object.entries(data.incidenciasByPatente).forEach(([pat,inc])=>{
-      if(deferred.size>0&&!deferred.has(inc.region))return;
-      const mm={};
-      inc.eventos.forEach(ev=>{const k=ev.motivo||'Sin motivo';if(!mm[k])mm[k]={ordenes:0,fotos:[],isos:[]};mm[k].ordenes++;mm[k].fotos.push(...ev.fotos);if(ev.iso&&!mm[k].isos.includes(ev.iso))mm[k].isos.push(ev.iso);});
-      Object.entries(mm).forEach(([motivo,md])=>{const m3=gMotivo3(motivo);const m2=gMotivo2(m3);rows.push({region:inc.region,empresa:inc.empresa,patente:pat,motivo,ordenes:md.ordenes,fotos:md.fotos,isos:md.isos,m2,m3});});
-    });
-    return rows.sort((a,b)=>b.ordenes-a.ordenes);
-  },[data,deferred]);
-
-  const exportPDF=async()=>{
-    const el=dashRef.current;if(!el)return;
-    setExporting(true);
-    try{
-      const canvas=await html2canvas(el,{backgroundColor:'#ffffff',scale:1.5,useCORS:true,logging:false,windowWidth:1100,ignoreElements:e=>e.hasAttribute&&e.hasAttribute('data-html2canvas-ignore')});
-      const jpdf=window.jspdf;if(!jpdf){setExporting(false);return;}
-      const{jsPDF}=jpdf;const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-      const pdfW=pdf.internal.pageSize.getWidth();const pdfH=pdf.internal.pageSize.getHeight();
-      const ratio=pdfW/canvas.width;let sliceY=0;let page=0;
-      while(sliceY<canvas.height){if(page>0)pdf.addPage();const sliceH=Math.min(pdfH/ratio,canvas.height-sliceY);const sc=document.createElement('canvas');sc.width=canvas.width;sc.height=Math.ceil(sliceH);const ctx=sc.getContext('2d');ctx.drawImage(canvas,0,sliceY,canvas.width,Math.ceil(sliceH),0,0,canvas.width,Math.ceil(sliceH));pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pdfW,sliceH*ratio);sliceY+=sliceH;page++;}
-      const fecha=new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
-      pdf.save(`Dashboard_Rutas_${fecha}.pdf`);
-    }catch(e){console.error(e);}
-    finally{setExporting(false);}
+<script>
+(function () {
+  const DS = {
+    text: '#18181B',
+    textSub: '#52525B',
+    textFaint: '#A1A1AA',
+    textMuted: '#71717A',
+    bg: '#FAFAF9',
+    bgCard: '#FFFFFF',
+    bgCardAlt: 'rgba(0,0,0,0.026)',
+    bgHover: 'rgba(0,0,0,0.042)',
+    border: 'rgba(0,0,0,0.09)',
+    borderSoft: 'rgba(0,0,0,0.06)',
+    green: '#16A34A',
+    greenBg: 'rgba(22,163,74,0.10)',
+    greenBorder: 'rgba(22,163,74,0.22)',
+    red: '#DC2626',
+    redBg: 'rgba(220,38,38,0.10)',
+    redBorder: 'rgba(220,38,38,0.22)',
+    blue: '#2563EB',
+    blueBg: 'rgba(37,99,235,0.08)',
+    blueBorder: 'rgba(37,99,235,0.25)',
+    orange: '#EA580C',
+    orangeBg: 'rgba(234,88,12,0.08)',
+    orangeBorder: 'rgba(234,88,12,0.25)',
+    purple: '#7C3AED',
+    purpleBg: 'rgba(124,58,237,0.08)',
+    purpleBorder: 'rgba(124,58,237,0.25)',
+    sky: '#0EA5E9',
+    pasteGray: '#F4F4F5',
+    pasteBlue: '#EFF6FF',
+    fontBase: "'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",
+    fontMono: "'Geist Mono','JetBrains Mono',ui-monospace,monospace"
   };
-
-  const ST=t=><div style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:DS.textFaint,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${DS.borderSoft}`}}>{t}</div>;
-  const dashBadge=selRegions.size===0?'Global':selRegions.size===1?[...selRegions][0]:`${selRegions.size} regiones`;
-
-  if(!data)return <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:16,opacity:0.35}}><div style={{fontSize:60}}>📊</div><div style={{fontSize:16,fontWeight:700}}>Sin datos procesados</div></div>;
-
-  return <div style={{position:'absolute',inset:0,overflow:'auto',padding:'12px 20px',background:DS.bg,fontFamily:DS.fontBase}}>
-    {/* Sticky toolbar */}
-    <div data-html2canvas-ignore style={{display:'flex',gap:8,alignItems:'center',marginBottom:14,position:'sticky',top:0,zIndex:20,padding:'6px 12px',borderRadius:8,border:`1px solid rgba(0,0,0,0.06)`,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',backdropFilter:'blur(12px)',background:'rgba(250,250,249,0.92)'}}>
-      <MRRegionDropdown allRegions={allRegions} selected={selRegions} onChange={setSelRegions}/>
-      <div style={{flex:1}}/>
-      <button onClick={exportPDF} disabled={exporting} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:6,background:'#18181B',color:'#fff',border:'1px solid rgba(0,0,0,0.06)',fontSize:10,fontWeight:700,cursor:exporting?'not-allowed':'pointer',opacity:exporting?0.6:1,fontFamily:DS.fontBase}}>
-        <FileDn size={13}/>{exporting?'Generando...':'Descargar PDF'}
-      </button>
-    </div>
-
-    <div ref={dashRef} style={{maxWidth:1100,margin:'0 auto',display:'flex',flexDirection:'column',gap:18,background:'#fff',padding:24,borderRadius:12,border:`1px solid ${DS.borderSoft}`,boxShadow:'0 4px 20px rgba(0,0,0,0.04)'}}>
-      {/* Header */}
-      <div style={{paddingBottom:14,borderBottom:`1px solid ${DS.borderSoft}`,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-        <div>
-          <div style={{fontSize:20,fontWeight:900,color:DS.text,letterSpacing:'-0.03em'}}>Dashboard de Control</div>
-          <div style={{fontSize:10,color:DS.textFaint,marginTop:3}}>{new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-        </div>
-        <span style={{display:'inline-flex',alignItems:'center',fontSize:9,fontWeight:700,padding:'3px 10px',borderRadius:99,background:DS.blueBg,color:DS.blue,border:`1px solid ${DS.blueBorder}`}}>{dashBadge}</span>
-      </div>
-
-      {/* KPI grid */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
-        <KPICard title="Total Órdenes (ISO)" value={kpis.total} color={DS.sky}/>
-        <KPICard title="Entregados" value={kpis.terminados} color={DS.green}/>
-        <KPICard title="En Ruta" value={kpis.enRuta} color={DS.orange}/>
-        <KPICard title="Avance %" value={`${kpis.avance}%`} color={kpis.avance>=90?DS.green:kpis.avance>=50?'#CA8A04':DS.red} progress={kpis.avance}/>
-      </div>
-
-      {/* Critical patentes + Motivos */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
-        <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
-          {ST('Top 10 Patentes Críticas')}
-          {critPat.length===0
-            ?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos</div>
-            :<table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
-              <thead><tr>{['Patente','Total','Entregados','Pend.','Avance'].map(h=><th key={h} style={{textAlign:h==='Patente'?'left':'right',padding:'5px 7px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`}}>{h}</th>)}</tr></thead>
-              <tbody>{critPat.map((p,i)=>{const g=tGrad(p.avance);return <tr key={p.patente} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 7px',fontWeight:800,color:DS.text}}>{p.patente}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.textFaint}}>{p.total}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.green,fontWeight:700}}>{p.terminados}</td><td style={{padding:'6px 7px',textAlign:'right',color:DS.red,fontWeight:700}}>{p.pendientes}</td><td style={{padding:'6px 7px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,background:g.bg,padding:'2px 7px',borderRadius:99,fontSize:9}}>{p.avance}%</span></td></tr>;})}</tbody>
-            </table>}
-        </div>
-        <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
-          {ST('Motivos de No Entrega')}
-          {motivosData.length===0
-            ?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos de motivos</div>
-            :<div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {motivosData.slice(0,10).map(m=>{const isOvr=motiOvr.has(m.tipo);return <div key={m.tipo} style={{display:'flex',flexDirection:'column',gap:3}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:9,fontWeight:700,gap:5}}>
-                  <span style={{color:DS.text,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={m.tipo}>{m.tipo}</span>
-                  <span style={{color:DS.textFaint,flexShrink:0}}>{m.cantidad} · {m.pct}%</span>
-                  <button data-html2canvas-ignore onClick={()=>toggleMoti(m.tipo)} style={{fontSize:8,fontWeight:700,padding:'2px 6px',borderRadius:4,border:`1px solid ${isOvr?'rgba(234,88,12,0.5)':'rgba(37,99,235,0.35)'}`,background:isOvr?DS.orangeBg:DS.blueBg,color:isOvr?DS.orange:DS.blue,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{isOvr?'↩ Revertir':'⇄ Forzar TNG'}</button>
-                </div>
-                <div style={{width:'100%',height:4,background:'rgba(0,0,0,0.05)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:isOvr?DS.orange:DS.red,borderRadius:99,width:`${m.pct}%`,opacity:0.7}}/></div>
-              </div>;})}{motivosData.length>10&&<div style={{fontSize:8,color:DS.textFaint,textAlign:'center',marginTop:3}}>+{motivosData.length-10} motivos más</div>}
-            </div>}
-        </div>
-      </div>
-
-      {/* Excepciones */}
-      {excData.length>0&&<div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
-        {ST(`Detalle de Excepciones · ${excData.length} registros`)}
-        <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
-            <thead><tr>{['Región','Transporte','Patente','Motivo','Responsable','Categoría','Órdenes','ISOs',''].map(h=><th key={h} style={{textAlign:h==='Órdenes'?'right':'left',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
-            <tbody>
-              {excData.slice(0,50).map((row,i)=>{const excKey=row.region+'|'+row.patente+'|'+row.motivo;const isOvr=excOvr.has(excKey)||motiOvr.has(row.motivo);const effM2=isOvr?'Transporte':row.m2;const effM3=isOvr?'Transporte No Gestiona':row.m3;const toggleOvr=()=>setExcOvr(prev=>{const n=new Set(prev);n.has(excKey)?n.delete(excKey):n.add(excKey);return n;});return <tr key={i} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}>
-                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:DS.pasteGray,color:DS.textSub,border:`1px solid ${DS.border}`}}>{row.region}</span></td>
-                <td style={{padding:'5px 8px',fontWeight:600,fontSize:10}}>{row.empresa}</td>
-                <td style={{padding:'5px 8px',fontWeight:800,color:DS.text}}>{row.patente}</td>
-                <td style={{padding:'5px 8px',color:DS.text,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={row.motivo}>{row.motivo}</td>
-                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:effM2==='Cliente'?DS.blueBg:DS.orangeBg,color:effM2==='Cliente'?DS.blue:DS.orange,border:`1px solid ${effM2==='Cliente'?DS.blueBorder:DS.orangeBorder}`}}>{effM2}</span></td>
-                <td style={{padding:'5px 8px',color:DS.textSub,fontSize:9,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={effM3}>{effM3}</td>
-                <td style={{padding:'5px 8px',textAlign:'right',fontWeight:700,color:DS.orange}}>{row.ordenes}</td>
-                <td style={{padding:'5px 8px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:8,color:DS.textFaint}} title={row.isos&&row.isos.join(', ')}>{row.isos&&row.isos.length>0?row.isos.join(', '):'—'}</td>
-                <td style={{padding:'5px 6px'}} data-html2canvas-ignore><button onClick={toggleOvr} style={{fontSize:8,fontWeight:700,padding:'2px 6px',borderRadius:4,border:`1px solid ${isOvr?'rgba(234,88,12,0.5)':'rgba(37,99,235,0.35)'}`,background:isOvr?DS.orangeBg:DS.blueBg,color:isOvr?DS.orange:DS.blue,cursor:'pointer',whiteSpace:'nowrap'}}>{isOvr?'↩ Revertir':'⇄ Forzar'}</button></td>
-              </tr>;})}
-              {excData.length>50&&<tr><td colSpan={9} style={{padding:'6px 8px',textAlign:'center',fontSize:8,color:DS.textFaint}}>+{excData.length-50} registros más</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>}
-
-      {/* Sectorizado por Región */}
-      <div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
-        {ST('Detalle Sectorizado por Región')}
-        {sectData.length===0?<div style={{textAlign:'center',padding:20,opacity:0.3,fontSize:10}}>Sin datos</div>:
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
-          <thead><tr>{['Región','Patentes','Empresas','Entregados','En Ruta','Total','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'?'left':'right',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`}}>{h}</th>)}</tr></thead>
-          <tbody>{sectData.map((row,i)=>{const g=tGrad(row.avance);return <tr key={row.region} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.01)'}}><td style={{padding:'6px 8px',fontWeight:700,color:DS.sky}}>{row.region}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textSub}}>{row.patentes}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textSub}}>{row.empresas||'—'}</td><td style={{padding:'6px 8px',textAlign:'right',fontWeight:700,color:DS.green}}>{row.terminados}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.orange}}>{row.enRuta}</td><td style={{padding:'6px 8px',textAlign:'right',color:DS.textFaint}}>{row.total}</td><td style={{padding:'6px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,fontSize:9}}>{row.avance}%</span></td><td style={{padding:'6px 8px',minWidth:80}}><div style={{width:'100%',height:5,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 0.8s'}}/></div></td></tr>;})}
-          </tbody>
-        </table>}
-      </div>
-
-      {/* Detalle por patente y tipo */}
-      {sectPatData.length>0&&<div style={{background:'rgba(0,0,0,0.01)',borderRadius:8,border:`1px solid ${DS.borderSoft}`,padding:14}}>
-        {ST(`Detalle por Patente y Tipo · ${sectPatData.length} combinaciones`)}
-        <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,fontFamily:DS.fontMono}}>
-            <thead><tr>{['Región','Patente','Tipo','Total','Entregados','En Ruta','Pendientes','Avance',''].map(h=><th key={h} style={{textAlign:h===''||h==='Región'||h==='Patente'||h==='Tipo'?'left':'right',padding:'6px 8px',fontSize:8,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:DS.textFaint,borderBottom:`1px solid ${DS.borderSoft}`,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
-            <tbody>{sectPatData.map((row,i)=>{
-              const g=tGrad(row.avance);
-              const showR=i===0||sectPatData[i-1].region!==row.region;
-              const showP=i===0||sectPatData[i-1].patente!==row.patente||sectPatData[i-1].region!==row.region;
-              return <tr key={i} style={{borderBottom:`1px solid ${DS.borderSoft}`,background:i%2===0?'transparent':'rgba(0,0,0,0.012)'}}>
-                <td style={{padding:'5px 8px',fontWeight:showR?700:400,color:showR?DS.sky:DS.textFaint,fontSize:showR?10:9}}>{showR?row.region:'↳'}</td>
-                <td style={{padding:'5px 8px',fontWeight:showP?800:400,color:showP?DS.text:DS.textFaint}}>{showP?row.patente:''}</td>
-                <td style={{padding:'5px 8px'}}><span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:3,background:DS.pasteGray,color:DS.textSub,border:`1px solid ${DS.border}`}}>{row.gestion}</span></td>
-                <td style={{padding:'5px 8px',textAlign:'right',color:DS.textFaint}}>{row.total}</td>
-                <td style={{padding:'5px 8px',textAlign:'right',fontWeight:700,color:DS.green}}>{row.terminados}</td>
-                <td style={{padding:'5px 8px',textAlign:'right',color:DS.orange}}>{row.enRuta}</td>
-                <td style={{padding:'5px 8px',textAlign:'right',color:DS.red}}>{row.pendientes}</td>
-                <td style={{padding:'5px 8px',textAlign:'right'}}><span style={{fontWeight:900,color:g.txt,fontSize:9}}>{row.avance}%</span></td>
-                <td style={{padding:'5px 8px',minWidth:70}}><div style={{width:'100%',height:4,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:g.txt,borderRadius:99,width:`${row.avance}%`,transition:'width 0.8s'}}/></div></td>
-              </tr>;
-            })}</tbody>
-          </table>
-        </div>
-      </div>}
-
-      <div style={{textAlign:'center',fontSize:8,color:DS.textFaint,paddingTop:8,borderTop:`1px solid ${DS.borderSoft}`}}>Generado el {new Date().toLocaleString('es-CL')}</div>
-    </div>
-  </div>;
-}
-
-window.MR_DashTab = MR_DashTab;
-})();
-if(typeof renderDashboard==='function') renderDashboard();
-</script>
-<script type="text/babel">
-(function(){
-const RC = window.Recharts || {};
-const BarChart = RC.BarChart, Bar = RC.Bar, XAxis = RC.XAxis, YAxis = RC.YAxis,
-      CartesianGrid = RC.CartesianGrid, RTooltip = RC.Tooltip, Legend = RC.Legend,
-      ResponsiveContainer = RC.ResponsiveContainer, LabelList = RC.LabelList;
-const LR = window.lucideReact || {};
-const FileDown   = LR.FileDown   || (()=><span style={{fontSize:10}}>↓</span>);
-const EyeOff     = LR.EyeOff     || (()=><span style={{fontSize:10}}>⊘</span>);
-const Eye        = LR.Eye        || (()=><span style={{fontSize:10}}>◉</span>);
-const SettingsIc = LR.Settings   || (()=><span style={{fontSize:10}}>⚙</span>);
-const XIcon      = LR.X          || (()=><span style={{fontSize:10}}>✕</span>);
-
-function ChartTickV({x,y,payload,notes}){
-  const note=notes&&notes[payload.value];
-  return <g transform={`translate(${x},${y})`}>
-    <text x={0} y={0} dy={note?2:8} textAnchor="end" fill="#636c76" fontSize={10} fontWeight={note?700:400} transform="rotate(-45)">{payload.value}</text>
-    {note&&<text x={0} y={18} textAnchor="end" fill="#8b5cf6" fontSize={8} transform="rotate(-45)">{note.length>14?note.slice(0,14)+'…':note}</text>}
-  </g>;
-}
-function ChartTickH({x,y,payload,notes}){
-  const note=notes&&notes[payload.value];
-  return <g>
-    <text x={x-4} y={note?y-5:y} textAnchor="end" dominantBaseline="middle" fill="#636c76" fontSize={10} fontWeight={note?700:400}>{payload.value}</text>
-    {note&&<text x={x-4} y={y+7} textAnchor="end" dominantBaseline="middle" fill="#8b5cf6" fontSize={8}>{note.length>24?note.slice(0,24)+'…':note}</text>}
-  </g>;
-}
-
-window.GraficoChart = function GraficoChart({ data = [], notes = {}, onNoteChange }) {
-  const [layout, setLayout] = React.useState('vertical');
-  const [hiddenKeys, setHiddenKeys] = React.useState(new Set());
-  const [barSize, setBarSize] = React.useState(32);
-  const [showLabels, setShowLabels] = React.useState(true);
-  const [showGrid, setShowGrid] = React.useState(true);
-  const [showLegend, setShowLegend] = React.useState(true);
-  const [showSettings, setShowSettings] = React.useState(false);
-  const [showPanel, setShowPanel] = React.useState(false);
-  const [panelSearch, setPanelSearch] = React.useState('');
-  const [showNotesPaste, setShowNotesPaste] = React.useState(false);
-  const [notesPasteRaw, setNotesPasteRaw] = React.useState('');
-  const chartRef = React.useRef(null);
-
-  if (!BarChart || !ResponsiveContainer) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',minHeight:300,flexDirection:'column',gap:8,color:'#71717a'}}>
-      <div style={{fontSize:28}}>⚠️</div>
-      <div style={{fontWeight:700,fontSize:13}}>Recharts no disponible</div>
-      <div style={{fontSize:11}}>Verifica tu conexión y recarga la página</div>
-    </div>
-  );
-
-  const visible = React.useMemo(
-    () => data.filter(d => !hiddenKeys.has(d.patente)),
-    [data, hiddenKeys]
-  );
-
-  const toggle = key => setHiddenKeys(prev => {
-    const n = new Set(prev);
-    n.has(key) ? n.delete(key) : n.add(key);
-    return n;
-  });
-
-  const exportImg = async (mode = 'download') => {
-    const el = chartRef.current; if (!el) return;
-    const EXPORT_W = 1200;
-    const saved = { pos: el.style.position, left: el.style.left, top: el.style.top, width: el.style.width };
-    const restore = () => { el.style.position = saved.pos; el.style.left = saved.left; el.style.top = saved.top; el.style.width = saved.width; };
-    try {
-      el.style.position = 'fixed'; el.style.left = '0'; el.style.top = '0'; el.style.width = EXPORT_W + 'px';
-      await new Promise(r => setTimeout(r, 200));
-      const canvas = await html2canvas(el, { backgroundColor: '#fff', scale: 2, useCORS: true, logging: false, windowWidth: EXPORT_W });
-      restore();
-      if (mode === 'copy') {
-        canvas.toBlob(blob => { if (blob) navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); });
-      } else {
-        const link = document.createElement('a'); link.download = 'grafico_rutas.png'; link.href = canvas.toDataURL('image/png'); link.click();
+  const ChevDown = window.lucideReact?.ChevronDown || (() => /*#__PURE__*/React.createElement("span", null, "▼"));
+  const FileDn = window.lucideReact?.FileDown || (() => /*#__PURE__*/React.createElement("span", null, "↓"));
+  function tGrad(pct) {
+    const p = Math.max(0, Math.min(100, pct));
+    if (p >= 100) return {
+      bg: 'rgba(22,163,74,.18)',
+      txt: '#16A34A'
+    };
+    if (p >= 90) return {
+      bg: 'rgba(202,138,4,.15)',
+      txt: '#CA8A04'
+    };
+    if (p >= 50) return {
+      bg: 'rgba(234,88,12,.12)',
+      txt: '#EA580C'
+    };
+    return {
+      bg: 'rgba(220,38,38,.12)',
+      txt: '#DC2626'
+    };
+  }
+  function fPct(v) {
+    return parseFloat(v.toFixed(1)).toString().replace('.', ',') + ' %';
+  }
+  function gMotivo3(raw) {
+    if (!raw || !raw.trim()) return 'Transporte No Gestiona';
+    const m = raw.toUpperCase().trim();
+    if (m.includes('SIN MORADOR') || m.includes('MORADOR')) return 'Sin Moradores';
+    if (m.includes('DIRECCI') || m.includes('SIN INFORMACI')) return 'Problema de Dirección';
+    if (m.includes('SINIESTRO')) return 'Siniestro En Calle';
+    if (m.includes('PRODUCTO NO CARGADO') || m.includes('NO CARGADO')) return 'Producto No Cargado';
+    if (m.includes('RECHAZ')) return 'Cliente Rechaza';
+    return 'Transporte No Gestiona';
+  }
+  function gMotivo2(m3) {
+    return m3 === 'Sin Moradores' || m3 === 'Problema de Dirección' || m3 === 'Cliente Rechaza' ? 'Cliente' : 'Transporte';
+  }
+  function getK(row, key) {
+    const k = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
+    return k ? row[k] : null;
+  }
+  function KPICard({
+    title,
+    value,
+    color,
+    progress
+  }) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '16px 18px',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        background: DS.bgCard,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8
       }
-    } catch(e) { restore(); }
-  };
-
-  const applyNotesPaste = () => {
-    const lines = notesPasteRaw.split(/\r?\n/).filter(l => l.trim());
-    lines.forEach(l => {
-      const sep = l.includes('\t') ? '\t' : ',';
-      const parts = l.split(sep);
-      const veh = (parts[0] || '').trim();
-      const note = (parts.slice(1).join(sep) || '').trim();
-      if (veh && onNoteChange) onNoteChange(veh, note);
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        color: DS.textFaint,
+        fontWeight: 700
+      }
+    }, title), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 28,
+        fontWeight: 900,
+        color: color || DS.text,
+        fontFamily: DS.fontMono,
+        lineHeight: 1
+      }
+    }, value), typeof progress === 'number' && /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: '100%',
+        height: 4,
+        background: 'rgba(0,0,0,0.06)',
+        borderRadius: 99,
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: '100%',
+        background: color || DS.text,
+        borderRadius: 99,
+        width: `${Math.min(100, progress)}%`,
+        transition: 'width 0.8s'
+      }
+    })));
+  }
+  function MRRegionDropdown({
+    allRegions,
+    selected,
+    onChange
+  }) {
+    const [open, setOpen] = React.useState(false);
+    const [pos, setPos] = React.useState({
+      top: 0,
+      left: 0
     });
-    setShowNotesPaste(false); setNotesPasteRaw('');
-  };
-
-  const chartH = layout === 'horizontal' ? Math.max(500, visible.length * (barSize + 8) + 100) : 560;
-
-  const fmt = v => v != null ? v + '%' : '';
-
-  if (!data.length) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',minHeight:300,flexDirection:'column',gap:12}}>
-      <div style={{fontSize:56}}>📊</div>
-      <div style={{fontWeight:700,fontSize:16,color:'#52525B'}}>Sin datos para graficar</div>
-      <div style={{fontSize:12,color:'#a1a1aa'}}>Carga un plan o CSV en Configurar</div>
-    </div>
-  );
-
-  return (
-    <div style={{fontFamily:"'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",padding:'12px 16px',display:'flex',flexDirection:'column',gap:10,minHeight:'100%'}}>
-      <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',padding:'6px 10px',borderRadius:8,border:'1px solid rgba(0,0,0,0.07)',background:'rgba(250,250,249,0.95)',boxShadow:'0 2px 8px rgba(0,0,0,0.05)'}}>
-        <div style={{display:'flex',background:'rgba(0,0,0,0.05)',borderRadius:6,padding:3,gap:2}}>
-          {[['vertical','Barras ↕'],['horizontal','Barras →']].map(([l,lbl])=>(
-            <button key={l} onClick={()=>setLayout(l)}
-              style={{padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:700,border:'none',cursor:'pointer',
-                      background:layout===l?'#fff':'transparent',color:layout===l?'#2563eb':'#a1a1aa',
-                      boxShadow:layout===l?'0 1px 3px rgba(0,0,0,0.12)':'none',fontFamily:'inherit'}}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        <div style={{width:1,height:20,background:'rgba(0,0,0,0.1)',margin:'0 4px'}}/>
-        <button onClick={()=>setShowPanel(p=>!p)}
-          style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
-                  border:'none',cursor:'pointer',fontFamily:'inherit',
-                  background:showPanel||hiddenKeys.size>0?'rgba(37,99,235,0.1)':'rgba(0,0,0,0.04)',
-                  color:showPanel||hiddenKeys.size>0?'#2563eb':'#a1a1aa'}}>
-          {hiddenKeys.size > 0 ? <EyeOff size={12}/> : <Eye size={12}/>}
-          {' '}Ocultar{hiddenKeys.size>0?` (${hiddenKeys.size})`:''}
-        </button>
-        <button onClick={()=>setShowSettings(p=>!p)}
-          style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
-                  border:'none',cursor:'pointer',fontFamily:'inherit',
-                  background:showSettings?'rgba(124,58,237,0.1)':'rgba(0,0,0,0.04)',
-                  color:showSettings?'#7c3aed':'#a1a1aa'}}>
-          <SettingsIc size={12}/> Config
-        </button>
-        <div style={{flex:1}}/>
-        <button onClick={()=>exportImg('download')}
-          style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
-                  border:'1px solid rgba(0,0,0,0.1)',background:'rgba(0,0,0,0.03)',color:'#52525b',cursor:'pointer',fontFamily:'inherit'}}>
-          <FileDown size={12}/> PNG
-        </button>
-        <button onClick={()=>exportImg('copy')}
-          style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:6,fontSize:10,fontWeight:700,
-                  border:'1px solid rgba(0,0,0,0.1)',background:'rgba(0,0,0,0.03)',color:'#52525b',cursor:'pointer',fontFamily:'inherit'}}>
-          Copiar img
-        </button>
-      </div>
-
-      {showPanel && (
-        <div style={{padding:'8px 12px',borderRadius:8,border:'1px solid rgba(0,0,0,0.08)',background:'rgba(249,250,251,0.98)',display:'flex',flexDirection:'column',gap:6}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-            <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:'#a1a1aa'}}>Visibilidad:</span>
-            <button onClick={()=>setHiddenKeys(new Set())}
-              style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(22,163,74,0.4)',background:'rgba(22,163,74,0.08)',color:'#16a34a',cursor:'pointer',fontFamily:'inherit'}}>
-              Mostrar todo
-            </button>
-            <button onClick={()=>setHiddenKeys(new Set(data.map(d=>d.patente)))}
-              style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,border:'1px solid rgba(220,38,38,0.4)',background:'rgba(220,38,38,0.06)',color:'#dc2626',cursor:'pointer',fontFamily:'inherit'}}>
-              Ocultar todo
-            </button>
-            <span style={{fontSize:9,color:'#a1a1aa'}}>{data.length - hiddenKeys.size} de {data.length} visibles</span>
-            <div style={{marginLeft:'auto'}}>
-              <input value={panelSearch} onChange={e=>setPanelSearch(e.target.value)}
-                placeholder="Buscar…" style={{padding:'2px 8px',borderRadius:4,border:'1px solid rgba(0,0,0,0.1)',fontSize:9,fontFamily:'inherit',outline:'none',width:120}}/>
-            </div>
-          </div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:90,overflowY:'auto'}}>
-            {data.filter(d => !panelSearch || d.patente.toLowerCase().includes(panelSearch.toLowerCase())).map(d => {
-              const hidden = hiddenKeys.has(d.patente);
-              const hasNote = !!(notes[d.patente] || (d.altName && notes[d.altName]));
-              return (
-                <button key={d.patente} onClick={()=>toggle(d.patente)}
-                  style={{padding:'2px 8px',borderRadius:99,fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',
-                          border:`1px solid ${hidden?'rgba(0,0,0,0.1)':hasNote?'rgba(124,58,237,0.4)':'rgba(37,99,235,0.35)'}`,
-                          background:hidden?'rgba(0,0,0,0.04)':hasNote?'rgba(124,58,237,0.07)':'rgba(37,99,235,0.07)',
-                          color:hidden?'#a1a1aa':hasNote?'#7c3aed':'#2563eb',
-                          opacity:hidden?0.5:1,textDecoration:hidden?'line-through':'none'}}>
-                  {d.patente}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {showSettings && (
-        <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid rgba(124,58,237,0.2)',background:'rgba(250,248,255,0.98)',display:'flex',flexDirection:'column',gap:10}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.08em',color:'#7c3aed'}}>Configuración</span>
-            <button onClick={()=>setShowSettings(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#a1a1aa',lineHeight:1}}><XIcon size={14}/></button>
-          </div>
-          <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
-            <div style={{display:'flex',flexDirection:'column',gap:4}}>
-              <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>Tamaño barras</span>
-              <div style={{display:'flex',gap:3}}>
-                {[['XS',16],['S',24],['M',32],['L',48],['XL',64]].map(([lbl,sz])=>(
-                  <button key={sz} onClick={()=>setBarSize(sz)}
-                    style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:'inherit',
-                            background:barSize===sz?'#7c3aed':'rgba(0,0,0,0.05)',
-                            color:barSize===sz?'#fff':'#a1a1aa'}}>{lbl}</button>
-                ))}
-              </div>
-            </div>
-            {[['Mostrar % completado', showLabels, setShowLabels],
-              ['Mostrar leyenda', showLegend, setShowLegend],
-              ['Mostrar grilla', showGrid, setShowGrid]].map(([lbl,val,setter])=>(
-              <div key={lbl} style={{display:'flex',flexDirection:'column',gap:4}}>
-                <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>{lbl}</span>
-                <button onClick={()=>setter(p=>!p)}
-                  style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'none',cursor:'pointer',fontFamily:'inherit',
-                          background:val?'#7c3aed':'rgba(0,0,0,0.05)',color:val?'#fff':'#a1a1aa'}}>{val?'ON':'OFF'}</button>
-              </div>
-            ))}
-          </div>
-          <div style={{borderTop:'1px solid rgba(124,58,237,0.15)',paddingTop:8,display:'flex',flexDirection:'column',gap:6}}>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#a1a1aa'}}>
-                Notas por vehículo
-              </span>
-              <button onClick={()=>setShowNotesPaste(p=>!p)}
-                style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:700,border:'1px solid rgba(124,58,237,0.3)',background:'rgba(124,58,237,0.07)',color:'#7c3aed',cursor:'pointer',fontFamily:'inherit'}}>
-                Pegar tabla
-              </button>
-            </div>
-            {showNotesPaste && (
-              <div style={{display:'flex',gap:6}}>
-                <textarea value={notesPasteRaw} onChange={e=>setNotesPasteRaw(e.target.value)}
-                  placeholder={'VPV01\tJuan Pérez\nVPV02\tPedro Rojas'}
-                  style={{flex:1,height:60,padding:6,borderRadius:4,border:'1px solid rgba(124,58,237,0.25)',fontSize:9,fontFamily:'monospace',outline:'none',resize:'none'}}/>
-                <button onClick={applyNotesPaste}
-                  style={{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(124,58,237,0.4)',background:'rgba(124,58,237,0.1)',color:'#7c3aed',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
-                  Aplicar
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div ref={chartRef} style={{background:'#fff',borderRadius:10,border:'1px solid rgba(0,0,0,0.08)',padding:'12px 16px'}}>
-        <div style={{textAlign:'center',marginBottom:8,fontSize:15,fontWeight:800,color:'#18181b',letterSpacing:'-0.02em'}}>
-          Estado de Vehículos / Patentes — {visible.length} mostrados
-        </div>
-        <div style={{width:'100%',height:chartH,overflow:layout==='horizontal'?'visible':'auto'}}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={visible}
-              layout={layout === 'horizontal' ? 'vertical' : 'horizontal'}
-              margin={layout === 'horizontal'
-                ? {top:10, right:80, left:100, bottom:20}
-                : {top:35, right:20, left:20, bottom:60}}
-              barCategoryGap="20%">
-              {showGrid && <CartesianGrid strokeDasharray="3 3" opacity={0.1}
-                horizontal={layout==='vertical'} vertical={layout==='horizontal'}/>}
-              {layout === 'vertical'
-                ? <>
-                    <XAxis dataKey="patente" interval={0}
-                      height={Object.values(notes).some(v=>v)?100:80}
-                      tick={<ChartTickV notes={notes}/>}
-                      label={{value:'Patentes / Vehículos',position:'bottom',offset:0,fill:'#636c76',fontSize:10}}/>
-                    <YAxis tick={{fontSize:10,fill:'#636c76'}}
-                      label={{value:'Cantidad de ISOs',angle:-90,position:'insideLeft',offset:10,fill:'#636c76',fontSize:10,style:{textAnchor:'middle'}}}/>
-                  </>
-                : <>
-                    <XAxis type="number" tick={{fontSize:10,fill:'#636c76'}}
-                      label={{value:'Cantidad de ISOs',position:'bottom',offset:-5,fill:'#636c76',fontSize:10}}/>
-                    <YAxis dataKey="patente" type="category"
-                      width={Object.values(notes).some(v=>v)?105:90}
-                      tick={<ChartTickH notes={notes}/>}
-                      label={{value:'Patentes / Vehículos',angle:-90,position:'insideLeft',offset:10,fill:'#636c76',fontSize:10,style:{textAnchor:'middle'}}}/>
-                  </>
-              }
-              <RTooltip
-                cursor={{fill:'rgba(0,0,0,0.03)'}}
-                contentStyle={{backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.09)',borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.1)',fontSize:12,fontWeight:700}}
-                formatter={(value,name)=>name==='dummy'?null:[value,name]}
-                labelFormatter={label=>{const d=visible.find(x=>x.patente===label);const n=notes[label];const base=d?.altName?`${label} (${d.altName})`:label;return n?`${base} — ${n}`:base;}}/>
-              {showLegend && <Legend align="center" verticalAlign="bottom" wrapperStyle={{paddingTop:16,fontSize:11}}/>}
-              <Bar dataKey="Terminado" stackId="s" fill="#22c55e" radius={[0,0,0,0]} barSize={barSize}/>
-              <Bar dataKey="En Ruta"   stackId="s" fill="#ef4444" radius={[0,0,0,0]} barSize={barSize}/>
-              <Bar dataKey="Pendiente" stackId="s" fill="#eab308" radius={[4,4,0,0]} barSize={barSize}/>
-              <Bar dataKey="dummy" stackId="s" fill="transparent" isAnimationActive={false} barSize={barSize}>
-                {showLabels && <LabelList dataKey="avance"
-                  position={layout==='horizontal'?'right':'top'}
-                  offset={8}
-                  formatter={fmt}
-                  style={{fill:'#1f2328',fontSize:11,fontWeight:900,textAnchor:'middle'}}/>}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-};
+    const btnRef = React.useRef(null);
+    const panelRef = React.useRef(null);
+    const rmR = React.useMemo(() => allRegions.filter(r => r.toLowerCase().includes('metropolitana')), [allRegions]);
+    const rxR = React.useMemo(() => allRegions.filter(r => !r.toLowerCase().includes('metropolitana')), [allRegions]);
+    const isAll = selected.size === 0;
+    const isRM = !isAll && rmR.length > 0 && selected.size === rmR.length && rmR.every(r => selected.has(r));
+    const isRX = !isAll && rxR.length > 0 && selected.size === rxR.length && rxR.every(r => selected.has(r));
+    const label = isAll ? 'Todas las regiones' : isRM ? 'RM' : isRX ? 'RX' : selected.size === 1 ? [...selected][0] : `${selected.size} regiones`;
+    const isChecked = r => selected.size === 0 || selected.has(r);
+    const toggle = r => onChange(prev => {
+      const base = prev.size === 0 ? new Set(allRegions) : new Set(prev);
+      if (base.has(r)) {
+        base.delete(r);
+        if (base.size === 0) return new Set();
+      } else {
+        base.add(r);
+        if (base.size === allRegions.length) return new Set();
+      }
+      return base;
+    });
+    const handleOpen = () => {
+      if (btnRef.current) {
+        const rect = btnRef.current.getBoundingClientRect();
+        setPos({
+          top: rect.bottom + 4,
+          left: rect.left
+        });
+      }
+      setOpen(o => !o);
+    };
+    React.useEffect(() => {
+      const h = e => {
+        if (panelRef.current && !panelRef.current.contains(e.target) && btnRef.current && !btnRef.current.contains(e.target)) setOpen(false);
+      };
+      document.addEventListener('mousedown', h);
+      return () => document.removeEventListener('mousedown', h);
+    }, []);
+    const qBtn = (lbl, active, fn) => /*#__PURE__*/React.createElement("button", {
+      key: lbl,
+      onClick: fn,
+      style: {
+        padding: '3px 10px',
+        borderRadius: 99,
+        border: `1px solid ${active ? DS.blue : DS.border}`,
+        background: active ? DS.blueBg : 'transparent',
+        fontSize: 9,
+        fontWeight: 700,
+        cursor: 'pointer',
+        color: active ? DS.blue : DS.textSub,
+        fontFamily: DS.fontBase
+      }
+    }, lbl);
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'inline-block'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      ref: btnRef,
+      onClick: handleOpen,
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        borderRadius: 6,
+        border: `1px solid ${DS.border}`,
+        background: DS.bgCardAlt,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: 'pointer',
+        color: DS.textSub,
+        fontFamily: DS.fontBase
+      }
+    }, "Región: ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: DS.text
+      }
+    }, label), /*#__PURE__*/React.createElement(ChevDown, {
+      size: 12
+    })), open && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+      ref: panelRef,
+      style: {
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        zIndex: 9990,
+        width: 270,
+        background: '#fff',
+        border: `1px solid ${DS.border}`,
+        borderRadius: 8,
+        boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '8px 12px',
+        borderBottom: `1px solid ${DS.borderSoft}`,
+        display: 'flex',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, qBtn('Todas', isAll, () => onChange(new Set())), rmR.length > 0 && qBtn('RM', isRM, () => onChange(new Set(rmR))), rxR.length > 0 && qBtn('RX', isRX, () => onChange(new Set(rxR)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxHeight: 260,
+        overflowY: 'auto',
+        padding: '4px 0'
+      }
+    }, allRegions.map(r => {
+      const active = isChecked(r);
+      return /*#__PURE__*/React.createElement("button", {
+        key: r,
+        onClick: () => toggle(r),
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '6px 14px',
+          width: '100%',
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          fontSize: 11,
+          fontWeight: 600,
+          color: DS.text,
+          fontFamily: DS.fontBase,
+          textAlign: 'left'
+        },
+        onMouseEnter: e => e.currentTarget.style.background = DS.bgHover,
+        onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: 14,
+          height: 14,
+          borderRadius: 3,
+          border: `2px solid ${active ? DS.blue : DS.border}`,
+          background: active ? DS.blue : 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          transition: 'all 0.1s'
+        }
+      }, active && /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: '#fff',
+          fontSize: 9,
+          lineHeight: 1,
+          fontWeight: 900
+        }
+      }, "✓")), /*#__PURE__*/React.createElement("span", {
+        style: {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }
+      }, r));
+    }))), document.body));
+  }
+  function MR_DashTab({
+    data,
+    rawRows,
+    allRegions
+  }) {
+    const dashRef = React.useRef(null);
+    const [selRegions, setSelRegions] = React.useState(new Set());
+    const [exporting, setExporting] = React.useState(false);
+    const [excOvr, setExcOvr] = React.useState(new Set());
+    const [motiOvr, setMotiOvr] = React.useState(new Set());
+    const toggleMoti = React.useCallback(tipo => setMotiOvr(prev => {
+      const n = new Set(prev);
+      n.has(tipo) ? n.delete(tipo) : n.add(tipo);
+      return n;
+    }), []);
+    const deferred = React.useDeferredValue(selRegions);
+    const filteredR = React.useMemo(() => deferred.size === 0 ? allRegions : allRegions.filter(r => deferred.has(r)), [deferred, allRegions]);
+    const kpis = React.useMemo(() => {
+      if (!data) return {
+        total: 0,
+        terminados: 0,
+        enRuta: 0,
+        pendientes: 0,
+        avance: 0
+      };
+      let total = 0,
+        terminados = 0,
+        enRuta = 0,
+        pendientes = 0;
+      filteredR.forEach(r => {
+        const rd = data.regions[r];
+        if (!rd) return;
+        total += rd.orders.size;
+        Object.keys(rd.estados).forEach(e => {
+          const v = rd.estados[e].size;
+          const el = e.toLowerCase();
+          if (el.includes('terminado')) terminados += v;else if (el.includes('en ruta') || el.includes('enruta')) enRuta += v;else if (el.includes('pendiente')) pendientes += v;
+        });
+      });
+      return {
+        total,
+        terminados,
+        enRuta,
+        pendientes,
+        avance: total > 0 ? Math.round(terminados / total * 100) : 0
+      };
+    }, [data, filteredR]);
+    const critPat = React.useMemo(() => {
+      if (!data) return [];
+      const pm = {};
+      filteredR.forEach(r => {
+        const rd = data.regions[r];
+        if (!rd) return;
+        Object.entries(rd.patentes).forEach(([pat, pd]) => {
+          if (!pm[pat]) pm[pat] = {
+            patente: pat,
+            total: 0,
+            terminados: 0,
+            pendientes: 0
+          };
+          pm[pat].total += pd.orders.size;
+          Object.keys(pd.estados).forEach(e => {
+            const v = pd.estados[e].size;
+            const el = e.toLowerCase();
+            if (el.includes('terminado')) pm[pat].terminados += v;
+            if (el.includes('pendiente')) pm[pat].pendientes += v;
+          });
+        });
+      });
+      return Object.values(pm).filter(p => p.total > 0).map(p => ({
+        ...p,
+        avance: p.total > 0 ? Math.round(p.terminados / p.total * 100) : 0
+      })).sort((a, b) => a.avance - b.avance).slice(0, 10);
+    }, [data, filteredR]);
+    const motivosData = React.useMemo(() => {
+      if (!rawRows.length) return [];
+      const mm = {};
+      rawRows.forEach(row => {
+        const commerce = (getK(row, 'Commerce') || '').trim();
+        if (!commerce.toLowerCase().startsWith('i')) return;
+        const region = (getK(row, 'Region') || 'Sin Región').trim();
+        if (deferred.size > 0 && !deferred.has(region)) return;
+        const estado = (getK(row, 'Estado') || '').toLowerCase();
+        if (!estado.includes('pendiente')) return;
+        const po = (getK(row, 'ParentOrder') || '').trim();
+        if (!po) return;
+        const motivo = (getK(row, 'Motivo No Entrega') || getK(row, 'MotivoNoEntrega') || getK(row, 'Motivo') || '').trim() || 'Sin motivo';
+        if (!mm[motivo]) mm[motivo] = new Set();
+        mm[motivo].add(po);
+      });
+      const total = Object.values(mm).reduce((a, s) => a + s.size, 0);
+      return Object.entries(mm).map(([tipo, poSet]) => ({
+        tipo,
+        cantidad: poSet.size,
+        pct: total > 0 ? Math.round(poSet.size / total * 100) : 0
+      })).sort((a, b) => b.cantidad - a.cantidad);
+    }, [rawRows, deferred]);
+    const sectData = React.useMemo(() => {
+      if (!data) return [];
+      const empMap = {};
+      rawRows.forEach(row => {
+        const region = (getK(row, 'Region') || 'Sin Región').trim();
+        const emp = (getK(row, 'Empresa') || getK(row, 'Transportista') || '').trim();
+        if (!empMap[region]) empMap[region] = new Set();
+        if (emp) empMap[region].add(emp);
+      });
+      return filteredR.map(r => {
+        const rd = data.regions[r];
+        if (!rd) return null;
+        let terminados = 0,
+          enRuta = 0;
+        Object.keys(rd.estados).forEach(e => {
+          const v = rd.estados[e].size;
+          const el = e.toLowerCase();
+          if (el.includes('terminado')) terminados += v;
+          if (el.includes('en ruta') || el.includes('enruta')) enRuta += v;
+        });
+        const total = rd.orders.size;
+        return {
+          region: r,
+          patentes: Object.keys(rd.patentes).length,
+          empresas: empMap[r] ? empMap[r].size : 0,
+          terminados,
+          enRuta,
+          total,
+          avance: total > 0 ? Math.round(terminados / total * 100) : 0
+        };
+      }).filter(Boolean);
+    }, [data, filteredR, rawRows]);
+    const sectPatData = React.useMemo(() => {
+      if (!data || !rawRows.length) return [];
+      const result = {};
+      rawRows.forEach(row => {
+        const commerce = (getK(row, 'Commerce') || '').trim();
+        if (!commerce.toLowerCase().startsWith('i')) return;
+        const region = (getK(row, 'Region') || 'Sin Región').trim();
+        if (deferred.size > 0 && !deferred.has(region)) return;
+        const patente = (getK(row, 'Patente') || '').trim();
+        if (!patente) return;
+        const estado = (getK(row, 'Estado') || 'Sin Estado').trim();
+        const gestion = (getK(row, 'Gestión') || getK(row, 'GESTIÓN') || 'DIRECTO').trim().toUpperCase();
+        const po = (getK(row, 'ParentOrder') || '').trim();
+        const key = `${region}||${patente}||${gestion}`;
+        if (!result[key]) result[key] = {
+          region,
+          patente,
+          gestion,
+          orders: new Set(),
+          terminados: new Set(),
+          enRuta: new Set(),
+          pendientes: new Set()
+        };
+        result[key].orders.add(po);
+        const el = estado.toLowerCase();
+        if (el.includes('terminado')) result[key].terminados.add(po);else if (el.includes('en ruta') || el.includes('enruta')) result[key].enRuta.add(po);else if (el.includes('pendiente')) result[key].pendientes.add(po);
+      });
+      return Object.values(result).map(r => ({
+        region: r.region,
+        patente: r.patente,
+        gestion: r.gestion,
+        total: r.orders.size,
+        terminados: r.terminados.size,
+        enRuta: r.enRuta.size,
+        pendientes: r.pendientes.size,
+        avance: r.orders.size > 0 ? Math.round(r.terminados.size / r.orders.size * 100) : 0
+      })).sort((a, b) => a.region.localeCompare(b.region) || a.patente.localeCompare(b.patente));
+    }, [data, rawRows, deferred]);
+    const excData = React.useMemo(() => {
+      if (!data || !data.incidenciasByPatente) return [];
+      const rows = [];
+      Object.entries(data.incidenciasByPatente).forEach(([pat, inc]) => {
+        if (deferred.size > 0 && !deferred.has(inc.region)) return;
+        const mm = {};
+        inc.eventos.forEach(ev => {
+          const k = ev.motivo || 'Sin motivo';
+          if (!mm[k]) mm[k] = {
+            ordenes: 0,
+            fotos: [],
+            isos: []
+          };
+          mm[k].ordenes++;
+          mm[k].fotos.push(...ev.fotos);
+          if (ev.iso && !mm[k].isos.includes(ev.iso)) mm[k].isos.push(ev.iso);
+        });
+        Object.entries(mm).forEach(([motivo, md]) => {
+          const m3 = gMotivo3(motivo);
+          const m2 = gMotivo2(m3);
+          rows.push({
+            region: inc.region,
+            empresa: inc.empresa,
+            patente: pat,
+            motivo,
+            ordenes: md.ordenes,
+            fotos: md.fotos,
+            isos: md.isos,
+            m2,
+            m3
+          });
+        });
+      });
+      return rows.sort((a, b) => b.ordenes - a.ordenes);
+    }, [data, deferred]);
+    const exportPDF = async () => {
+      const el = dashRef.current;
+      if (!el) return;
+      setExporting(true);
+      try {
+        const canvas = await html2canvas(el, {
+          backgroundColor: '#ffffff',
+          scale: 1.5,
+          useCORS: true,
+          logging: false,
+          windowWidth: 1100,
+          ignoreElements: e => e.hasAttribute && e.hasAttribute('data-html2canvas-ignore')
+        });
+        const jpdf = window.jspdf;
+        if (!jpdf) {
+          setExporting(false);
+          return;
+        }
+        const {
+          jsPDF
+        } = jpdf;
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = pdf.internal.pageSize.getHeight();
+        const ratio = pdfW / canvas.width;
+        let sliceY = 0;
+        let page = 0;
+        while (sliceY < canvas.height) {
+          if (page > 0) pdf.addPage();
+          const sliceH = Math.min(pdfH / ratio, canvas.height - sliceY);
+          const sc = document.createElement('canvas');
+          sc.width = canvas.width;
+          sc.height = Math.ceil(sliceH);
+          const ctx = sc.getContext('2d');
+          ctx.drawImage(canvas, 0, sliceY, canvas.width, Math.ceil(sliceH), 0, 0, canvas.width, Math.ceil(sliceH));
+          pdf.addImage(sc.toDataURL('image/png'), 'PNG', 0, 0, pdfW, sliceH * ratio);
+          sliceY += sliceH;
+          page++;
+        }
+        const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
+        pdf.save(`Dashboard_Rutas_${fecha}.pdf`);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setExporting(false);
+      }
+    };
+    const ST = t => /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        color: DS.textFaint,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: `1px solid ${DS.borderSoft}`
+      }
+    }, t);
+    const dashBadge = selRegions.size === 0 ? 'Global' : selRegions.size === 1 ? [...selRegions][0] : `${selRegions.size} regiones`;
+    if (!data) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: 16,
+        opacity: 0.35
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 60
+      }
+    }, "📊"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 16,
+        fontWeight: 700
+      }
+    }, "Sin datos procesados"));
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        inset: 0,
+        overflow: 'auto',
+        padding: '12px 20px',
+        background: DS.bg,
+        fontFamily: DS.fontBase
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      "data-html2canvas-ignore": true,
+      style: {
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        marginBottom: 14,
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
+        padding: '6px 12px',
+        borderRadius: 8,
+        border: `1px solid rgba(0,0,0,0.06)`,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+        backdropFilter: 'blur(12px)',
+        background: 'rgba(250,250,249,0.92)'
+      }
+    }, /*#__PURE__*/React.createElement(MRRegionDropdown, {
+      allRegions: allRegions,
+      selected: selRegions,
+      onChange: setSelRegions
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: exportPDF,
+      disabled: exporting,
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '5px 12px',
+        borderRadius: 6,
+        background: '#18181B',
+        color: '#fff',
+        border: '1px solid rgba(0,0,0,0.06)',
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: exporting ? 'not-allowed' : 'pointer',
+        opacity: exporting ? 0.6 : 1,
+        fontFamily: DS.fontBase
+      }
+    }, /*#__PURE__*/React.createElement(FileDn, {
+      size: 13
+    }), exporting ? 'Generando...' : 'Descargar PDF')), /*#__PURE__*/React.createElement("div", {
+      ref: dashRef,
+      style: {
+        maxWidth: 1100,
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 18,
+        background: '#fff',
+        padding: 24,
+        borderRadius: 12,
+        border: `1px solid ${DS.borderSoft}`,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        paddingBottom: 14,
+        borderBottom: `1px solid ${DS.borderSoft}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end'
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 20,
+        fontWeight: 900,
+        color: DS.text,
+        letterSpacing: '-0.03em'
+      }
+    }, "Dashboard de Control"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: DS.textFaint,
+        marginTop: 3
+      }
+    }, new Date().toLocaleDateString('es-CL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }))), /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        fontSize: 9,
+        fontWeight: 700,
+        padding: '3px 10px',
+        borderRadius: 99,
+        background: DS.blueBg,
+        color: DS.blue,
+        border: `1px solid ${DS.blueBorder}`
+      }
+    }, dashBadge)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4,1fr)',
+        gap: 12
+      }
+    }, /*#__PURE__*/React.createElement(KPICard, {
+      title: "Total Órdenes (ISO)",
+      value: kpis.total,
+      color: DS.sky
+    }), /*#__PURE__*/React.createElement(KPICard, {
+      title: "Entregados",
+      value: kpis.terminados,
+      color: DS.green
+    }), /*#__PURE__*/React.createElement(KPICard, {
+      title: "En Ruta",
+      value: kpis.enRuta,
+      color: DS.orange
+    }), /*#__PURE__*/React.createElement(KPICard, {
+      title: "Avance %",
+      value: `${kpis.avance}%`,
+      color: kpis.avance >= 90 ? DS.green : kpis.avance >= 50 ? '#CA8A04' : DS.red,
+      progress: kpis.avance
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 18
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(0,0,0,0.01)',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        padding: 14
+      }
+    }, ST('Top 10 Patentes Críticas'), critPat.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        padding: 20,
+        opacity: 0.3,
+        fontSize: 10
+      }
+    }, "Sin datos") : /*#__PURE__*/React.createElement("table", {
+      style: {
+        width: '100%',
+        borderCollapse: 'collapse',
+        fontSize: 10,
+        fontFamily: DS.fontMono
+      }
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Patente', 'Total', 'Entregados', 'Pend.', 'Avance'].map(h => /*#__PURE__*/React.createElement("th", {
+      key: h,
+      style: {
+        textAlign: h === 'Patente' ? 'left' : 'right',
+        padding: '5px 7px',
+        fontSize: 8,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: DS.textFaint,
+        borderBottom: `1px solid ${DS.borderSoft}`
+      }
+    }, h)))), /*#__PURE__*/React.createElement("tbody", null, critPat.map((p, i) => {
+      const g = tGrad(p.avance);
+      return /*#__PURE__*/React.createElement("tr", {
+        key: p.patente,
+        style: {
+          borderBottom: `1px solid ${DS.borderSoft}`,
+          background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'
+        }
+      }, /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 7px',
+          fontWeight: 800,
+          color: DS.text
+        }
+      }, p.patente), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 7px',
+          textAlign: 'right',
+          color: DS.textFaint
+        }
+      }, p.total), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 7px',
+          textAlign: 'right',
+          color: DS.green,
+          fontWeight: 700
+        }
+      }, p.terminados), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 7px',
+          textAlign: 'right',
+          color: DS.red,
+          fontWeight: 700
+        }
+      }, p.pendientes), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 7px',
+          textAlign: 'right'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 900,
+          color: g.txt,
+          background: g.bg,
+          padding: '2px 7px',
+          borderRadius: 99,
+          fontSize: 9
+        }
+      }, p.avance, "%")));
+    })))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(0,0,0,0.01)',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        padding: 14
+      }
+    }, ST('Motivos de No Entrega'), motivosData.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        padding: 20,
+        opacity: 0.3,
+        fontSize: 10
+      }
+    }, "Sin datos de motivos") : /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8
+      }
+    }, motivosData.slice(0, 10).map(m => {
+      const isOvr = motiOvr.has(m.tipo);
+      return /*#__PURE__*/React.createElement("div", {
+        key: m.tipo,
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: 9,
+          fontWeight: 700,
+          gap: 5
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: DS.text,
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        },
+        title: m.tipo
+      }, m.tipo), /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: DS.textFaint,
+          flexShrink: 0
+        }
+      }, m.cantidad, " · ", m.pct, "%"), /*#__PURE__*/React.createElement("button", {
+        "data-html2canvas-ignore": true,
+        onClick: () => toggleMoti(m.tipo),
+        style: {
+          fontSize: 8,
+          fontWeight: 700,
+          padding: '2px 6px',
+          borderRadius: 4,
+          border: `1px solid ${isOvr ? 'rgba(234,88,12,0.5)' : 'rgba(37,99,235,0.35)'}`,
+          background: isOvr ? DS.orangeBg : DS.blueBg,
+          color: isOvr ? DS.orange : DS.blue,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
+        }
+      }, isOvr ? '↩ Revertir' : '⇄ Forzar TNG')), /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: '100%',
+          height: 4,
+          background: 'rgba(0,0,0,0.05)',
+          borderRadius: 99,
+          overflow: 'hidden'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          height: '100%',
+          background: isOvr ? DS.orange : DS.red,
+          borderRadius: 99,
+          width: `${m.pct}%`,
+          opacity: 0.7
+        }
+      })));
+    }), motivosData.length > 10 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 8,
+        color: DS.textFaint,
+        textAlign: 'center',
+        marginTop: 3
+      }
+    }, "+", motivosData.length - 10, " motivos más")))), excData.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(0,0,0,0.01)',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        padding: 14
+      }
+    }, ST(`Detalle de Excepciones · ${excData.length} registros`), /*#__PURE__*/React.createElement("div", {
+      style: {
+        overflowX: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("table", {
+      style: {
+        width: '100%',
+        borderCollapse: 'collapse',
+        fontSize: 10,
+        fontFamily: DS.fontMono
+      }
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Región', 'Transporte', 'Patente', 'Motivo', 'Responsable', 'Categoría', 'Órdenes', 'ISOs', ''].map(h => /*#__PURE__*/React.createElement("th", {
+      key: h,
+      style: {
+        textAlign: h === 'Órdenes' ? 'right' : 'left',
+        padding: '6px 8px',
+        fontSize: 8,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: DS.textFaint,
+        borderBottom: `1px solid ${DS.borderSoft}`,
+        whiteSpace: 'nowrap'
+      }
+    }, h)))), /*#__PURE__*/React.createElement("tbody", null, excData.slice(0, 50).map((row, i) => {
+      const excKey = row.region + '|' + row.patente + '|' + row.motivo;
+      const isOvr = excOvr.has(excKey) || motiOvr.has(row.motivo);
+      const effM2 = isOvr ? 'Transporte' : row.m2;
+      const effM3 = isOvr ? 'Transporte No Gestiona' : row.m3;
+      const toggleOvr = () => setExcOvr(prev => {
+        const n = new Set(prev);
+        n.has(excKey) ? n.delete(excKey) : n.add(excKey);
+        return n;
+      });
+      return /*#__PURE__*/React.createElement("tr", {
+        key: i,
+        style: {
+          borderBottom: `1px solid ${DS.borderSoft}`,
+          background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'
+        }
+      }, /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 8,
+          fontWeight: 700,
+          padding: '1px 6px',
+          borderRadius: 3,
+          background: DS.pasteGray,
+          color: DS.textSub,
+          border: `1px solid ${DS.border}`
+        }
+      }, row.region)), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          fontWeight: 600,
+          fontSize: 10
+        }
+      }, row.empresa), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          fontWeight: 800,
+          color: DS.text
+        }
+      }, row.patente), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          color: DS.text,
+          maxWidth: 200,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        },
+        title: row.motivo
+      }, row.motivo), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 8,
+          fontWeight: 700,
+          padding: '1px 6px',
+          borderRadius: 3,
+          background: effM2 === 'Cliente' ? DS.blueBg : DS.orangeBg,
+          color: effM2 === 'Cliente' ? DS.blue : DS.orange,
+          border: `1px solid ${effM2 === 'Cliente' ? DS.blueBorder : DS.orangeBorder}`
+        }
+      }, effM2)), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          color: DS.textSub,
+          fontSize: 9,
+          maxWidth: 160,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        },
+        title: effM3
+      }, effM3), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right',
+          fontWeight: 700,
+          color: DS.orange
+        }
+      }, row.ordenes), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          maxWidth: 180,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: 8,
+          color: DS.textFaint
+        },
+        title: row.isos && row.isos.join(', ')
+      }, row.isos && row.isos.length > 0 ? row.isos.join(', ') : '—'), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 6px'
+        },
+        "data-html2canvas-ignore": true
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: toggleOvr,
+        style: {
+          fontSize: 8,
+          fontWeight: 700,
+          padding: '2px 6px',
+          borderRadius: 4,
+          border: `1px solid ${isOvr ? 'rgba(234,88,12,0.5)' : 'rgba(37,99,235,0.35)'}`,
+          background: isOvr ? DS.orangeBg : DS.blueBg,
+          color: isOvr ? DS.orange : DS.blue,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap'
+        }
+      }, isOvr ? '↩ Revertir' : '⇄ Forzar')));
+    }), excData.length > 50 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+      colSpan: 9,
+      style: {
+        padding: '6px 8px',
+        textAlign: 'center',
+        fontSize: 8,
+        color: DS.textFaint
+      }
+    }, "+", excData.length - 50, " registros más")))))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(0,0,0,0.01)',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        padding: 14
+      }
+    }, ST('Detalle Sectorizado por Región'), sectData.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        padding: 20,
+        opacity: 0.3,
+        fontSize: 10
+      }
+    }, "Sin datos") : /*#__PURE__*/React.createElement("table", {
+      style: {
+        width: '100%',
+        borderCollapse: 'collapse',
+        fontSize: 10,
+        fontFamily: DS.fontMono
+      }
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Región', 'Patentes', 'Empresas', 'Entregados', 'En Ruta', 'Total', 'Avance', ''].map(h => /*#__PURE__*/React.createElement("th", {
+      key: h,
+      style: {
+        textAlign: h === '' || h === 'Región' ? 'left' : 'right',
+        padding: '6px 8px',
+        fontSize: 8,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: DS.textFaint,
+        borderBottom: `1px solid ${DS.borderSoft}`
+      }
+    }, h)))), /*#__PURE__*/React.createElement("tbody", null, sectData.map((row, i) => {
+      const g = tGrad(row.avance);
+      return /*#__PURE__*/React.createElement("tr", {
+        key: row.region,
+        style: {
+          borderBottom: `1px solid ${DS.borderSoft}`,
+          background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'
+        }
+      }, /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          fontWeight: 700,
+          color: DS.sky
+        }
+      }, row.region), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right',
+          color: DS.textSub
+        }
+      }, row.patentes), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right',
+          color: DS.textSub
+        }
+      }, row.empresas || '—'), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right',
+          fontWeight: 700,
+          color: DS.green
+        }
+      }, row.terminados), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right',
+          color: DS.orange
+        }
+      }, row.enRuta), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right',
+          color: DS.textFaint
+        }
+      }, row.total), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          textAlign: 'right'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 900,
+          color: g.txt,
+          fontSize: 9
+        }
+      }, row.avance, "%")), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '6px 8px',
+          minWidth: 80
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: '100%',
+          height: 5,
+          background: 'rgba(0,0,0,0.06)',
+          borderRadius: 99,
+          overflow: 'hidden'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          height: '100%',
+          background: g.txt,
+          borderRadius: 99,
+          width: `${row.avance}%`,
+          transition: 'width 0.8s'
+        }
+      }))));
+    })))), sectPatData.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(0,0,0,0.01)',
+        borderRadius: 8,
+        border: `1px solid ${DS.borderSoft}`,
+        padding: 14
+      }
+    }, ST(`Detalle por Patente y Tipo · ${sectPatData.length} combinaciones`), /*#__PURE__*/React.createElement("div", {
+      style: {
+        overflowX: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("table", {
+      style: {
+        width: '100%',
+        borderCollapse: 'collapse',
+        fontSize: 10,
+        fontFamily: DS.fontMono
+      }
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Región', 'Patente', 'Tipo', 'Total', 'Entregados', 'En Ruta', 'Pendientes', 'Avance', ''].map(h => /*#__PURE__*/React.createElement("th", {
+      key: h,
+      style: {
+        textAlign: h === '' || h === 'Región' || h === 'Patente' || h === 'Tipo' ? 'left' : 'right',
+        padding: '6px 8px',
+        fontSize: 8,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: DS.textFaint,
+        borderBottom: `1px solid ${DS.borderSoft}`,
+        whiteSpace: 'nowrap'
+      }
+    }, h)))), /*#__PURE__*/React.createElement("tbody", null, sectPatData.map((row, i) => {
+      const g = tGrad(row.avance);
+      const showR = i === 0 || sectPatData[i - 1].region !== row.region;
+      const showP = i === 0 || sectPatData[i - 1].patente !== row.patente || sectPatData[i - 1].region !== row.region;
+      return /*#__PURE__*/React.createElement("tr", {
+        key: i,
+        style: {
+          borderBottom: `1px solid ${DS.borderSoft}`,
+          background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.012)'
+        }
+      }, /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          fontWeight: showR ? 700 : 400,
+          color: showR ? DS.sky : DS.textFaint,
+          fontSize: showR ? 10 : 9
+        }
+      }, showR ? row.region : '↳'), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          fontWeight: showP ? 800 : 400,
+          color: showP ? DS.text : DS.textFaint
+        }
+      }, showP ? row.patente : ''), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 8,
+          fontWeight: 700,
+          padding: '1px 6px',
+          borderRadius: 3,
+          background: DS.pasteGray,
+          color: DS.textSub,
+          border: `1px solid ${DS.border}`
+        }
+      }, row.gestion)), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right',
+          color: DS.textFaint
+        }
+      }, row.total), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right',
+          fontWeight: 700,
+          color: DS.green
+        }
+      }, row.terminados), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right',
+          color: DS.orange
+        }
+      }, row.enRuta), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right',
+          color: DS.red
+        }
+      }, row.pendientes), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          textAlign: 'right'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 900,
+          color: g.txt,
+          fontSize: 9
+        }
+      }, row.avance, "%")), /*#__PURE__*/React.createElement("td", {
+        style: {
+          padding: '5px 8px',
+          minWidth: 70
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: '100%',
+          height: 4,
+          background: 'rgba(0,0,0,0.06)',
+          borderRadius: 99,
+          overflow: 'hidden'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          height: '100%',
+          background: g.txt,
+          borderRadius: 99,
+          width: `${row.avance}%`,
+          transition: 'width 0.8s'
+        }
+      }))));
+    }))))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        fontSize: 8,
+        color: DS.textFaint,
+        paddingTop: 8,
+        borderTop: `1px solid ${DS.borderSoft}`
+      }
+    }, "Generado el ", new Date().toLocaleString('es-CL'))));
+  }
+  window.MR_DashTab = MR_DashTab;
 })();
-if(typeof renderGrafico==='function') renderGrafico();
+if (typeof renderDashboard === 'function') renderDashboard();
+</script>
+<script>
+(function () {
+  const RC = window.Recharts || {};
+  const BarChart = RC.BarChart,
+    Bar = RC.Bar,
+    XAxis = RC.XAxis,
+    YAxis = RC.YAxis,
+    CartesianGrid = RC.CartesianGrid,
+    RTooltip = RC.Tooltip,
+    Legend = RC.Legend,
+    ResponsiveContainer = RC.ResponsiveContainer,
+    LabelList = RC.LabelList;
+  const LR = window.lucideReact || {};
+  const FileDown = LR.FileDown || (() => /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10
+    }
+  }, "↓"));
+  const EyeOff = LR.EyeOff || (() => /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10
+    }
+  }, "⊘"));
+  const Eye = LR.Eye || (() => /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10
+    }
+  }, "◉"));
+  const SettingsIc = LR.Settings || (() => /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10
+    }
+  }, "⚙"));
+  const XIcon = LR.X || (() => /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10
+    }
+  }, "✕"));
+  function ChartTickV({
+    x,
+    y,
+    payload,
+    notes
+  }) {
+    const note = notes && notes[payload.value];
+    return /*#__PURE__*/React.createElement("g", {
+      transform: `translate(${x},${y})`
+    }, /*#__PURE__*/React.createElement("text", {
+      x: 0,
+      y: 0,
+      dy: note ? 2 : 8,
+      textAnchor: "end",
+      fill: "#636c76",
+      fontSize: 10,
+      fontWeight: note ? 700 : 400,
+      transform: "rotate(-45)"
+    }, payload.value), note && /*#__PURE__*/React.createElement("text", {
+      x: 0,
+      y: 18,
+      textAnchor: "end",
+      fill: "#8b5cf6",
+      fontSize: 8,
+      transform: "rotate(-45)"
+    }, note.length > 14 ? note.slice(0, 14) + '…' : note));
+  }
+  function ChartTickH({
+    x,
+    y,
+    payload,
+    notes
+  }) {
+    const note = notes && notes[payload.value];
+    return /*#__PURE__*/React.createElement("g", null, /*#__PURE__*/React.createElement("text", {
+      x: x - 4,
+      y: note ? y - 5 : y,
+      textAnchor: "end",
+      dominantBaseline: "middle",
+      fill: "#636c76",
+      fontSize: 10,
+      fontWeight: note ? 700 : 400
+    }, payload.value), note && /*#__PURE__*/React.createElement("text", {
+      x: x - 4,
+      y: y + 7,
+      textAnchor: "end",
+      dominantBaseline: "middle",
+      fill: "#8b5cf6",
+      fontSize: 8
+    }, note.length > 24 ? note.slice(0, 24) + '…' : note));
+  }
+  window.GraficoChart = function GraficoChart({
+    data = [],
+    notes = {},
+    onNoteChange
+  }) {
+    const [layout, setLayout] = React.useState('vertical');
+    const [hiddenKeys, setHiddenKeys] = React.useState(new Set());
+    const [barSize, setBarSize] = React.useState(32);
+    const [showLabels, setShowLabels] = React.useState(true);
+    const [showGrid, setShowGrid] = React.useState(true);
+    const [showLegend, setShowLegend] = React.useState(true);
+    const [showSettings, setShowSettings] = React.useState(false);
+    const [showPanel, setShowPanel] = React.useState(false);
+    const [panelSearch, setPanelSearch] = React.useState('');
+    const [showNotesPaste, setShowNotesPaste] = React.useState(false);
+    const [notesPasteRaw, setNotesPasteRaw] = React.useState('');
+    const chartRef = React.useRef(null);
+    if (!BarChart || !ResponsiveContainer) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: 300,
+        flexDirection: 'column',
+        gap: 8,
+        color: '#71717a'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 28
+      }
+    }, "⚠️"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 13
+      }
+    }, "Recharts no disponible"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11
+      }
+    }, "Verifica tu conexión y recarga la página"));
+    const visible = React.useMemo(() => data.filter(d => !hiddenKeys.has(d.patente)), [data, hiddenKeys]);
+    const toggle = key => setHiddenKeys(prev => {
+      const n = new Set(prev);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
+    const exportImg = async (mode = 'download') => {
+      const el = chartRef.current;
+      if (!el) return;
+      const EXPORT_W = 1200;
+      const saved = {
+        pos: el.style.position,
+        left: el.style.left,
+        top: el.style.top,
+        width: el.style.width
+      };
+      const restore = () => {
+        el.style.position = saved.pos;
+        el.style.left = saved.left;
+        el.style.top = saved.top;
+        el.style.width = saved.width;
+      };
+      try {
+        el.style.position = 'fixed';
+        el.style.left = '0';
+        el.style.top = '0';
+        el.style.width = EXPORT_W + 'px';
+        await new Promise(r => setTimeout(r, 200));
+        const canvas = await html2canvas(el, {
+          backgroundColor: '#fff',
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          windowWidth: EXPORT_W
+        });
+        restore();
+        if (mode === 'copy') {
+          canvas.toBlob(blob => {
+            if (blob) navigator.clipboard.write([new ClipboardItem({
+              'image/png': blob
+            })]);
+          });
+        } else {
+          const link = document.createElement('a');
+          link.download = 'grafico_rutas.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        }
+      } catch (e) {
+        restore();
+      }
+    };
+    const applyNotesPaste = () => {
+      const lines = notesPasteRaw.split(/\r?\n/).filter(l => l.trim());
+      lines.forEach(l => {
+        const sep = l.includes('\t') ? '\t' : ',';
+        const parts = l.split(sep);
+        const veh = (parts[0] || '').trim();
+        const note = (parts.slice(1).join(sep) || '').trim();
+        if (veh && onNoteChange) onNoteChange(veh, note);
+      });
+      setShowNotesPaste(false);
+      setNotesPasteRaw('');
+    };
+    const chartH = layout === 'horizontal' ? Math.max(500, visible.length * (barSize + 8) + 100) : 560;
+    const fmt = v => v != null ? v + '%' : '';
+    if (!data.length) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: 300,
+        flexDirection: 'column',
+        gap: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 56
+      }
+    }, "📊"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 16,
+        color: '#52525B'
+      }
+    }, "Sin datos para graficar"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: '#a1a1aa'
+      }
+    }, "Carga un plan o CSV en Configurar"));
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Plus Jakarta Sans','Helvetica Neue',system-ui,sans-serif",
+        padding: '12px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        minHeight: '100%'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        padding: '6px 10px',
+        borderRadius: 8,
+        border: '1px solid rgba(0,0,0,0.07)',
+        background: 'rgba(250,250,249,0.95)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        background: 'rgba(0,0,0,0.05)',
+        borderRadius: 6,
+        padding: 3,
+        gap: 2
+      }
+    }, [['vertical', 'Barras ↕'], ['horizontal', 'Barras →']].map(([l, lbl]) => /*#__PURE__*/React.createElement("button", {
+      key: l,
+      onClick: () => setLayout(l),
+      style: {
+        padding: '3px 10px',
+        borderRadius: 4,
+        fontSize: 10,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        background: layout === l ? '#fff' : 'transparent',
+        color: layout === l ? '#2563eb' : '#a1a1aa',
+        boxShadow: layout === l ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+        fontFamily: 'inherit'
+      }
+    }, lbl))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 1,
+        height: 20,
+        background: 'rgba(0,0,0,0.1)',
+        margin: '0 4px'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowPanel(p => !p),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '4px 10px',
+        borderRadius: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        background: showPanel || hiddenKeys.size > 0 ? 'rgba(37,99,235,0.1)' : 'rgba(0,0,0,0.04)',
+        color: showPanel || hiddenKeys.size > 0 ? '#2563eb' : '#a1a1aa'
+      }
+    }, hiddenKeys.size > 0 ? /*#__PURE__*/React.createElement(EyeOff, {
+      size: 12
+    }) : /*#__PURE__*/React.createElement(Eye, {
+      size: 12
+    }), ' ', "Ocultar", hiddenKeys.size > 0 ? ` (${hiddenKeys.size})` : ''), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowSettings(p => !p),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '4px 10px',
+        borderRadius: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        background: showSettings ? 'rgba(124,58,237,0.1)' : 'rgba(0,0,0,0.04)',
+        color: showSettings ? '#7c3aed' : '#a1a1aa'
+      }
+    }, /*#__PURE__*/React.createElement(SettingsIc, {
+      size: 12
+    }), " Config"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => exportImg('download'),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '4px 10px',
+        borderRadius: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        border: '1px solid rgba(0,0,0,0.1)',
+        background: 'rgba(0,0,0,0.03)',
+        color: '#52525b',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, /*#__PURE__*/React.createElement(FileDown, {
+      size: 12
+    }), " PNG"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => exportImg('copy'),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '4px 10px',
+        borderRadius: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        border: '1px solid rgba(0,0,0,0.1)',
+        background: 'rgba(0,0,0,0.03)',
+        color: '#52525b',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "Copiar img")), showPanel && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '8px 12px',
+        borderRadius: 8,
+        border: '1px solid rgba(0,0,0,0.08)',
+        background: 'rgba(249,250,251,0.98)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: '#a1a1aa'
+      }
+    }, "Visibilidad:"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setHiddenKeys(new Set()),
+      style: {
+        padding: '2px 8px',
+        borderRadius: 99,
+        fontSize: 9,
+        fontWeight: 700,
+        border: '1px solid rgba(22,163,74,0.4)',
+        background: 'rgba(22,163,74,0.08)',
+        color: '#16a34a',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "Mostrar todo"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setHiddenKeys(new Set(data.map(d => d.patente))),
+      style: {
+        padding: '2px 8px',
+        borderRadius: 99,
+        fontSize: 9,
+        fontWeight: 700,
+        border: '1px solid rgba(220,38,38,0.4)',
+        background: 'rgba(220,38,38,0.06)',
+        color: '#dc2626',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "Ocultar todo"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        color: '#a1a1aa'
+      }
+    }, data.length - hiddenKeys.size, " de ", data.length, " visibles"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginLeft: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      value: panelSearch,
+      onChange: e => setPanelSearch(e.target.value),
+      placeholder: "Buscar…",
+      style: {
+        padding: '2px 8px',
+        borderRadius: 4,
+        border: '1px solid rgba(0,0,0,0.1)',
+        fontSize: 9,
+        fontFamily: 'inherit',
+        outline: 'none',
+        width: 120
+      }
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4,
+        maxHeight: 90,
+        overflowY: 'auto'
+      }
+    }, data.filter(d => !panelSearch || d.patente.toLowerCase().includes(panelSearch.toLowerCase())).map(d => {
+      const hidden = hiddenKeys.has(d.patente);
+      const hasNote = !!(notes[d.patente] || d.altName && notes[d.altName]);
+      return /*#__PURE__*/React.createElement("button", {
+        key: d.patente,
+        onClick: () => toggle(d.patente),
+        style: {
+          padding: '2px 8px',
+          borderRadius: 99,
+          fontSize: 9,
+          fontWeight: 700,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          border: `1px solid ${hidden ? 'rgba(0,0,0,0.1)' : hasNote ? 'rgba(124,58,237,0.4)' : 'rgba(37,99,235,0.35)'}`,
+          background: hidden ? 'rgba(0,0,0,0.04)' : hasNote ? 'rgba(124,58,237,0.07)' : 'rgba(37,99,235,0.07)',
+          color: hidden ? '#a1a1aa' : hasNote ? '#7c3aed' : '#2563eb',
+          opacity: hidden ? 0.5 : 1,
+          textDecoration: hidden ? 'line-through' : 'none'
+        }
+      }, d.patente);
+    }))), showSettings && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '12px 14px',
+        borderRadius: 8,
+        border: '1px solid rgba(124,58,237,0.2)',
+        background: 'rgba(250,248,255,0.98)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: '#7c3aed'
+      }
+    }, "Configuración"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowSettings(false),
+      style: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#a1a1aa',
+        lineHeight: 1
+      }
+    }, /*#__PURE__*/React.createElement(XIcon, {
+      size: 14
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 14,
+        flexWrap: 'wrap',
+        alignItems: 'flex-start'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        color: '#a1a1aa'
+      }
+    }, "Tamaño barras"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 3
+      }
+    }, [['XS', 16], ['S', 24], ['M', 32], ['L', 48], ['XL', 64]].map(([lbl, sz]) => /*#__PURE__*/React.createElement("button", {
+      key: sz,
+      onClick: () => setBarSize(sz),
+      style: {
+        padding: '2px 8px',
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        background: barSize === sz ? '#7c3aed' : 'rgba(0,0,0,0.05)',
+        color: barSize === sz ? '#fff' : '#a1a1aa'
+      }
+    }, lbl)))), [['Mostrar % completado', showLabels, setShowLabels], ['Mostrar leyenda', showLegend, setShowLegend], ['Mostrar grilla', showGrid, setShowGrid]].map(([lbl, val, setter]) => /*#__PURE__*/React.createElement("div", {
+      key: lbl,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        color: '#a1a1aa'
+      }
+    }, lbl), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setter(p => !p),
+      style: {
+        padding: '2px 8px',
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        background: val ? '#7c3aed' : 'rgba(0,0,0,0.05)',
+        color: val ? '#fff' : '#a1a1aa'
+      }
+    }, val ? 'ON' : 'OFF')))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        borderTop: '1px solid rgba(124,58,237,0.15)',
+        paddingTop: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        color: '#a1a1aa'
+      }
+    }, "Notas por vehículo"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowNotesPaste(p => !p),
+      style: {
+        padding: '2px 8px',
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        border: '1px solid rgba(124,58,237,0.3)',
+        background: 'rgba(124,58,237,0.07)',
+        color: '#7c3aed',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "Pegar tabla")), showNotesPaste && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("textarea", {
+      value: notesPasteRaw,
+      onChange: e => setNotesPasteRaw(e.target.value),
+      placeholder: 'VPV01\tJuan Pérez\nVPV02\tPedro Rojas',
+      style: {
+        flex: 1,
+        height: 60,
+        padding: 6,
+        borderRadius: 4,
+        border: '1px solid rgba(124,58,237,0.25)',
+        fontSize: 9,
+        fontFamily: 'monospace',
+        outline: 'none',
+        resize: 'none'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: applyNotesPaste,
+      style: {
+        padding: '4px 12px',
+        borderRadius: 4,
+        border: '1px solid rgba(124,58,237,0.4)',
+        background: 'rgba(124,58,237,0.1)',
+        color: '#7c3aed',
+        fontSize: 9,
+        fontWeight: 700,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        whiteSpace: 'nowrap'
+      }
+    }, "Aplicar")))), /*#__PURE__*/React.createElement("div", {
+      ref: chartRef,
+      style: {
+        background: '#fff',
+        borderRadius: 10,
+        border: '1px solid rgba(0,0,0,0.08)',
+        padding: '12px 16px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        marginBottom: 8,
+        fontSize: 15,
+        fontWeight: 800,
+        color: '#18181b',
+        letterSpacing: '-0.02em'
+      }
+    }, "Estado de Vehículos / Patentes — ", visible.length, " mostrados"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: '100%',
+        height: chartH,
+        overflow: layout === 'horizontal' ? 'visible' : 'auto'
+      }
+    }, /*#__PURE__*/React.createElement(ResponsiveContainer, {
+      width: "100%",
+      height: "100%"
+    }, /*#__PURE__*/React.createElement(BarChart, {
+      data: visible,
+      layout: layout === 'horizontal' ? 'vertical' : 'horizontal',
+      margin: layout === 'horizontal' ? {
+        top: 10,
+        right: 80,
+        left: 100,
+        bottom: 20
+      } : {
+        top: 35,
+        right: 20,
+        left: 20,
+        bottom: 60
+      },
+      barCategoryGap: "20%"
+    }, showGrid && /*#__PURE__*/React.createElement(CartesianGrid, {
+      strokeDasharray: "3 3",
+      opacity: 0.1,
+      horizontal: layout === 'vertical',
+      vertical: layout === 'horizontal'
+    }), layout === 'vertical' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(XAxis, {
+      dataKey: "patente",
+      interval: 0,
+      height: Object.values(notes).some(v => v) ? 100 : 80,
+      tick: /*#__PURE__*/React.createElement(ChartTickV, {
+        notes: notes
+      }),
+      label: {
+        value: 'Patentes / Vehículos',
+        position: 'bottom',
+        offset: 0,
+        fill: '#636c76',
+        fontSize: 10
+      }
+    }), /*#__PURE__*/React.createElement(YAxis, {
+      tick: {
+        fontSize: 10,
+        fill: '#636c76'
+      },
+      label: {
+        value: 'Cantidad de ISOs',
+        angle: -90,
+        position: 'insideLeft',
+        offset: 10,
+        fill: '#636c76',
+        fontSize: 10,
+        style: {
+          textAnchor: 'middle'
+        }
+      }
+    })) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(XAxis, {
+      type: "number",
+      tick: {
+        fontSize: 10,
+        fill: '#636c76'
+      },
+      label: {
+        value: 'Cantidad de ISOs',
+        position: 'bottom',
+        offset: -5,
+        fill: '#636c76',
+        fontSize: 10
+      }
+    }), /*#__PURE__*/React.createElement(YAxis, {
+      dataKey: "patente",
+      type: "category",
+      width: Object.values(notes).some(v => v) ? 105 : 90,
+      tick: /*#__PURE__*/React.createElement(ChartTickH, {
+        notes: notes
+      }),
+      label: {
+        value: 'Patentes / Vehículos',
+        angle: -90,
+        position: 'insideLeft',
+        offset: 10,
+        fill: '#636c76',
+        fontSize: 10,
+        style: {
+          textAnchor: 'middle'
+        }
+      }
+    })), /*#__PURE__*/React.createElement(RTooltip, {
+      cursor: {
+        fill: 'rgba(0,0,0,0.03)'
+      },
+      contentStyle: {
+        backgroundColor: '#ffffff',
+        borderColor: 'rgba(0,0,0,0.09)',
+        borderRadius: 8,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+        fontSize: 12,
+        fontWeight: 700
+      },
+      formatter: (value, name) => name === 'dummy' ? null : [value, name],
+      labelFormatter: label => {
+        const d = visible.find(x => x.patente === label);
+        const n = notes[label];
+        const base = d?.altName ? `${label} (${d.altName})` : label;
+        return n ? `${base} — ${n}` : base;
+      }
+    }), showLegend && /*#__PURE__*/React.createElement(Legend, {
+      align: "center",
+      verticalAlign: "bottom",
+      wrapperStyle: {
+        paddingTop: 16,
+        fontSize: 11
+      }
+    }), /*#__PURE__*/React.createElement(Bar, {
+      dataKey: "Terminado",
+      stackId: "s",
+      fill: "#22c55e",
+      radius: [0, 0, 0, 0],
+      barSize: barSize
+    }), /*#__PURE__*/React.createElement(Bar, {
+      dataKey: "En Ruta",
+      stackId: "s",
+      fill: "#ef4444",
+      radius: [0, 0, 0, 0],
+      barSize: barSize
+    }), /*#__PURE__*/React.createElement(Bar, {
+      dataKey: "Pendiente",
+      stackId: "s",
+      fill: "#eab308",
+      radius: [4, 4, 0, 0],
+      barSize: barSize
+    }), /*#__PURE__*/React.createElement(Bar, {
+      dataKey: "dummy",
+      stackId: "s",
+      fill: "transparent",
+      isAnimationActive: false,
+      barSize: barSize
+    }, showLabels && /*#__PURE__*/React.createElement(LabelList, {
+      dataKey: "avance",
+      position: layout === 'horizontal' ? 'right' : 'top',
+      offset: 8,
+      formatter: fmt,
+      style: {
+        fill: '#1f2328',
+        fontSize: 11,
+        fontWeight: 900,
+        textAnchor: 'middle'
+      }
+    })))))));
+  };
+})();
+if (typeof renderGrafico === 'function') renderGrafico();
 </script>
 </body>
 </html>
