@@ -170,8 +170,23 @@ h3{font-size:12px;font-weight:600}
 @media (max-width:600px){.sr-config{grid-template-columns:1fr}}
 /* Image modal */
 #imgModal{position:fixed;inset:0;z-index:2500;align-items:center;justify-content:center;background:rgba(0,0,0,0.85)}
-.img-overlay-content{position:relative;z-index:1;padding:8px}
+.img-overlay-content{position:relative;z-index:1;padding:8px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .img-overlay-close{position:absolute;top:-14px;right:-14px;width:30px;height:30px;border-radius:50%;background:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:2;box-shadow:var(--shadow-md)}
+.img-overlay-nav{display:flex;align-items:center;gap:14px}
+.img-nav-btn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.img-nav-btn:hover{background:rgba(255,255,255,0.22)}
+.img-nav-count{color:#fff;font-size:12px;font-weight:700;font-family:var(--font-mono)}
+/* Photos */
+.photo-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.photo-strip .inc-photo,.photo-strip .rebaja-photo{max-width:130px;max-height:130px;object-fit:cover;margin-top:0}
+/* Tab help strip */
+.tab-help{padding:7px 16px;font-size:11px;line-height:1.4;color:var(--textSub);background:var(--bgCardAlt);border-bottom:1px solid var(--borderSoft)}
+.tab-help:empty{display:none}
+/* Consultar */
+.cq-grid{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.cq-grid{grid-template-columns:1fr}}
+.cq-chip{font-size:10px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--textFaint);cursor:pointer;font-family:var(--font-base)}
+.cq-chip.active{color:var(--text);border-color:var(--text);background:var(--bgHover)}
 </style>
 </head>
 <body class="app-layout">
@@ -197,6 +212,7 @@ h3{font-size:12px;font-weight:600}
       <button class="tab-btn" data-tab="resumen">Resumen</button>
       <button class="tab-btn" data-tab="grafico">Gráfico <span id="badgeGrafico" class="tab-badge" style="display:none"></span></button>
     </div></div>
+    <div id="tabHelp" class="tab-help"></div>
   </header>
   <main class="main-content">
     <section class="tab-pane active" data-pane="configurar"><div class="main-padded"><div class="container" id="configRoot"></div></div></section>
@@ -211,7 +227,7 @@ h3{font-size:12px;font-weight:600}
     <section class="tab-pane" data-pane="tabla"><div class="main-padded"><div class="container-lg" id="tablaRoot"></div></div></section>
     <section class="tab-pane" data-pane="isos"><div class="main-padded"><div class="container-lg" id="isosRoot"></div></div></section>
     <section class="tab-pane" data-pane="incidencias"><div class="main-padded"><div class="container-lg" id="incRoot"></div></div></section>
-    <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container" id="consultarRoot"></div></div></section>
+    <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container-lg" id="consultarRoot"></div></div></section>
     <section class="tab-pane" data-pane="resumen"><div class="main-padded"><div class="container-lg" id="resumenRoot"></div></div></section>
     <section class="tab-pane" data-pane="grafico" style="position:relative;overflow:hidden">
       <div id="graficoRoot" style="position:absolute;inset:0;overflow:auto"></div>
@@ -239,9 +255,25 @@ let _planRows = null, _matrizRows = null;
 let _searchT  = null;
 let _isosExpanded = new Set();
 let _tablaFilters = { q:'', estado:'' };
-let _consultarQ = '';
+let _consultarISOs = '';
+let _consultarResults = [];
+let _consultarFilter = 'all';
+let _consultarSearch = '';
 let _srToken = '';
 let _srDate = '';
+
+const TAB_HELP = {
+  configurar:'Carga la planificación de SimpliRoute y el CSV de avance de Reporte Rutas. Opcionalmente trae los checkouts desde la API de SimpliRoute con tu token.',
+  mapa:'Mapa de paradas por vehículo. El color indica el estado: verde = terminado, azul = en ruta, rojo = rebajada, gris = sin dato.',
+  dashboard:'KPIs globales, top de patentes críticas, motivos de no entrega y detalle por región. Usa el filtro de región arriba a la derecha.',
+  tabla:'Listado de todas las paradas con su estado, vehículo y motivo. Filtra por estado o busca por ISO o dirección.',
+  isos:'ISOs agrupadas por vehículo. Haz clic en cada grupo para expandir y ver sus paradas.',
+  incidencias:'Paradas rebajadas (no entregadas) agrupadas por vehículo, con su motivo y fotos. Haz clic en una foto para ampliarla.',
+  consultar:'Pega muchas ISOs a la vez (una por línea, o separadas por coma/espacio) para consultarlas en lote: estado, vehículo, motivo, comentario y fotos.',
+  resumen:'Resumen por vehículo (avance y rebajadas) y adherencia de Postventa/Proyectos. Exportable a XLSX.',
+  grafico:'Gráfico de barras apiladas por vehículo/patente (terminado, en ruta y pendiente) con el % de avance. Configurable y exportable como imagen.'
+};
+function setTabHelp(name){ const h=document.getElementById('tabHelp'); if(h)h.textContent=TAB_HELP[name]||''; }
 
 /* ═══════ UI BÁSICO ═══════ */
 function showToast(msg, type='', ms=2400){
@@ -253,6 +285,7 @@ function switchTab(name){
   switchTab._current = name;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.dataset.pane===name));
+  setTabHelp(name);
   if(name==='mapa'){ renderMapToolbar(); renderMap(); renderMapSidebar(); if(window._map)setTimeout(()=>window._map.invalidateSize(),60); }
   if(name==='resumen') renderResumen();
   if(name==='dashboard') renderDashboard();
@@ -731,7 +764,7 @@ function popupHtml(s,st){
   const dir=s.direccion?`<div style="margin-top:6px;font-size:10px;color:var(--textSub)">${esc(s.direccion)}</div>`:'';
   let rebaja='';
   if(st.key==='rebajada'&&r){
-    const foto=r.imageUrl?`<img class="rebaja-photo" src="${esc(r.imageUrl)}" alt="foto" loading="lazy">`:'';
+    const foto=photoThumbs(r.imageUrl);
     rebaja=`<div class="rebaja-card" style="margin-top:8px">
       <div style="font-weight:700;color:var(--red);font-size:10px;text-transform:uppercase;letter-spacing:.05em">Rebajada · ${esc(r.motivo3)} <span style="opacity:.7">(${esc(r.motivo2)})</span></div>
       ${r.motivoRaw?`<div style="font-size:11px;margin-top:3px">${esc(r.motivoRaw)}</div>`:''}
@@ -1058,16 +1091,80 @@ function renderISOsTab(){
   el.querySelector('#collapseAll').addEventListener('click',()=>{ _isosExpanded.clear(); renderISOsTab(); });
 }
 
-/* ═══════ INCIDENCIAS ═══════ */
-function openImgModal(src){
-  const m=document.getElementById('imgModal');
-  m.innerHTML=`<div class="img-overlay-content">
-    <button class="img-overlay-close" onclick="closeImgModal()">✕</button>
-    <img src="${esc(src)}" style="max-width:90vw;max-height:85vh;border-radius:4px;display:block" loading="lazy">
-  </div>`;
-  m.style.display='flex'; m.onclick=e=>{ if(e.target===m)closeImgModal(); };
+/* ═══════ FOTOS ═══════ */
+const PHOTO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160"><rect width="100%" height="100%" fill="#1f1f1f"/><text x="50%" y="50%" fill="#999" font-size="13" text-anchor="middle" dominant-baseline="middle">Foto no disponible</text></svg>');
+// Convierte URLs de Google Cloud Storage al formato directo que sí renderiza en <img>
+function directPhotoUrl(url){
+  if(!url)return'';
+  const m=url.match(/storage\.googleapis\.com\/([^/]+)\/(.+)/)||url.match(/storage\.cloud\.google\.com\/([^/]+)\/(.+)/);
+  if(m)return`https://storage.googleapis.com/${m[1]}/${m[2]}`;
+  return url;
 }
-function closeImgModal(){ const m=document.getElementById('imgModal'); m.style.display='none'; m.innerHTML=''; }
+// Una celda de "ImageUrl"/"Foto" puede traer varias URLs (separadas por coma) y/o envueltas en []/comillas
+function parsePhotoUrls(raw){
+  if(!raw)return[];
+  return String(raw).split(',')
+    .map(s=>s.trim().replace(/^[\[\]"']+|[\[\]"']+$/g,'').trim())
+    .filter(s=>s.startsWith('http'))
+    .map(directPhotoUrl);
+}
+function photoErr(img){ img.onerror=null; img.src=PHOTO_FALLBACK; }
+// Renderiza TODAS las fotos como miniaturas clicables (abre el visor en la que se pulsa)
+function photoThumbs(raw){
+  const urls=parsePhotoUrls(raw);
+  if(!urls.length)return'';
+  const arg=esc(String(raw)).replace(/'/g,'&#39;');
+  return '<div class="photo-strip">'+urls.map((u,i)=>
+    `<img class="inc-photo" src="${esc(u)}" onclick="openPhotos('${arg}',${i})" onerror="photoErr(this)" loading="lazy" alt="foto ${i+1}">`
+  ).join('')+'</div>';
+}
+let _imgModal={images:[],idx:0};
+function openPhotos(raw,startIdx){
+  const imgs=Array.isArray(raw)?raw:parsePhotoUrls(raw);
+  if(!imgs.length)return;
+  _imgModal={images:imgs,idx:Math.max(0,Math.min(startIdx||0,imgs.length-1))};
+  renderImgModal();
+}
+function openImgModal(src){ openPhotos(src,0); } // compat
+function imgModalStep(d){
+  const n=_imgModal.images.length; if(!n)return;
+  _imgModal.idx=(_imgModal.idx+d+n)%n;
+  renderImgModal();
+}
+function renderImgModal(){
+  const m=document.getElementById('imgModal');
+  const{images,idx}=_imgModal;
+  if(!images.length){ closeImgModal(); return; }
+  const nav=images.length>1?`<div class="img-overlay-nav">
+      <button class="img-nav-btn" id="imgPrev">◀</button>
+      <span class="img-nav-count">${idx+1} / ${images.length}</span>
+      <button class="img-nav-btn" id="imgNext">▶</button>
+    </div>`:'';
+  m.innerHTML=`<div class="img-overlay-content">
+    <button class="img-overlay-close" id="imgClose">✕</button>
+    <img id="imgMain" alt="foto" style="max-width:90vw;max-height:82vh;border-radius:4px;display:block;background:#111">
+    ${nav}
+  </div>`;
+  const img=m.querySelector('#imgMain');
+  img.onerror=()=>photoErr(img);
+  img.src=images[idx];
+  m.querySelector('#imgClose').onclick=closeImgModal;
+  if(images.length>1){
+    m.querySelector('#imgPrev').onclick=()=>imgModalStep(-1);
+    m.querySelector('#imgNext').onclick=()=>imgModalStep(1);
+  }
+  m.style.display='flex';
+  m.onclick=e=>{ if(e.target===m)closeImgModal(); };
+}
+function closeImgModal(){ const m=document.getElementById('imgModal'); m.style.display='none'; m.innerHTML=''; _imgModal={images:[],idx:0}; }
+document.addEventListener('keydown',e=>{
+  if(_imgModal.images.length===0)return;
+  if(e.key==='Escape')closeImgModal();
+  else if(e.key==='ArrowLeft')imgModalStep(-1);
+  else if(e.key==='ArrowRight')imgModalStep(1);
+});
+
+/* ═══════ INCIDENCIAS ═══════ */
 function renderIncidencias(){
   const el=document.getElementById('incRoot'); if(!el)return;
   if(!plan && !csvData){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div></div>';return;}
@@ -1095,7 +1192,7 @@ function renderIncidencias(){
     const groups=Object.keys(byVeh).sort().map(veh=>{
       const items=byVeh[veh];
       const rowsHtml=items.map(r=>{
-        const foto=r.imageUrl?`<img class="inc-photo" src="${esc(r.imageUrl)}" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy" alt="foto">`:'';
+        const foto=photoThumbs(r.imageUrl);
         return`<div class="inc-row">
           <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
             <span class="num" style="font-weight:700">${esc(r.iso)}</span>
@@ -1125,7 +1222,7 @@ function renderIncidencias(){
   const groups=Object.keys(byVeh).sort().map(veh=>{
     const items=byVeh[veh];
     const rows=items.map(r=>{
-      const foto=r.imageUrl?`<img class="inc-photo" src="${esc(r.imageUrl)}" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy" alt="foto">`:'';
+      const foto=photoThumbs(r.imageUrl);
       return`<div class="inc-row">
         <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
           <span class="num" style="font-weight:700">${esc(r.iso)}</span>
@@ -1150,50 +1247,147 @@ function renderIncidencias(){
   </div>${groups}`;
 }
 
-/* ═══════ CONSULTAR ═══════ */
+/* ═══════ CONSULTAR (LOTE) ═══════ */
+function consultarBuscar(){
+  const ta=document.getElementById('cqText');
+  const raw=ta?ta.value:_consultarISOs;
+  _consultarISOs=raw;
+  const isos=String(raw).split(/[\n\r,;\t ]+/).map(s=>s.trim()).filter(Boolean);
+  if(!isos.length){ _consultarResults=[]; renderConsultar(); return; }
+  // Índice de filas de reporte (solo e-commerce: Commerce empieza con I) por ISO limpio
+  const byIso={};
+  (_csvRows||[]).forEach(r=>{
+    const com=String(getKey(r,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('I'))return;
+    const po=cleanIso(getKey(r,'ParentOrder')); if(!po)return;
+    (byIso[po]=byIso[po]||[]).push(r);
+  });
+  // Índice de paradas del plan por ISO limpio (para vehículo/dirección)
+  const planByIso={};
+  if(plan)plan.stops.forEach(s=>{ planByIso[cleanIso(s.iso)]=s; });
+  const res=[];
+  isos.forEach(isoRaw=>{
+    const iso=cleanIso(isoRaw);
+    const stop=planByIso[iso];
+    let matches=byIso[iso]||[];
+    if(matches.length>1){
+      const nonPlan=matches.filter(r=>!String(getKey(r,'Estado')||'').toLowerCase().includes('planificado'));
+      if(nonPlan.length)matches=nonPlan;
+    }
+    if(matches.length){
+      const states=new Set(matches.map(m=>String(getKey(m,'Estado')||'').toLowerCase()));
+      const seen=new Set();
+      matches.forEach(row=>{
+        const estado=String(getKey(row,'Estado')||'').trim();
+        const patente=String(getKey(row,'Patente')||'').trim();
+        const key=estado+'|'+patente; if(seen.has(key))return; seen.add(key);
+        const motivoRaw=String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
+        const motivo3=getMotivo3(motivoRaw), motivo2=getMotivo2(motivo3);
+        res.push({iso:isoRaw,found:true,patente,veh:stop?stop.vehFinal:'',estado,
+          direccion:String(getKey(row,'Direccion')||getKey(row,'Dirección')||(stop&&stop.direccion)||'').trim(),
+          comentario:String(getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'').trim(),
+          motivoRaw,motivo3,motivo2,
+          imageUrl:String(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim(),
+          multi:states.size>1});
+      });
+    } else if(stop){
+      const r=getReportRow(stop.iso,report);
+      res.push({iso:isoRaw,found:true,patente:r?r.patente:'',veh:stop.vehFinal,
+        estado:r?r.estado:'(solo en planificación)',direccion:stop.direccion||'',
+        comentario:r?r.comentario:'',motivoRaw:r?r.motivoRaw:'',motivo3:r?r.motivo3:'',motivo2:r?r.motivo2:'',
+        imageUrl:r?r.imageUrl:'',multi:false});
+    } else {
+      res.push({iso:isoRaw,found:false,patente:'',veh:'',estado:'',direccion:'',comentario:'',motivoRaw:'',motivo3:'',motivo2:'',imageUrl:'',multi:false});
+    }
+  });
+  _consultarResults=res;
+  renderConsultar();
+  showToast(`${res.filter(r=>r.found).length}/${res.length} encontrados`, res.some(r=>!r.found)?'warn':'ok');
+}
+function consultarFiltradas(){
+  let r=_consultarResults;
+  if(_consultarFilter==='found')r=r.filter(x=>x.found);
+  else if(_consultarFilter==='notfound')r=r.filter(x=>!x.found);
+  const q=cleanStr(_consultarSearch);
+  if(q)r=r.filter(x=>cleanStr(x.iso).includes(q)||cleanStr(x.estado).includes(q)||cleanStr(x.direccion).includes(q)||cleanStr(x.patente).includes(q)||cleanStr(x.veh).includes(q));
+  return r;
+}
+function copyConsultar(){
+  const r=consultarFiltradas(); if(!r.length){ showToast('Nada que copiar','warn'); return; }
+  let t='ISO\tPatente\tVehículo\tEstado\tDirección\tMotivo\tComentario\tMotivo 3\tMotivo 2\tFotos\n';
+  r.forEach(x=>{ const urls=parsePhotoUrls(x.imageUrl);
+    t+=`${x.iso}${x.found?'':' [NO HALLADO]'}\t${x.patente}\t${x.veh}\t${x.estado}\t${x.direccion}\t${x.motivoRaw}\t${x.comentario}\t${x.motivo3}\t${x.motivo2}\t${urls.join(' ')}\n`; });
+  navigator.clipboard?.writeText(t).then(()=>showToast('Tabla copiada','ok'));
+}
 function renderConsultar(){
   const el=document.getElementById('consultarRoot'); if(!el)return;
-  let resultHtml='';
-  if(_consultarQ&&plan){
-    const stop=plan.stops.find(s=>cleanIso(s.iso)===cleanIso(_consultarQ));
-    if(!stop){
-      resultHtml=`<div class="card" style="margin-top:12px"><div class="empty-body">No hay parada con ISO "${esc(_consultarQ)}" en la planificación.</div></div>`;
-    } else {
-      const st=statusOf(stop,report); const r=getReportRow(stop.iso,report);
-      const a=srData&&srData.byIso&&srData.byIso[cleanIso(stop.iso)];
-      const foto=r?.imageUrl?`<img src="${esc(r.imageUrl)}" style="max-width:100%;border-radius:var(--r-md);border:1px solid var(--border);margin-top:10px;cursor:pointer" onclick="openImgModal('${esc(r.imageUrl).replace(/'/g,'&#39;')}')" loading="lazy">`:'';
-      resultHtml=`<div class="card" style="margin-top:12px">
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
-          <span style="font-size:16px;font-weight:700;font-family:var(--font-mono)">${esc(stop.iso)}</span>
-          <span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span>
+  const hasRows=!!(_csvRows&&_csvRows.length)||!!plan;
+  const detected=String(_consultarISOs).split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length;
+  const results=_consultarResults;
+  const filt=consultarFiltradas();
+  const nFound=results.filter(r=>r.found).length;
+  const nMiss=results.length-nFound;
+
+  const left=`<div class="card">
+    <div class="card-header"><h2>Ingresar ISOs</h2></div>
+    <p class="text-xs" style="margin:0 0 8px;color:var(--textFaint)">Pega las ISOs a buscar: una por línea, o separadas por coma/espacio.</p>
+    <textarea id="cqText" placeholder="Ej:\n123456\n123457, 123458" style="width:100%;min-height:200px;padding:10px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;font-family:var(--font-mono);resize:vertical;outline:none;background:var(--bgCard);color:var(--text);box-sizing:border-box">${esc(_consultarISOs)}</textarea>
+    <div class="text-xs" style="text-align:center;color:var(--textFaint);margin:8px 0">${detected?detected+' ISOs detectadas':'&nbsp;'}</div>
+    <button class="btn-block" id="cqGo"${hasRows?'':' disabled'}>Consultar</button>
+    <button class="btn btn-secondary" id="cqClear" style="width:100%;margin-top:6px">Limpiar</button>
+    ${hasRows?'<p class="text-xs" style="color:var(--textFaint);margin-top:8px">Tip: Ctrl/Cmd + Enter para consultar.</p>':'<p class="text-xs" style="color:var(--orange);margin-top:8px">Carga un CSV de avance en Configurar para consultar con detalle.</p>'}
+  </div>`;
+
+  let right;
+  if(!results.length){
+    right=`<div class="card"><div class="empty-state" style="min-height:240px"><div class="empty-title">Sin resultados aún</div><div class="empty-body">Pega las ISOs a la izquierda y pulsa Consultar para ver estado, vehículo, motivo y fotos.</div></div></div>`;
+  } else {
+    const chips=[['all','Todos'],['found','✓ Encontrados ('+nFound+')'],['notfound','✗ No hallados ('+nMiss+')']]
+      .map(([k,l])=>`<button class="cq-chip${_consultarFilter===k?' active':''}" data-filter="${k}">${l}</button>`).join('');
+    const rowsHtml=filt.map(x=>{
+      const urls=parsePhotoUrls(x.imageUrl);
+      const arg=esc(String(x.imageUrl)).replace(/'/g,'&#39;');
+      const fotoCell=urls.length?`<span style="color:var(--blue);text-decoration:underline;cursor:pointer;font-weight:700" onclick="openPhotos('${arg}',0)">Ver ${urls.length} foto${urls.length>1?'s':''}</span>`:'<span class="text-xs">—</span>';
+      const rowBg=!x.found?'background:rgba(220,38,38,0.04)':x.multi?'background:rgba(220,38,38,0.08)':'';
+      return `<tr style="${rowBg}">
+        <td style="padding:6px 8px;font-weight:700;color:${x.found?'var(--text)':'var(--red)'}" class="num">${esc(x.iso)}${x.found?'':' (NO HALLADO)'}</td>
+        <td style="padding:6px 8px">${esc(x.patente||'—')}</td>
+        <td style="padding:6px 8px;font-weight:600">${esc(x.veh||'—')}</td>
+        <td style="padding:6px 8px">${esc(x.estado||'—')}${x.multi?' <span class="pill pill-red" title="Múltiples estados">multi</span>':''}</td>
+        <td style="padding:6px 8px;max-width:220px">${esc(x.direccion||'—')}</td>
+        <td style="padding:6px 8px;max-width:240px">${x.motivoRaw?esc(x.motivoRaw):'—'}${x.motivo3?`<div class="text-xs" style="color:var(--textFaint)">${esc(x.motivo3)} · ${esc(x.motivo2)}</div>`:''}</td>
+        <td style="padding:6px 8px;max-width:240px">${esc(x.comentario||'—')}</td>
+        <td style="padding:6px 8px">${fotoCell}</td>
+      </tr>`;
+    }).join('');
+    right=`<div class="card">
+      <div class="card-header">
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <span><span style="font-weight:800;color:var(--green);font-family:var(--font-mono)">${nFound}</span> <span class="text-xs">encontrados</span></span>
+          <span><span style="font-weight:800;color:var(--red);font-family:var(--font-mono)">${nMiss}</span> <span class="text-xs">no hallados</span></span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-          <div><div class="section-label" style="margin-bottom:3px">Vehículo</div><div class="num" style="font-size:13px">${esc(stop.vehFinal)}</div></div>
-          <div><div class="section-label" style="margin-bottom:3px">Patente</div><div>${esc(r?.patente||'—')}</div></div>
-          <div><div class="section-label" style="margin-bottom:3px">Parada</div><div class="num">#${stop.orden}</div></div>
-          <div><div class="section-label" style="margin-bottom:3px">ETA plan</div><div>${esc(stop.eta||'—')}</div></div>
-          ${a?.checkout?`<div><div class="section-label" style="margin-bottom:3px">Checkout</div><div class="num" style="color:var(--green)">${esc(a.checkout)}</div></div>`:''}
-          ${r?.empresa?`<div><div class="section-label" style="margin-bottom:3px">Empresa</div><div>${esc(r.empresa)}</div></div>`:''}
-        </div>
-        ${stop.direccion?`<div style="margin-bottom:10px"><div class="section-label" style="margin-bottom:3px">Dirección</div><div class="text-sm">${esc(stop.direccion)}</div></div>`:''}
-        ${r?.motivoRaw?`<div class="rebaja-card">
-          <div style="font-weight:700;color:var(--red);font-size:11px;margin-bottom:4px">${esc(r.motivo3)} · <span style="opacity:.7">${esc(r.motivo2)}</span></div>
-          <div class="text-sm">${esc(r.motivoRaw)}</div>
-          ${r.comentario?`<div class="text-xs" style="margin-top:3px">${esc(r.comentario)}</div>`:''}
-          ${foto}
-        </div>`:foto}
-      </div>`;
-    }
+        <button class="btn btn-secondary btn-sm" id="cqCopy">Copiar tabla</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        ${chips}
+        <input class="input" id="cqSearch" placeholder="Filtrar resultados…" value="${esc(_consultarSearch)}" style="margin-left:auto;max-width:220px">
+      </div>
+      <div style="overflow:auto"><table class="dash-table"><thead><tr>${['ISO','Patente','Vehículo','Estado','Dirección','Motivo','Comentario','Fotos'].map(h=>`<th style="padding:6px 8px">${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--textFaint)">Sin coincidencias con el filtro</td></tr>'}</tbody></table></div>
+    </div>`;
   }
-  el.innerHTML=`<h1 style="margin-bottom:12px">Consultar ISO</h1>
-    <div style="display:flex;gap:8px">
-      <input class="input" id="cq" placeholder="ISO o número de orden…" value="${esc(_consultarQ)}" style="flex:1;max-width:360px">
-      <button class="btn btn-primary" id="btnCQ">Buscar</button>
-    </div>${resultHtml}`;
-  const search=()=>{ _consultarQ=el.querySelector('#cq').value.trim(); renderConsultar(); };
-  el.querySelector('#btnCQ').addEventListener('click',search);
-  el.querySelector('#cq').addEventListener('keydown',e=>{ if(e.key==='Enter')search(); });
-  if(_consultarQ)el.querySelector('#cq').blur();
+
+  el.innerHTML=`<h1 style="margin-bottom:4px">Consultar ISOs</h1>
+    <p class="text-sm" style="color:var(--textSub);margin:0 0 14px">Consulta en lote el estado, vehículo, motivo, comentario y fotos de muchas ISOs a la vez.</p>
+    <div class="cq-grid">${left}${right}</div>`;
+
+  el.querySelector('#cqGo').addEventListener('click',consultarBuscar);
+  el.querySelector('#cqClear').addEventListener('click',()=>{ _consultarISOs=''; _consultarResults=[]; _consultarSearch=''; _consultarFilter='all'; renderConsultar(); });
+  const ta=el.querySelector('#cqText');
+  ta.addEventListener('input',()=>{ _consultarISOs=ta.value; });
+  ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); consultarBuscar(); } });
+  const copyBtn=el.querySelector('#cqCopy'); if(copyBtn)copyBtn.addEventListener('click',copyConsultar);
+  el.querySelectorAll('.cq-chip').forEach(c=>c.addEventListener('click',()=>{ _consultarFilter=c.dataset.filter; renderConsultar(); }));
+  const sIn=el.querySelector('#cqSearch');
+  if(sIn)sIn.addEventListener('input',()=>{ _consultarSearch=sIn.value; renderConsultar(); const ns=document.getElementById('cqSearch'); if(ns){ ns.focus(); ns.setSelectionRange(ns.value.length,ns.value.length); } });
 }
 
 /* ═══════ RESUMEN ═══════ */
@@ -1501,7 +1695,14 @@ test('computeKPIs patente dominante',()=>{
 /* ═══════ BOOT ═══════ */
 window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
-  loadPlan(); renderConfig(); runSelfTests();
+  loadPlan(); renderConfig(); runSelfTests(); setTabHelp('configurar');
+  // Red de seguridad: si tras 8s React/Babel no compilaron los componentes
+  // (p.ej. sin conexión a los CDN), avisamos en vez de dejar "Cargando…" para siempre.
+  setTimeout(()=>{
+    const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo carga React, Babel y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
+    if(!window.MR_DashTab){ const d=document.getElementById('dashRoot'); if(d)d.innerHTML=msg; }
+    if(!window.GraficoChart){ const g=document.getElementById('graficoRoot'); if(g)g.innerHTML=msg; }
+  },8000);
 });
 
 function buildGraficoData() {
