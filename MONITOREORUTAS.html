@@ -286,7 +286,7 @@ function toggleNameMode() {
   if (active === 'mapa') { renderMap(); renderMapSidebar(); }
   if (active === 'dashboard') renderDashboard();
   if (active === 'resumen') renderResumen();
-  if (typeof renderGrafico === 'function') renderGrafico();
+  if (active === 'grafico' && typeof renderGrafico === 'function') renderGrafico();
 }
 function setVehNote(veh, note) {
   if (note.trim()) _vehNotes[veh] = note.trim();
@@ -911,9 +911,15 @@ function renderDashboard(){
     return;
   }
   if(!window.MR_DashTab){
-    el.innerHTML='<div class="empty-state"><div class="empty-title">Cargando…</div></div>';
-    setTimeout(renderDashboard,600);return;
+    const r=(renderDashboard._r=(renderDashboard._r||0)+1);
+    if(r===1) el.innerHTML='<div class="empty-state"><div class="empty-title">Cargando…</div><div class="empty-body">Iniciando componentes…</div></div>';
+    if(r>20){
+      el.innerHTML='<div class="empty-state"><div class="empty-title">Error al cargar</div><div class="empty-body">No se pudo iniciar el dashboard. Recarga la página (F5).</div></div>';
+      renderDashboard._r=0; return;
+    }
+    setTimeout(renderDashboard,500);return;
   }
+  renderDashboard._r=0;
   if(!window._dashRoot)window._dashRoot=ReactDOM.createRoot(el);
   window._dashRoot.render(React.createElement(window.MR_DashTab,{
     data:dashData.data,rawRows:dashData.rawRows,allRegions:dashData.allRegions
@@ -1527,10 +1533,16 @@ function renderGrafico() {
   const root = document.getElementById('graficoRoot');
   if (!root) return;
   if (!window.GraficoChart) {
-    root.innerHTML = '<div class="empty-state"><div class="empty-title">Cargando gráfico…</div><div class="empty-body">Espera un momento y vuelve a hacer clic en el tab.</div></div>';
-    setTimeout(renderGrafico, 800);
+    const r=(renderGrafico._r=(renderGrafico._r||0)+1);
+    if(r===1) root.innerHTML='<div class="empty-state"><div class="empty-title">Cargando gráfico…</div><div class="empty-body">Iniciando componentes…</div></div>';
+    if(r>20){
+      root.innerHTML='<div class="empty-state"><div class="empty-title">Error al cargar</div><div class="empty-body">No se pudo iniciar el gráfico. Recarga la página (F5).</div></div>';
+      renderGrafico._r=0; return;
+    }
+    setTimeout(renderGrafico, 500);
     return;
   }
+  renderGrafico._r=0;
   window._graficoData = buildGraficoData();
   window._graficoNotes = _vehNotes;
   if (!window._graficoRoot) {
