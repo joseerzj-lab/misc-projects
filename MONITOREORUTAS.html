@@ -184,6 +184,7 @@ h3{font-size:12px;font-weight:600}
 @media (max-width:760px){.cq-grid{grid-template-columns:1fr}}
 .cq-chip{font-size:10px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--textFaint);cursor:pointer;font-family:var(--font-base)}
 .cq-chip.active{color:var(--text);border-color:var(--text);background:var(--bgHover)}
+td.cq-sel{background:rgba(37,99,235,0.10)!important;outline:1px solid rgba(37,99,235,0.30)}
 /* Mini-mapa */
 #miniMapModal{position:fixed;inset:0;z-index:2400;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center}
 #miniMapModal.open{display:flex}
@@ -267,6 +268,9 @@ let _consultarISOs = '';
 let _consultarResults = [];
 let _consultarFilter = 'all';
 let _consultarSearch = '';
+let _cqSel = null;
+let _cqDragging = false;
+let _cqMotivoOvr = new Set();
 let _srToken = '';
 let _srDate = '';
 let _timingData = {};
@@ -1347,134 +1351,180 @@ function renderIncidencias(){
 }
 
 /* ═══════ CONSULTAR (LOTE) ═══════ */
-function consultarBuscar(){
-  const ta=document.getElementById('cqText');
-  const raw=ta?ta.value:_consultarISOs;
-  _consultarISOs=raw;
-  const isos=String(raw).split(/[\n\r,;\t ]+/).map(s=>s.trim()).filter(Boolean);
-  if(!isos.length){ _consultarResults=[]; renderConsultar(); return; }
-  // Índice de filas de reporte (solo e-commerce: Commerce empieza con I) por ISO limpio
-  const byIso={};
-  (_csvRows||[]).forEach(r=>{
-    const com=String(getKey(r,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('I'))return;
-    const po=cleanIso(getKey(r,'ParentOrder')); if(!po)return;
-    (byIso[po]=byIso[po]||[]).push(r);
+function _cqStartDrag(r, c) { _cqSel = {r0:r,c0:c,r1:r,c1:c}; _cqDragging = true; _cqUpdateSel(); }
+function _cqMoveDrag(r, c) { if (!_cqDragging) return; _cqSel.r1=r; _cqSel.c1=c; _cqUpdateSel(); }
+function _cqUpdateSel() {
+  const tbody = document.getElementById('cqTbody'); if (!tbody || !_cqSel) return;
+  const rMin=Math.min(_cqSel.r0,_cqSel.r1), rMax=Math.max(_cqSel.r0,_cqSel.r1);
+  const cMin=Math.min(_cqSel.c0,_cqSel.c1), cMax=Math.max(_cqSel.c0,_cqSel.c1);
+  tbody.querySelectorAll('td[data-r]').forEach(td => {
+    const r=+td.dataset.r, c=+td.dataset.c;
+    td.classList.toggle('cq-sel', r>=rMin&&r<=rMax&&c>=cMin&&c<=cMax);
   });
-  // Índice de paradas del plan por ISO limpio (para vehículo/dirección)
-  const planByIso={};
-  if(plan)plan.stops.forEach(s=>{ planByIso[cleanIso(s.iso)]=s; });
-  const res=[];
-  isos.forEach(isoRaw=>{
-    const iso=cleanIso(isoRaw);
-    const stop=planByIso[iso];
-    let matches=byIso[iso]||[];
-    if(matches.length>1){
-      const nonPlan=matches.filter(r=>!String(getKey(r,'Estado')||'').toLowerCase().includes('planificado'));
-      if(nonPlan.length)matches=nonPlan;
+}
+function _cqToggleOvr(iso) {
+  if (_cqMotivoOvr.has(iso)) _cqMotivoOvr.delete(iso); else _cqMotivoOvr.add(iso);
+  renderConsultar();
+}
+function _cqCopySel() {
+  if (!_cqSel) return;
+  const tab = document.querySelector('.tab-btn.active')?.dataset?.tab;
+  if (tab !== 'consultar') return;
+  const tbody = document.getElementById('cqTbody'); if (!tbody) return;
+  const rMin=Math.min(_cqSel.r0,_cqSel.r1), rMax=Math.max(_cqSel.r0,_cqSel.r1);
+  const cMin=Math.min(_cqSel.c0,_cqSel.c1), cMax=Math.max(_cqSel.c0,_cqSel.c1);
+  const visRows = [...tbody.querySelectorAll('tr[data-idx]:not([style*="display: none"])')];
+  const sel = visRows.filter(tr => { const r=+tr.dataset.r; return r>=rMin&&r<=rMax; });
+  if (!sel.length) return;
+  const getVals = r => {
+    const isOvr=_cqMotivoOvr.has(r.iso);
+    return [r.iso+(!r.found?' (NO HALLADO)':''), r.patente||'', r.vehiculo||'', r.direccion||'',
+      r.estado||'', r.comentario||'', r.motivo||'', r.imageUrl?'Ver Fotos':'',
+      r.motivo1||'', isOvr?'Transporte':(r.motivo2||''), isOvr?'Transporte No Gestiona':(r.motivo3||'')];
+  };
+  const tsv = sel.map(tr => {
+    const x = _consultarResults[+tr.dataset.idx];
+    return x ? getVals(x).slice(cMin, cMax+1).join('\t') : '';
+  }).join('\n');
+  navigator.clipboard?.writeText(tsv).then(() => showToast('Celdas copiadas', 'ok'));
+}
+function consultarBuscar() {
+  const ta = document.getElementById('cqText');
+  const raw = ta ? ta.value : _consultarISOs;
+  _consultarISOs = raw;
+  const isos = String(raw).split(/[\n\r,;\t ]+/).map(s => s.trim()).filter(Boolean);
+  if (!isos.length) { _consultarResults = []; renderConsultar(); return; }
+  // Solo filas e-commerce con patente
+  const ecommRows = (_csvRows||[]).filter(r => {
+    const com = String(getKey(r,'Commerce')||'').trim().toUpperCase();
+    const pat = String(getKey(r,'Patente')||'').trim();
+    return com.startsWith('I') && pat;
+  });
+  // Plan para obtener vehFinal y dirección
+  const planByIso = {};
+  if (plan) plan.stops.forEach(s => { planByIso[s.iso.toLowerCase()] = s; });
+  const res = [];
+  isos.forEach(isoRaw => {
+    const isoLower = isoRaw.toLowerCase();
+    let matches = ecommRows.filter(r => String(getKey(r,'ParentOrder')||'').trim().toLowerCase() === isoLower);
+    if (matches.length > 1) {
+      const planKw = ['planificado','planificado en simpliroute'];
+      const nonPlan = matches.filter(r => !planKw.includes((getKey(r,'Estado')||'').trim().toLowerCase()));
+      if (nonPlan.length) matches = nonPlan;
     }
-    if(matches.length){
-      const states=new Set(matches.map(m=>String(getKey(m,'Estado')||'').toLowerCase()));
-      const seen=new Set();
-      matches.forEach(row=>{
-        const estado=String(getKey(row,'Estado')||'').trim();
-        const patente=String(getKey(row,'Patente')||'').trim();
-        const key=estado+'|'+patente; if(seen.has(key))return; seen.add(key);
-        const motivoRaw=String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
-        const motivo3=getMotivo3(motivoRaw), motivo2=getMotivo2(motivo3);
-        res.push({iso:isoRaw,found:true,patente,veh:stop?stop.vehFinal:'',estado,
-          direccion:String(getKey(row,'Direccion')||getKey(row,'Dirección')||(stop&&stop.direccion)||'').trim(),
-          comentario:String(getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'').trim(),
-          motivoRaw,motivo3,motivo2,
-          imageUrl:String(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim(),
-          multi:states.size>1});
+    const stop = planByIso[isoLower];
+    if (matches.length) {
+      const uniqueStates = new Set(matches.map(m => (getKey(m,'Estado')||'').toLowerCase()));
+      const seen = new Set();
+      matches.forEach(row => {
+        const est = String(getKey(row,'Estado')||'').trim();
+        const pat = String(getKey(row,'Patente')||'').trim();
+        const key = est+'|'+pat; if (seen.has(key)) return; seen.add(key);
+        const motivo = String(getKey(row,'Motivo No Entrega')||getKey(row,'MotivoNoEntrega')||getKey(row,'Motivo')||'').trim();
+        const motivo3 = getMotivo3(motivo), motivo2 = getMotivo2(motivo3);
+        res.push({ iso:isoRaw, found:true, patente:pat,
+          vehiculo: stop ? stop.vehFinal : pat,
+          estado: est,
+          direccion: String(getKey(row,'Direccion')||getKey(row,'Dirección')||(stop&&stop.direccion)||'').trim(),
+          comentario: String(getKey(row,'Comentario No Entrega')||getKey(row,'ComentarioNoEntrega')||'').trim(),
+          motivo, motivo1:'No Cumple', motivo2, motivo3,
+          imageUrl: String(getKey(row,'ImageUrl')||getKey(row,'Foto')||'').trim(),
+          multi: uniqueStates.size > 1 });
       });
-    } else if(stop){
-      const r=getReportRow(stop.iso,report);
-      res.push({iso:isoRaw,found:true,patente:r?r.patente:'',veh:stop.vehFinal,
-        estado:r?r.estado:'(solo en planificación)',direccion:stop.direccion||'',
-        comentario:r?r.comentario:'',motivoRaw:r?r.motivoRaw:'',motivo3:r?r.motivo3:'',motivo2:r?r.motivo2:'',
-        imageUrl:r?r.imageUrl:'',multi:false});
     } else {
-      res.push({iso:isoRaw,found:false,patente:'',veh:'',estado:'',direccion:'',comentario:'',motivoRaw:'',motivo3:'',motivo2:'',imageUrl:'',multi:false});
+      res.push({ iso:isoRaw, found:false, patente:'', vehiculo:'', estado:'', direccion:'', comentario:'', motivo:'', motivo1:'', motivo2:'', motivo3:'', imageUrl:'', multi:false });
     }
   });
-  _consultarResults=res;
+  _consultarResults = res;
   renderConsultar();
   showToast(`${res.filter(r=>r.found).length}/${res.length} encontrados`, res.some(r=>!r.found)?'warn':'ok');
 }
-function filterConsultarTable(){
-  const tbody=document.getElementById('cqTbody'); if(!tbody)return;
+function filterConsultarTable() {
+  const tbody = document.getElementById('cqTbody'); if (!tbody) return;
   const f=_consultarFilter, q=cleanStr(_consultarSearch);
   let shown=0;
-  tbody.querySelectorAll('tr[data-iso]').forEach(tr=>{
-    const found=tr.dataset.found==='1';
-    let show=true;
-    if(f==='found'&&!found)show=false;
-    if(f==='notfound'&&found)show=false;
-    if(q&&!cleanStr(tr.dataset.text||'').includes(q))show=false;
-    tr.style.display=show?'':'none';
-    if(show)shown++;
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const found = tr.dataset.found==='1';
+    let show = true;
+    if (f==='found'&&!found) show=false;
+    if (f==='notfound'&&found) show=false;
+    if (q&&!cleanStr(tr.dataset.text||'').includes(q)) show=false;
+    tr.style.display = show ? '' : 'none';
+    if (show) shown++;
   });
-  const cnt=document.getElementById('cqShown'); if(cnt)cnt.textContent=shown;
+  const cnt=document.getElementById('cqShown'); if(cnt) cnt.textContent=shown;
+  _cqSel=null;
+  tbody.querySelectorAll('td.cq-sel').forEach(td=>td.classList.remove('cq-sel'));
 }
-function copyConsultar(){
-  const tbody=document.getElementById('cqTbody');
-  const visible=tbody?[...tbody.querySelectorAll('tr[data-iso]:not([style*="display: none"])')]:[];
-  if(!visible.length){ showToast('Nada que copiar','warn'); return; }
-  let t='ISO\tPatente\tVehículo\tEstado\tDirección\tMotivo\tCategoría\tResponsable\tComentario\tFotos\n';
-  visible.forEach(tr=>{
-    const cells=[...tr.querySelectorAll('td')];
-    const vals=cells.slice(0,9).map(td=>td.innerText.replace(/\n/g,' ').trim());
-    t+=vals.join('\t')+'\n';
+function copyConsultar() {
+  const rows = _consultarResults.filter(r => {
+    if (_consultarFilter==='found'&&!r.found) return false;
+    if (_consultarFilter==='notfound'&&r.found) return false;
+    if (_consultarSearch) { const q=cleanStr(_consultarSearch); if(!cleanStr([r.iso,r.patente,r.vehiculo,r.estado,r.direccion,r.motivo,r.comentario].join(' ')).includes(q)) return false; }
+    return true;
   });
-  navigator.clipboard?.writeText(t).then(()=>showToast('Tabla copiada','ok'));
+  if (!rows.length) { showToast('Nada que copiar','warn'); return; }
+  const headers = ['ISO','Patente','Vehículo','Dirección','Estado','Comentario No Entrega','Motivo No Entrega','Fotos','Motivo 1','Motivo 2','Motivo 3'];
+  const getVals = r => {
+    const isOvr=_cqMotivoOvr.has(r.iso);
+    return [r.iso+(!r.found?' [NO HALLADO]':''), r.patente, r.vehiculo, r.direccion, r.estado, r.comentario, r.motivo, r.imageUrl?'Ver Fotos':'', r.motivo1||'', isOvr?'Transporte':(r.motivo2||''), isOvr?'Transporte No Gestiona':(r.motivo3||'')];
+  };
+  const tsv = headers.join('\t')+'\n'+rows.map(r=>getVals(r).join('\t')).join('\n');
+  navigator.clipboard?.writeText(tsv).then(()=>showToast('Tabla copiada','ok'));
 }
-function renderConsultar(){
-  const el=document.getElementById('consultarRoot'); if(!el)return;
-  const hasRows=!!(_csvRows&&_csvRows.length)||!!plan;
-  const detected=String(_consultarISOs).split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length;
-  const results=_consultarResults;
-  const nFound=results.filter(r=>r.found).length;
-  const nMiss=results.length-nFound;
+function renderConsultar() {
+  const el = document.getElementById('consultarRoot'); if (!el) return;
+  const hasRows = !!(_csvRows&&_csvRows.length)||!!plan;
+  const detected = String(_consultarISOs).split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length;
+  const results = _consultarResults;
+  const nFound = results.filter(r=>r.found).length;
+  const nMiss = results.length - nFound;
 
-  const left=`<div class="card">
+  const left = `<div class="card">
     <div class="card-header"><h2>Ingresar ISOs</h2></div>
     <p class="text-xs" style="margin:0 0 8px;color:var(--textFaint)">Pega las ISOs a buscar: una por línea, o separadas por coma/espacio.</p>
     <textarea id="cqText" placeholder="Ej:\n123456\n123457, 123458" style="width:100%;min-height:200px;padding:10px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;font-family:var(--font-mono);resize:vertical;outline:none;background:var(--bgCard);color:var(--text);box-sizing:border-box">${esc(_consultarISOs)}</textarea>
     <div class="text-xs" style="text-align:center;color:var(--textFaint);margin:8px 0">${detected?detected+' ISOs detectadas':'&nbsp;'}</div>
     <button class="btn-block" id="cqGo"${hasRows?'':' disabled'}>Consultar</button>
     <button class="btn btn-secondary" id="cqClear" style="width:100%;margin-top:6px">Limpiar</button>
-    ${hasRows?'<p class="text-xs" style="color:var(--textFaint);margin-top:8px">Tip: Ctrl/Cmd + Enter para consultar.</p>':'<p class="text-xs" style="color:var(--orange);margin-top:8px">Carga un CSV de avance en Configurar para consultar con detalle.</p>'}
+    <p class="text-xs" style="color:var(--textFaint);margin-top:8px">${hasRows?'Ctrl/Cmd+Enter · arrastra celdas + Ctrl+C para copiar selección':'<span style="color:var(--orange)">Carga un CSV de avance en Configurar.</span>'}</p>
   </div>`;
 
   let right;
-  if(!results.length){
-    right=`<div class="card"><div class="empty-state" style="min-height:240px"><div class="empty-title">Sin resultados aún</div><div class="empty-body">Pega las ISOs a la izquierda y pulsa Consultar para ver estado, vehículo, motivo y fotos.</div></div></div>`;
+  if (!results.length) {
+    right = `<div class="card"><div class="empty-state" style="min-height:240px"><div class="empty-title">Sin resultados aún</div><div class="empty-body">Pega las ISOs a la izquierda y pulsa Consultar.</div></div></div>`;
   } else {
-    const chips=[['all','Todos'],['found','✓ Encontrados ('+nFound+')'],['notfound','✗ No hallados ('+nMiss+')']]
+    const chips = [['all','Todos'],['found','✓ Encontrados ('+nFound+')'],['notfound','✗ No hallados ('+nMiss+')']]
       .map(([k,l])=>`<button class="cq-chip${_consultarFilter===k?' active':''}" data-filter="${k}">${l}</button>`).join('');
-    const rowsHtml=results.map(x=>{
-      const urls=parsePhotoUrls(x.imageUrl);
-      const arg=esc(String(x.imageUrl)).replace(/'/g,'&#39;');
-      const fotoCell=urls.length
-        ?`<button class="btn btn-secondary btn-sm" style="font-size:9px;padding:2px 7px;white-space:nowrap" onclick="openPhotos('${arg}',0)">📷 ${urls.length}</button>`
-        :'<span style="color:var(--textFaint);font-size:11px">—</span>';
-      const textSearch=[x.iso,x.patente,x.veh,x.estado,x.direccion,x.motivoRaw,x.motivo3,x.motivo2,x.comentario].join(' ').toLowerCase();
-      const rowBg=!x.found?'background:rgba(220,38,38,0.04)':x.multi?'background:rgba(220,38,38,0.06)':'';
-      return `<tr data-iso="${esc(x.iso)}" data-found="${x.found?'1':'0'}" data-text="${esc(textSearch)}" style="${rowBg}">
-        <td style="padding:5px 8px;font-weight:700;font-family:var(--font-mono);font-size:12px;color:${x.found?'var(--text)':'var(--red)'};white-space:nowrap">${esc(x.iso)}</td>
-        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:12px;white-space:nowrap">${esc(x.patente||'—')}</td>
-        <td style="padding:5px 8px;font-weight:600;font-size:12px;white-space:nowrap">${esc(x.veh||x.found?x.veh||'—':'NO HALLADO')}</td>
-        <td style="padding:5px 8px;font-size:12px">${x.found?esc(x.estado||'—'):'<span style="color:var(--red);font-weight:700">NO HALLADO</span>'}</td>
-        <td style="padding:5px 8px;font-size:11px;color:var(--textSub);max-width:200px">${esc(x.direccion||'—')}</td>
-        <td style="padding:5px 8px;font-size:11px;max-width:220px">${esc(x.motivoRaw||'—')}</td>
-        <td style="padding:5px 8px;font-size:11px">${esc(x.motivo3||'—')}</td>
-        <td style="padding:5px 8px;font-size:11px">${esc(x.motivo2||'—')}</td>
-        <td style="padding:5px 8px;font-size:11px;color:var(--textSub);max-width:200px">${esc(x.comentario||'—')}</td>
-        <td style="padding:5px 8px">${fotoCell}</td>
+    const rowsHtml = results.map((x, i) => {
+      const isOvr = _cqMotivoOvr.has(x.iso);
+      const effM2 = isOvr ? 'Transporte' : (x.motivo2||'');
+      const effM3 = isOvr ? 'Transporte No Gestiona' : (x.motivo3||'');
+      const urls = parsePhotoUrls(x.imageUrl);
+      const arg = esc(String(x.imageUrl)).replace(/'/g,'&#39;');
+      const fotoCell = urls.length
+        ? `<button class="btn btn-secondary btn-sm" style="font-size:9px;padding:2px 7px;white-space:nowrap" onclick="openPhotos('${arg}',0)">📷 ${urls.length}</button>`
+        : '<span style="color:var(--textFaint);font-size:11px">—</span>';
+      const textSearch = [x.iso,x.patente,x.vehiculo,x.estado,x.direccion,x.motivo,x.motivo3,x.motivo2,x.comentario].join(' ').toLowerCase();
+      const rowBg = !x.found?'background:rgba(220,38,38,0.04)':x.multi?'background:rgba(220,38,38,0.06)':'';
+      const td = (ci,style,content) => `<td data-r="${i}" data-c="${ci}" style="padding:5px 8px;border-bottom:1px solid var(--borderSoft);cursor:cell;${style}" onmousedown="event.preventDefault();_cqStartDrag(${i},${ci})" onmouseenter="_cqMoveDrag(${i},${ci})">${content}</td>`;
+      const forzarBtn = x.found ? `<button onclick="_cqToggleOvr('${esc(x.iso)}')" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:var(--r-xs);border:1px solid ${isOvr?'rgba(234,88,12,0.4)':'rgba(37,99,235,0.3)'};background:${isOvr?'rgba(234,88,12,0.08)':'rgba(37,99,235,0.06)'};color:${isOvr?'var(--orange)':'var(--blue)'};cursor:pointer;white-space:nowrap" title="${isOvr?'Revertir':'Forzar → Transporte No Gestiona'}">${isOvr?'↩ Revertir':'⇄ TNG'}</button>` : '';
+      return `<tr data-idx="${i}" data-r="${i}" data-iso="${esc(x.iso)}" data-found="${x.found?'1':'0'}" data-text="${esc(textSearch)}" style="${rowBg}">
+        ${td(0,`font-weight:700;font-family:var(--font-mono);color:${x.found?'var(--text)':'var(--red)'};white-space:nowrap`, esc(x.iso)+(!x.found?' (NO HALLADO)':''))}
+        ${td(1,'font-family:var(--font-mono);white-space:nowrap', esc(x.patente||'—'))}
+        ${td(2,'font-weight:600;white-space:nowrap;color:var(--purple)', esc(x.vehiculo||'—'))}
+        ${td(3,'font-size:11px;color:var(--textSub);max-width:180px', esc(x.direccion||'—'))}
+        ${td(4,'font-weight:700', x.found?esc(x.estado||'—'):'<span style="color:var(--red)">NO HALLADO</span>')}
+        ${td(5,'font-size:11px;max-width:180px', esc(x.comentario||'—'))}
+        ${td(6,'font-size:11px;max-width:220px', esc(x.motivo||'—'))}
+        <td style="padding:5px 8px;border-bottom:1px solid var(--borderSoft)">${fotoCell}</td>
+        ${td(8,'font-weight:700;font-size:11px;color:#92400e', esc(x.motivo1||'—'))}
+        ${td(9,`font-weight:700;font-size:11px;color:${effM2==='Cliente'?'var(--blue)':'var(--orange)'}`, esc(effM2||'—'))}
+        ${td(10,'font-size:11px;color:var(--textSub)', esc(effM3||'—'))}
+        <td style="padding:5px 6px;border-bottom:1px solid var(--borderSoft)">${forzarBtn}</td>
       </tr>`;
     }).join('');
-    right=`<div class="card">
+    right = `<div class="card">
       <div class="card-header">
         <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
           <span><span style="font-weight:800;color:var(--green);font-family:var(--font-mono)">${nFound}</span> <span class="text-xs">encontrados</span></span>
@@ -1487,27 +1537,27 @@ function renderConsultar(){
         ${chips}
         <input class="input" id="cqSearch" placeholder="Filtrar…" value="${esc(_consultarSearch)}" style="margin-left:auto;max-width:200px">
       </div>
-      <div style="overflow:auto"><table class="dash-table" style="width:100%;user-select:text"><thead><tr>${['ISO','Patente','Vehículo','Estado','Dirección','Motivo','Categoría','Resp.','Comentario','📷'].map(h=>`<th style="padding:5px 8px;white-space:nowrap">${h}</th>`).join('')}</tr></thead><tbody id="cqTbody">${rowsHtml}</tbody></table></div>
+      <div style="overflow:auto"><table class="dash-table" style="width:100%;user-select:none"><thead><tr>${['ISO','Patente','Vehículo','Dirección','Estado','Comentario','Motivo No Entrega','📷','Mot. 1','Mot. 2','Mot. 3',''].map(h=>`<th style="padding:5px 8px;white-space:nowrap">${h}</th>`).join('')}</tr></thead><tbody id="cqTbody">${rowsHtml}</tbody></table></div>
     </div>`;
   }
 
-  el.innerHTML=`<h1 style="margin-bottom:4px">Consultar ISOs</h1>
+  el.innerHTML = `<h1 style="margin-bottom:4px">Consultar ISOs</h1>
     <p class="text-sm" style="color:var(--textSub);margin:0 0 14px">Consulta en lote el estado, vehículo, motivo, comentario y fotos de muchas ISOs a la vez.</p>
     <div class="cq-grid">${left}${right}</div>`;
 
-  el.querySelector('#cqGo').addEventListener('click',consultarBuscar);
-  el.querySelector('#cqClear').addEventListener('click',()=>{ _consultarISOs=''; _consultarResults=[]; _consultarSearch=''; _consultarFilter='all'; renderConsultar(); });
-  const ta=el.querySelector('#cqText');
-  ta.addEventListener('input',()=>{ _consultarISOs=ta.value; });
-  ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); consultarBuscar(); } });
-  const copyBtn=el.querySelector('#cqCopy'); if(copyBtn)copyBtn.addEventListener('click',copyConsultar);
-  el.querySelectorAll('.cq-chip').forEach(c=>c.addEventListener('click',()=>{
-    _consultarFilter=c.dataset.filter;
-    el.querySelectorAll('.cq-chip').forEach(b=>b.classList.toggle('active',b===c));
+  el.querySelector('#cqGo').addEventListener('click', consultarBuscar);
+  el.querySelector('#cqClear').addEventListener('click', () => { _consultarISOs=''; _consultarResults=[]; _consultarSearch=''; _consultarFilter='all'; _cqMotivoOvr=new Set(); _cqSel=null; renderConsultar(); });
+  const ta = el.querySelector('#cqText');
+  ta.addEventListener('input', () => { _consultarISOs = ta.value; });
+  ta.addEventListener('keydown', e => { if (e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); consultarBuscar(); } });
+  const copyBtn = el.querySelector('#cqCopy'); if (copyBtn) copyBtn.addEventListener('click', copyConsultar);
+  el.querySelectorAll('.cq-chip').forEach(c => c.addEventListener('click', () => {
+    _consultarFilter = c.dataset.filter;
+    el.querySelectorAll('.cq-chip').forEach(b => b.classList.toggle('active', b===c));
     filterConsultarTable();
   }));
-  const sIn=el.querySelector('#cqSearch');
-  if(sIn)sIn.addEventListener('input',()=>{ _consultarSearch=sIn.value; filterConsultarTable(); });
+  const sIn = el.querySelector('#cqSearch');
+  if (sIn) sIn.addEventListener('input', () => { _consultarSearch = sIn.value; filterConsultarTable(); });
   filterConsultarTable();
 }
 
@@ -1767,18 +1817,7 @@ function renderHorarios() {
   const atrasos = vehs.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
   const mediana = atrasos.length ? atrasos[Math.floor(atrasos.length/2)] : null;
 
-  // Timeline scale (global, across all vehicles)
-  const allTs = [];
-  vehs.forEach(v => {
-    if (v.fechaInicio) allTs.push(v.fechaInicio.getTime());
-    v.checkouts.forEach(c => allTs.push(c.fecha.getTime()));
-  });
-  const minT = allTs.length ? Math.min(...allTs) : 0;
-  const maxT = allTs.length ? Math.max(...allTs) : 0;
-  const tRange = Math.max(maxT - minT, 1);
-  function toPct(dt) { return ((dt.getTime() - minT) / tRange * 100).toFixed(1) + '%'; }
-
-  // patente → vehFinal mapping for minimap
+  // patente → vehFinal mapping for minimap + veh column
   const patenteToVeh = {};
   if (plan) {
     const kpi = computeKPIs(plan, report);
@@ -1788,21 +1827,16 @@ function renderHorarios() {
   function buildVehRow(v) {
     const atrasoColor = v.atraso === null ? '' : v.atraso > 120 ? 'color:var(--red)' : v.atraso > 60 ? 'color:var(--orange)' : 'color:var(--green)';
     const alertBg = (v.fechaInicio && v.checkouts.length === 0) ? 'background:rgba(234,88,12,0.05)' : '';
-    const dotsPct = v.checkouts.map(c => toPct(c.fecha));
-    const inicioPos = v.fechaInicio ? toPct(v.fechaInicio) : null;
-    const miniTimeline = `<div style="position:relative;width:100%;height:14px;background:rgba(0,0,0,0.04);border-radius:2px;overflow:hidden">
-      ${inicioPos ? `<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>` : ''}
-      ${dotsPct.map((p,i) => `<div style="position:absolute;left:${p};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${fmtHHMM(v.checkouts[i].fecha)}"></div>`).join('')}
-    </div>`;
+    const vehFinal = patenteToVeh[v.patente] || '';
     const mapBtn = `<button class="btn-minimap" onclick="openMiniMap('${esc(v.patente)}')" title="Ver ruta en minimapa">◎</button>`;
     return `<tr style="${alertBg}">
       <td style="padding:5px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
+      <td style="padding:5px 8px" class="num">${vehFinal ? esc(vehFinal) : '<span class="text-xs">—</span>'}</td>
       <td style="padding:5px 8px" class="num">${v.fechaInicio ? fmtHHMM(v.fechaInicio) : '<span class="text-xs">—</span>'}</td>
       <td style="padding:5px 8px" class="num">${v.primeraGestion ? fmtHHMM(v.primeraGestion) : (v.fechaInicio ? '<span class="pill pill-red" style="font-size:9px">Sin gestión</span>' : '<span class="text-xs">—</span>')}</td>
       <td style="padding:5px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
       <td style="padding:5px 8px;text-align:right" class="num">${v.checkouts.length}</td>
       <td style="padding:5px 8px" class="num">${v.checkouts.length ? fmtHHMM(v.checkouts[v.checkouts.length-1].fecha) : '<span class="text-xs">—</span>'}</td>
-      <td style="padding:5px 8px;min-width:140px">${miniTimeline}</td>
       <td style="padding:5px 6px;text-align:center">${mapBtn}</td>
     </tr>`;
   }
@@ -1816,32 +1850,17 @@ function renderHorarios() {
     return a.localeCompare(b, 'es');
   });
 
-  function buildRegionSection(regName, regVehs) {
-    const sorted = [...regVehs].sort((a,b) => {
-      const aAlert = a.fechaInicio && a.checkouts.length === 0;
-      const bAlert = b.fechaInicio && b.checkouts.length === 0;
-      if (aAlert && !bAlert) return -1; if (!aAlert && bAlert) return 1;
-      if (a.atraso !== null && b.atraso !== null) return b.atraso - a.atraso;
-      if (a.atraso !== null) return -1; if (b.atraso !== null) return 1;
-      return a.patente.localeCompare(b.patente);
-    });
-    const rInicio = sorted.filter(v => v.fechaInicio).length;
-    const rSinGes = sorted.filter(v => v.fechaInicio && v.checkouts.length === 0).length;
-    const rAts = sorted.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
-    const rMed = rAts.length ? rAts[Math.floor(rAts.length/2)] : null;
-    const hdr = `<tr class="h-region-row">
-      <td colspan="8">
-        <span style="color:var(--text)">${esc(regName)}</span>
-        <span style="margin-left:8px;font-weight:400">${sorted.length} veh. · ${rInicio} con inicio${rSinGes > 0 ? ` · <span style="color:var(--orange)">${rSinGes} sin gestión</span>` : ''}${rMed !== null ? ` · mediana ${fmtAtraso(rMed)}` : ''}</span>
-      </td>
-    </tr>`;
-    if (isRM(regName)) {
-      return hdr + sorted.map(buildVehRow).join('');
-    }
-    return hdr;
-  }
-
-  const tableBody = regionKeys.map(r => buildRegionSection(r, byRegion[r])).join('');
+  // Solo RM: ordenar y renderizar filas directamente
+  const rmVehs = regionKeys.flatMap(r => isRM(r) ? byRegion[r] : []);
+  const rmSorted = [...rmVehs].sort((a,b) => {
+    const aAlert = a.fechaInicio && a.checkouts.length === 0;
+    const bAlert = b.fechaInicio && b.checkouts.length === 0;
+    if (aAlert && !bAlert) return -1; if (!aAlert && bAlert) return 1;
+    if (a.atraso !== null && b.atraso !== null) return b.atraso - a.atraso;
+    if (a.atraso !== null) return -1; if (b.atraso !== null) return 1;
+    return a.patente.localeCompare(b.patente);
+  });
+  const tableBody = rmSorted.map(buildVehRow).join('');
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -1870,23 +1889,23 @@ function renderHorarios() {
       <table class="dash-table" style="width:100%">
         <thead><tr>
           <th style="padding:6px 8px">Patente</th>
+          <th style="padding:6px 8px">Vehículo</th>
           <th style="padding:6px 8px">Inicio Ruta</th>
           <th style="padding:6px 8px">1ª Gestión</th>
           <th style="padding:6px 8px">Atraso</th>
           <th style="padding:6px 8px;text-align:right">Checkouts</th>
           <th style="padding:6px 8px">Última Gestión</th>
-          <th style="padding:6px 8px;min-width:140px">Timeline</th>
           <th style="padding:6px 8px;width:32px"></th>
         </tr></thead>
-        <tbody>${tableBody || '<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
+        <tbody>${tableBody || '<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos RM</td></tr>'}</tbody>
       </table>
     </div>`;
 
   el.querySelector('#expHorarios').addEventListener('click', () => {
-    const aoa = [['Región','Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión']];
-    [...vehs].sort((a,b)=>(a.region||'').localeCompare(b.region||'')||a.patente.localeCompare(b.patente)).forEach(v => aoa.push([
-      v.region || '',
+    const aoa = [['Patente','Vehículo','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión']];
+    rmSorted.forEach(v => aoa.push([
       v.patente,
+      patenteToVeh[v.patente] || '',
       v.fechaInicio ? fmtHHMM(v.fechaInicio) : '',
       v.primeraGestion ? fmtHHMM(v.primeraGestion) : '',
       v.atraso !== null ? v.atraso : '',
@@ -2081,6 +2100,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
   loadPlan(); renderConfig(); runSelfTests();
   document.getElementById('miniMapModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeMiniMap(); });
+  window.addEventListener('mouseup', () => { _cqDragging = false; });
+  window.addEventListener('keydown', e => {
+    if (!(e.ctrlKey||e.metaKey) || e.key !== 'c') return;
+    const tab = document.querySelector('.tab-btn.active')?.dataset?.tab;
+    if (tab !== 'consultar' || !_cqSel) return;
+    e.preventDefault(); _cqCopySel();
+  });
   // Red de seguridad: si tras 8s React o Recharts no cargaron desde CDN, avisamos.
   setTimeout(()=>{
     const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo requiere React y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
