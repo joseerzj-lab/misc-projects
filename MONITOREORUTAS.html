@@ -964,7 +964,7 @@ function renderTabla(){
         <td style="padding:5px 8px" class="num">${esc(s.vehFinal)}</td>
         <td style="padding:5px 8px">${esc(r?.patente||'—')}</td>
         <td style="padding:5px 8px"><span class="pill" style="background:${st.color}1A;color:${st.color};border-color:${st.color}40">${st.label}</span></td>
-        <td style="padding:5px 8px;color:var(--textSub)">${esc(r?.motivo3||'—')}</td>
+        <td style="padding:5px 8px;color:var(--textSub)">${esc(r?.motivoRaw||'—')}</td>
         <td style="padding:5px 8px;color:var(--textFaint);font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.direccion||'')}</td>
       </tr>`;
     }).join('');
@@ -1294,19 +1294,31 @@ function consultarBuscar(){
   renderConsultar();
   showToast(`${res.filter(r=>r.found).length}/${res.length} encontrados`, res.some(r=>!r.found)?'warn':'ok');
 }
-function consultarFiltradas(){
-  let r=_consultarResults;
-  if(_consultarFilter==='found')r=r.filter(x=>x.found);
-  else if(_consultarFilter==='notfound')r=r.filter(x=>!x.found);
-  const q=cleanStr(_consultarSearch);
-  if(q)r=r.filter(x=>cleanStr(x.iso).includes(q)||cleanStr(x.estado).includes(q)||cleanStr(x.direccion).includes(q)||cleanStr(x.patente).includes(q)||cleanStr(x.veh).includes(q));
-  return r;
+function filterConsultarTable(){
+  const tbody=document.getElementById('cqTbody'); if(!tbody)return;
+  const f=_consultarFilter, q=cleanStr(_consultarSearch);
+  let shown=0;
+  tbody.querySelectorAll('tr[data-iso]').forEach(tr=>{
+    const found=tr.dataset.found==='1';
+    let show=true;
+    if(f==='found'&&!found)show=false;
+    if(f==='notfound'&&found)show=false;
+    if(q&&!cleanStr(tr.dataset.text||'').includes(q))show=false;
+    tr.style.display=show?'':'none';
+    if(show)shown++;
+  });
+  const cnt=document.getElementById('cqShown'); if(cnt)cnt.textContent=shown;
 }
 function copyConsultar(){
-  const r=consultarFiltradas(); if(!r.length){ showToast('Nada que copiar','warn'); return; }
-  let t='ISO\tPatente\tVehículo\tEstado\tDirección\tMotivo\tComentario\tMotivo 3\tMotivo 2\tFotos\n';
-  r.forEach(x=>{ const urls=parsePhotoUrls(x.imageUrl);
-    t+=`${x.iso}${x.found?'':' [NO HALLADO]'}\t${x.patente}\t${x.veh}\t${x.estado}\t${x.direccion}\t${x.motivoRaw}\t${x.comentario}\t${x.motivo3}\t${x.motivo2}\t${urls.join(' ')}\n`; });
+  const tbody=document.getElementById('cqTbody');
+  const visible=tbody?[...tbody.querySelectorAll('tr[data-iso]:not([style*="display: none"])')]:[];
+  if(!visible.length){ showToast('Nada que copiar','warn'); return; }
+  let t='ISO\tPatente\tVehículo\tEstado\tDirección\tMotivo\tCategoría\tResponsable\tComentario\tFotos\n';
+  visible.forEach(tr=>{
+    const cells=[...tr.querySelectorAll('td')];
+    const vals=cells.slice(0,9).map(td=>td.innerText.replace(/\n/g,' ').trim());
+    t+=vals.join('\t')+'\n';
+  });
   navigator.clipboard?.writeText(t).then(()=>showToast('Tabla copiada','ok'));
 }
 function renderConsultar(){
@@ -1314,7 +1326,6 @@ function renderConsultar(){
   const hasRows=!!(_csvRows&&_csvRows.length)||!!plan;
   const detected=String(_consultarISOs).split(/[\n\r,;\t ]+/).filter(s=>s.trim()).length;
   const results=_consultarResults;
-  const filt=consultarFiltradas();
   const nFound=results.filter(r=>r.found).length;
   const nMiss=results.length-nFound;
 
@@ -1334,20 +1345,25 @@ function renderConsultar(){
   } else {
     const chips=[['all','Todos'],['found','✓ Encontrados ('+nFound+')'],['notfound','✗ No hallados ('+nMiss+')']]
       .map(([k,l])=>`<button class="cq-chip${_consultarFilter===k?' active':''}" data-filter="${k}">${l}</button>`).join('');
-    const rowsHtml=filt.map(x=>{
+    const rowsHtml=results.map(x=>{
       const urls=parsePhotoUrls(x.imageUrl);
       const arg=esc(String(x.imageUrl)).replace(/'/g,'&#39;');
-      const fotoCell=urls.length?`<span style="color:var(--blue);text-decoration:underline;cursor:pointer;font-weight:700" onclick="openPhotos('${arg}',0)">Ver ${urls.length} foto${urls.length>1?'s':''}</span>`:'<span class="text-xs">—</span>';
-      const rowBg=!x.found?'background:rgba(220,38,38,0.04)':x.multi?'background:rgba(220,38,38,0.08)':'';
-      return `<tr style="${rowBg}">
-        <td style="padding:6px 8px;font-weight:700;color:${x.found?'var(--text)':'var(--red)'}" class="num">${esc(x.iso)}${x.found?'':' (NO HALLADO)'}</td>
-        <td style="padding:6px 8px">${esc(x.patente||'—')}</td>
-        <td style="padding:6px 8px;font-weight:600">${esc(x.veh||'—')}</td>
-        <td style="padding:6px 8px">${esc(x.estado||'—')}${x.multi?' <span class="pill pill-red" title="Múltiples estados">multi</span>':''}</td>
-        <td style="padding:6px 8px;max-width:220px">${esc(x.direccion||'—')}</td>
-        <td style="padding:6px 8px;max-width:240px">${x.motivoRaw?esc(x.motivoRaw):'—'}${x.motivo3?`<div class="text-xs" style="color:var(--textFaint)">${esc(x.motivo3)} · ${esc(x.motivo2)}</div>`:''}</td>
-        <td style="padding:6px 8px;max-width:240px">${esc(x.comentario||'—')}</td>
-        <td style="padding:6px 8px">${fotoCell}</td>
+      const fotoCell=urls.length
+        ?`<button class="btn btn-secondary btn-sm" style="font-size:9px;padding:2px 7px;white-space:nowrap" onclick="openPhotos('${arg}',0)">📷 ${urls.length}</button>`
+        :'<span style="color:var(--textFaint);font-size:11px">—</span>';
+      const textSearch=[x.iso,x.patente,x.veh,x.estado,x.direccion,x.motivoRaw,x.motivo3,x.motivo2,x.comentario].join(' ').toLowerCase();
+      const rowBg=!x.found?'background:rgba(220,38,38,0.04)':x.multi?'background:rgba(220,38,38,0.06)':'';
+      return `<tr data-iso="${esc(x.iso)}" data-found="${x.found?'1':'0'}" data-text="${esc(textSearch)}" style="${rowBg}">
+        <td style="padding:5px 8px;font-weight:700;font-family:var(--font-mono);font-size:12px;color:${x.found?'var(--text)':'var(--red)'};white-space:nowrap">${esc(x.iso)}</td>
+        <td style="padding:5px 8px;font-family:var(--font-mono);font-size:12px;white-space:nowrap">${esc(x.patente||'—')}</td>
+        <td style="padding:5px 8px;font-weight:600;font-size:12px;white-space:nowrap">${esc(x.veh||x.found?x.veh||'—':'NO HALLADO')}</td>
+        <td style="padding:5px 8px;font-size:12px">${x.found?esc(x.estado||'—'):'<span style="color:var(--red);font-weight:700">NO HALLADO</span>'}</td>
+        <td style="padding:5px 8px;font-size:11px;color:var(--textSub);max-width:200px">${esc(x.direccion||'—')}</td>
+        <td style="padding:5px 8px;font-size:11px;max-width:220px">${esc(x.motivoRaw||'—')}</td>
+        <td style="padding:5px 8px;font-size:11px">${esc(x.motivo3||'—')}</td>
+        <td style="padding:5px 8px;font-size:11px">${esc(x.motivo2||'—')}</td>
+        <td style="padding:5px 8px;font-size:11px;color:var(--textSub);max-width:200px">${esc(x.comentario||'—')}</td>
+        <td style="padding:5px 8px">${fotoCell}</td>
       </tr>`;
     }).join('');
     right=`<div class="card">
@@ -1355,14 +1371,15 @@ function renderConsultar(){
         <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
           <span><span style="font-weight:800;color:var(--green);font-family:var(--font-mono)">${nFound}</span> <span class="text-xs">encontrados</span></span>
           <span><span style="font-weight:800;color:var(--red);font-family:var(--font-mono)">${nMiss}</span> <span class="text-xs">no hallados</span></span>
+          <span class="text-xs" style="color:var(--textFaint)"><span id="cqShown">${results.length}</span> visibles</span>
         </div>
         <button class="btn btn-secondary btn-sm" id="cqCopy">Copiar tabla</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
         ${chips}
-        <input class="input" id="cqSearch" placeholder="Filtrar resultados…" value="${esc(_consultarSearch)}" style="margin-left:auto;max-width:220px">
+        <input class="input" id="cqSearch" placeholder="Filtrar…" value="${esc(_consultarSearch)}" style="margin-left:auto;max-width:200px">
       </div>
-      <div style="overflow:auto"><table class="dash-table"><thead><tr>${['ISO','Patente','Vehículo','Estado','Dirección','Motivo','Comentario','Fotos'].map(h=>`<th style="padding:6px 8px">${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--textFaint)">Sin coincidencias con el filtro</td></tr>'}</tbody></table></div>
+      <div style="overflow:auto"><table class="dash-table" style="width:100%;user-select:text"><thead><tr>${['ISO','Patente','Vehículo','Estado','Dirección','Motivo','Categoría','Resp.','Comentario','📷'].map(h=>`<th style="padding:5px 8px;white-space:nowrap">${h}</th>`).join('')}</tr></thead><tbody id="cqTbody">${rowsHtml}</tbody></table></div>
     </div>`;
   }
 
@@ -1376,9 +1393,14 @@ function renderConsultar(){
   ta.addEventListener('input',()=>{ _consultarISOs=ta.value; });
   ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); consultarBuscar(); } });
   const copyBtn=el.querySelector('#cqCopy'); if(copyBtn)copyBtn.addEventListener('click',copyConsultar);
-  el.querySelectorAll('.cq-chip').forEach(c=>c.addEventListener('click',()=>{ _consultarFilter=c.dataset.filter; renderConsultar(); }));
+  el.querySelectorAll('.cq-chip').forEach(c=>c.addEventListener('click',()=>{
+    _consultarFilter=c.dataset.filter;
+    el.querySelectorAll('.cq-chip').forEach(b=>b.classList.toggle('active',b===c));
+    filterConsultarTable();
+  }));
   const sIn=el.querySelector('#cqSearch');
-  if(sIn)sIn.addEventListener('input',()=>{ _consultarSearch=sIn.value; renderConsultar(); const ns=document.getElementById('cqSearch'); if(ns){ ns.focus(); ns.setSelectionRange(ns.value.length,ns.value.length); } });
+  if(sIn)sIn.addEventListener('input',()=>{ _consultarSearch=sIn.value; filterConsultarTable(); });
+  filterConsultarTable();
 }
 
 /* ═══════ RESUMEN ═══════ */
@@ -3078,9 +3100,10 @@ if (typeof renderDashboard === 'function') renderDashboard();
     const [showLegend, setShowLegend] = React.useState(true);
     const [showSettings, setShowSettings] = React.useState(false);
     const [showPanel, setShowPanel] = React.useState(false);
+    const [showNotesPanel, setShowNotesPanel] = React.useState(false);
     const [panelSearch, setPanelSearch] = React.useState('');
-    const [showNotesPaste, setShowNotesPaste] = React.useState(false);
     const [notesPasteRaw, setNotesPasteRaw] = React.useState('');
+    const [showPaste, setShowPaste] = React.useState(false);
     const chartRef = React.useRef(null);
     if (!BarChart || !ResponsiveContainer) return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3113,6 +3136,19 @@ if (typeof renderDashboard === 'function') renderDashboard();
       n.has(key) ? n.delete(key) : n.add(key);
       return n;
     });
+    const noteCount = Object.keys(notes).length;
+    const applyNotesPaste = () => {
+      const lines = notesPasteRaw.split(/\r?\n/).filter(l => l.trim());
+      lines.forEach(l => {
+        const sep = l.includes('\t') ? '\t' : ',';
+        const parts = l.split(sep);
+        const veh = (parts[0] || '').trim();
+        const note = (parts.slice(1).join(sep) || '').trim();
+        if (veh && onNoteChange) onNoteChange(veh, note);
+      });
+      setShowPaste(false);
+      setNotesPasteRaw('');
+    };
     const exportImg = async (mode = 'download') => {
       const el = chartRef.current;
       if (!el) return;
@@ -3158,18 +3194,6 @@ if (typeof renderDashboard === 'function') renderDashboard();
       } catch (e) {
         restore();
       }
-    };
-    const applyNotesPaste = () => {
-      const lines = notesPasteRaw.split(/\r?\n/).filter(l => l.trim());
-      lines.forEach(l => {
-        const sep = l.includes('\t') ? '\t' : ',';
-        const parts = l.split(sep);
-        const veh = (parts[0] || '').trim();
-        const note = (parts.slice(1).join(sep) || '').trim();
-        if (veh && onNoteChange) onNoteChange(veh, note);
-      });
-      setShowNotesPaste(false);
-      setNotesPasteRaw('');
     };
     const chartH = layout === 'horizontal' ? Math.max(500, visible.length * (barSize + 8) + 100) : 560;
     const fmt = v => v != null ? v + '%' : '';
@@ -3251,7 +3275,11 @@ if (typeof renderDashboard === 'function') renderDashboard();
         margin: '0 4px'
       }
     }), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowPanel(p => !p),
+      onClick: () => {
+        setShowPanel(p => !p);
+        setShowNotesPanel(false);
+        setShowSettings(false);
+      },
       style: {
         display: 'flex',
         alignItems: 'center',
@@ -3271,7 +3299,42 @@ if (typeof renderDashboard === 'function') renderDashboard();
     }) : /*#__PURE__*/React.createElement(Eye, {
       size: 12
     }), ' ', "Ocultar", hiddenKeys.size > 0 ? ` (${hiddenKeys.size})` : ''), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowSettings(p => !p),
+      onClick: () => {
+        setShowNotesPanel(p => !p);
+        setShowPanel(false);
+        setShowSettings(false);
+      },
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '4px 10px',
+        borderRadius: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        background: showNotesPanel || noteCount > 0 ? 'rgba(124,58,237,0.1)' : 'rgba(0,0,0,0.04)',
+        color: showNotesPanel || noteCount > 0 ? '#7c3aed' : '#a1a1aa'
+      }
+    }, "✎ Notas", noteCount > 0 ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: '#7c3aed',
+        color: '#fff',
+        borderRadius: 99,
+        padding: '0 5px',
+        fontSize: 8,
+        fontWeight: 900,
+        lineHeight: '16px',
+        marginLeft: 3
+      }
+    }, noteCount) : ''), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowSettings(p => !p);
+        setShowPanel(false);
+        setShowNotesPanel(false);
+      },
       style: {
         display: 'flex',
         alignItems: 'center',
@@ -3427,7 +3490,173 @@ if (typeof renderDashboard === 'function') renderDashboard();
           textDecoration: hidden ? 'line-through' : 'none'
         }
       }, d.patente);
-    }))), showSettings && /*#__PURE__*/React.createElement("div", {
+    }))), showNotesPanel && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '12px 14px',
+        borderRadius: 8,
+        border: '1px solid rgba(124,58,237,0.2)',
+        background: 'rgba(250,248,255,0.98)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: '#7c3aed'
+      }
+    }, "Notas por vehículo", noteCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: '#7c3aed',
+        color: '#fff',
+        borderRadius: 99,
+        padding: '0 5px',
+        fontSize: 8,
+        fontWeight: 900,
+        lineHeight: '16px',
+        marginLeft: 6
+      }
+    }, noteCount)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowPaste(p => !p),
+      style: {
+        padding: '3px 9px',
+        borderRadius: 6,
+        fontSize: 9,
+        fontWeight: 700,
+        border: `1px solid ${showPaste ? 'rgba(124,58,237,0.4)' : 'rgba(0,0,0,0.15)'}`,
+        background: showPaste ? 'rgba(124,58,237,0.1)' : 'rgba(0,0,0,0.03)',
+        color: showPaste ? '#7c3aed' : '#52525b',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "⬇ Pegar tabla"), noteCount > 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        data.forEach(d => onNoteChange && onNoteChange(d.patente, ''));
+      },
+      style: {
+        padding: '3px 9px',
+        borderRadius: 6,
+        fontSize: 9,
+        fontWeight: 700,
+        border: '1px solid rgba(220,38,38,0.25)',
+        background: 'rgba(220,38,38,0.05)',
+        color: '#dc2626',
+        cursor: 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, "✕ Borrar todo"))), showPaste && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'rgba(124,58,237,0.04)',
+        border: '1px solid rgba(124,58,237,0.18)',
+        borderRadius: 7,
+        padding: 10,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'flex-start'
+      }
+    }, /*#__PURE__*/React.createElement("textarea", {
+      value: notesPasteRaw,
+      onChange: e => setNotesPasteRaw(e.target.value),
+      placeholder: 'VPV01\tJuan Pérez\nVPV02\tPedro Rojas',
+      style: {
+        flex: 1,
+        height: 64,
+        padding: 6,
+        borderRadius: 5,
+        border: '1px solid rgba(124,58,237,0.25)',
+        fontSize: 9,
+        fontFamily: 'monospace',
+        outline: 'none',
+        resize: 'none',
+        boxSizing: 'border-box'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: applyNotesPaste,
+      style: {
+        padding: '5px 12px',
+        borderRadius: 5,
+        border: '1px solid rgba(124,58,237,0.4)',
+        background: 'rgba(124,58,237,0.1)',
+        color: '#7c3aed',
+        fontSize: 9,
+        fontWeight: 700,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        whiteSpace: 'nowrap'
+      }
+    }, "Aplicar")), noteCount > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 5
+      }
+    }, Object.entries(notes).map(([veh, note]) => /*#__PURE__*/React.createElement("div", {
+      key: veh,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        background: 'rgba(124,58,237,0.07)',
+        border: '1px solid rgba(124,58,237,0.2)',
+        borderRadius: 4,
+        padding: '3px 8px',
+        fontSize: 9,
+        fontFamily: 'monospace'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 800,
+        color: '#7c3aed'
+      }
+    }, veh), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#a1a1aa',
+        margin: '0 2px'
+      }
+    }, "→"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#18181b',
+        maxWidth: 140,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, note), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onNoteChange && onNoteChange(veh, ''),
+      style: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#a1a1aa',
+        fontSize: 10,
+        padding: '0 0 0 3px',
+        marginLeft: 1,
+        lineHeight: 1
+      }
+    }, "✕")))), noteCount === 0 && !showPaste && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: '#a1a1aa',
+        textAlign: 'center',
+        padding: '6px 0'
+      }
+    }, "Sin notas. Usa \"Pegar tabla\" para asignar conductores u observaciones a cada vehículo.")), showSettings && /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '12px 14px',
         borderRadius: 8,
@@ -3530,76 +3759,7 @@ if (typeof renderDashboard === 'function') renderDashboard();
         background: val ? '#7c3aed' : 'rgba(0,0,0,0.05)',
         color: val ? '#fff' : '#a1a1aa'
       }
-    }, val ? 'ON' : 'OFF')))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        borderTop: '1px solid rgba(124,58,237,0.15)',
-        paddingTop: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        fontWeight: 700,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        color: '#a1a1aa'
-      }
-    }, "Notas por vehículo"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowNotesPaste(p => !p),
-      style: {
-        padding: '2px 8px',
-        borderRadius: 4,
-        fontSize: 9,
-        fontWeight: 700,
-        border: '1px solid rgba(124,58,237,0.3)',
-        background: 'rgba(124,58,237,0.07)',
-        color: '#7c3aed',
-        cursor: 'pointer',
-        fontFamily: 'inherit'
-      }
-    }, "Pegar tabla")), showNotesPaste && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 6
-      }
-    }, /*#__PURE__*/React.createElement("textarea", {
-      value: notesPasteRaw,
-      onChange: e => setNotesPasteRaw(e.target.value),
-      placeholder: 'VPV01\tJuan Pérez\nVPV02\tPedro Rojas',
-      style: {
-        flex: 1,
-        height: 60,
-        padding: 6,
-        borderRadius: 4,
-        border: '1px solid rgba(124,58,237,0.25)',
-        fontSize: 9,
-        fontFamily: 'monospace',
-        outline: 'none',
-        resize: 'none'
-      }
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: applyNotesPaste,
-      style: {
-        padding: '4px 12px',
-        borderRadius: 4,
-        border: '1px solid rgba(124,58,237,0.4)',
-        background: 'rgba(124,58,237,0.1)',
-        color: '#7c3aed',
-        fontSize: 9,
-        fontWeight: 700,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        whiteSpace: 'nowrap'
-      }
-    }, "Aplicar")))), /*#__PURE__*/React.createElement("div", {
+    }, val ? 'ON' : 'OFF'))))), /*#__PURE__*/React.createElement("div", {
       ref: chartRef,
       style: {
         background: '#fff',
