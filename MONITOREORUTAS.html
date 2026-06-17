@@ -8,9 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -187,6 +184,15 @@ h3{font-size:12px;font-weight:600}
 @media (max-width:760px){.cq-grid{grid-template-columns:1fr}}
 .cq-chip{font-size:10px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--textFaint);cursor:pointer;font-family:var(--font-base)}
 .cq-chip.active{color:var(--text);border-color:var(--text);background:var(--bgHover)}
+/* Mini-mapa */
+#miniMapModal{position:fixed;inset:0;z-index:2400;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center}
+#miniMapModal.open{display:flex}
+.mm-panel{background:var(--bgCard);border-radius:var(--r-lg);width:600px;max-width:96vw;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.18);animation:mmIn var(--t-slow)}
+@keyframes mmIn{from{opacity:0;transform:scale(0.95) translateY(8px)}to{opacity:1;transform:none}}
+#miniMapLeaf{height:360px;background:#eef0f2}
+.btn-minimap{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bgCardAlt);color:var(--textSub);cursor:pointer;font-size:13px;transition:background var(--t-fast),color var(--t-fast)}
+.btn-minimap:hover{background:var(--pasteBlue);color:var(--blue);border-color:rgba(37,99,235,0.25)}
+.h-region-row td{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--textFaint);background:var(--bgCardAlt);border-top:2px solid var(--border);padding:6px 10px}
 </style>
 </head>
 <body class="app-layout">
@@ -235,6 +241,7 @@ h3{font-size:12px;font-weight:600}
     </section>
   </main>
   <div id="imgModal" style="display:none"></div>
+  <div id="miniMapModal"></div>
   <div class="toast"></div>
 <script>
 /* ═══════ STATE ═══════ */
@@ -407,8 +414,10 @@ function buildTimingData(rows) {
     const pat = String(getKey(row,'Patente')||'').trim(); if (!pat) continue;
     const iso = String(getKey(row,'ParentOrder')||'').trim(); if (!iso) continue;
     const estadoN = normEstado(String(getKey(row,'Estado')||''));
-    if (!byPat[pat]) byPat[pat] = {patente: pat, fechaInicio: null, checkouts: new Map()};
+    const region = String(getKey(row,'Region')||'').trim();
+    if (!byPat[pat]) byPat[pat] = {patente: pat, region: '', fechaInicio: null, checkouts: new Map()};
     const p = byPat[pat];
+    if (region && !p.region) p.region = region;
     const inicioRaw = String(getKey(row,'Fechainicioruta')||getKey(row,'FechaInicioRuta')||'').trim();
     if (inicioRaw && !p.fechaInicio) { const dt = parseFechaLocal(inicioRaw); if (dt) p.fechaInicio = dt; }
     if (estadoN === 'terminado') {
@@ -423,7 +432,7 @@ function buildTimingData(rows) {
     const checkouts = [...p.checkouts.values()].sort((a,b)=>a.fecha-b.fecha);
     const primera = checkouts[0]?.fecha || null;
     result[p.patente] = {
-      patente: p.patente, fechaInicio: p.fechaInicio, checkouts,
+      patente: p.patente, region: p.region, fechaInicio: p.fechaInicio, checkouts,
       primeraGestion: primera,
       atraso: (p.fechaInicio && primera) ? Math.round((primera - p.fechaInicio)/60000) : null
     };
@@ -772,16 +781,7 @@ function initMap(){
   window._map=L.map('leafmap',{preferCanvas:true,renderer:window._canvas}).setView([-33.45,-70.66],11);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(window._map);
-  window._layerStops = (window.L.markerClusterGroup ? L.markerClusterGroup({
-    maxClusterRadius: 40,
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    disableClusteringAtZoom: 15,
-    iconCreateFunction: cluster => L.divIcon({
-      html: `<div style="background:#18181B;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:monospace;border:2px solid #fff">${cluster.getChildCount()}</div>`,
-      className: '', iconSize: [28,28]
-    })
-  }) : L.layerGroup()).addTo(window._map);
+  window._layerStops = L.layerGroup().addTo(window._map);
   window._layerLines=L.layerGroup().addTo(window._map);
 }
 function renderMap(){
@@ -1103,88 +1103,6 @@ function renderTabla(){
   </div>`;
 }
 
-/* ═══════ HORARIOS ═══════ */
-function renderHorarios(){
-  const el=document.getElementById('horariosRoot'); if(!el)return;
-  if(!_csvRows||!_csvRows.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte en Configurar para ver horarios.</div></div>'; return;
-  }
-  const timing=buildTimingData(_csvRows);
-  const vehs=Object.values(timing).sort((a,b)=>{
-    const aAlert=a.fechaInicio&&a.checkouts.length===0, bAlert=b.fechaInicio&&b.checkouts.length===0;
-    if(aAlert&&!bAlert)return -1; if(!aAlert&&bAlert)return 1;
-    if(a.atraso!==null&&b.atraso!==null)return b.atraso-a.atraso;
-    if(a.atraso!==null)return -1; if(b.atraso!==null)return 1;
-    return a.patente.localeCompare(b.patente);
-  });
-  if(!vehs.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no tiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
-  }
-  const allTs=[];
-  vehs.forEach(v=>{ if(v.fechaInicio)allTs.push(v.fechaInicio.getTime()); v.checkouts.forEach(c=>allTs.push(c.fecha.getTime())); });
-  const minT=allTs.length?Math.min(...allTs):0, maxT=allTs.length?Math.max(...allTs):0;
-  const tRange=Math.max(maxT-minT,1);
-  const toPct=dt=>((dt.getTime()-minT)/tRange*100).toFixed(1)+'%';
-  const conInicio=vehs.filter(v=>v.fechaInicio).length;
-  const sinGestion=vehs.filter(v=>v.fechaInicio&&v.checkouts.length===0).length;
-  const atrasos=vehs.filter(v=>v.atraso!==null).map(v=>v.atraso).sort((a,b)=>a-b);
-  const mediana=atrasos.length?atrasos[Math.floor(atrasos.length/2)]:null;
-  const rows=vehs.map(v=>{
-    const atrasoColor=v.atraso===null?'':v.atraso>120?'color:var(--red)':v.atraso>60?'color:var(--orange)':'color:var(--green)';
-    const alertBg=(v.fechaInicio&&v.checkouts.length===0)?'background:rgba(234,88,12,0.05)':'';
-    const inicioPos=v.fechaInicio?toPct(v.fechaInicio):null;
-    const dotsPct=v.checkouts.map(c=>({pct:toPct(c.fecha),h:fmtHHMM(c.fecha)}));
-    const miniTimeline=`<div style="position:relative;width:100%;height:14px;background:rgba(0,0,0,0.04);border-radius:2px;overflow:hidden">
-      ${inicioPos?`<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>`:''}
-      ${dotsPct.map(d=>`<div style="position:absolute;left:${d.pct};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${d.h}"></div>`).join('')}
-    </div>`;
-    return`<tr style="${alertBg}">
-      <td style="padding:6px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
-      <td style="padding:6px 8px" class="num">${v.fechaInicio?fmtHHMM(v.fechaInicio):'<span class="text-xs">—</span>'}</td>
-      <td style="padding:6px 8px" class="num">${v.primeraGestion?fmtHHMM(v.primeraGestion):(v.fechaInicio?'<span class="pill pill-red" style="font-size:9px">Sin gestión</span>':'<span class="text-xs">—</span>')}</td>
-      <td style="padding:6px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
-      <td style="padding:6px 8px;text-align:right" class="num">${v.checkouts.length}</td>
-      <td style="padding:6px 8px" class="num">${v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):'<span class="text-xs">—</span>'}</td>
-      <td style="padding:6px 8px;min-width:160px">${miniTimeline}</td>
-    </tr>`;
-  }).join('');
-  el.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <h1>Horarios de gestión</h1>
-      <button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
-        <div class="kpi-lbl">Con inicio</div><div class="kpi-val" style="font-size:20px">${conInicio}</div></div>
-      <div class="card" style="padding:10px 16px;flex:1;min-width:110px;${sinGestion>0?'border-color:rgba(234,88,12,0.3);background:rgba(234,88,12,0.04)':''}">
-        <div class="kpi-lbl" style="${sinGestion>0?'color:var(--orange)':''}">Sin gestión</div>
-        <div class="kpi-val" style="font-size:20px;${sinGestion>0?'color:var(--orange)':''}">${sinGestion}</div></div>
-      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
-        <div class="kpi-lbl">Atraso mediana</div><div class="kpi-val" style="font-size:20px">${mediana!==null?fmtAtraso(mediana):'—'}</div></div>
-      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
-        <div class="kpi-lbl">Total vehículos</div><div class="kpi-val" style="font-size:20px">${vehs.length}</div></div>
-    </div>
-    <div class="card" style="padding:0;overflow:auto">
-      <table class="dash-table" style="width:100%">
-        <thead><tr>
-          <th style="padding:6px 8px">Patente</th>
-          <th style="padding:6px 8px">Inicio Ruta</th>
-          <th style="padding:6px 8px">1ª Gestión</th>
-          <th style="padding:6px 8px">Atraso</th>
-          <th style="padding:6px 8px;text-align:right">Checkouts</th>
-          <th style="padding:6px 8px">Última Gestión</th>
-          <th style="padding:6px 8px;min-width:160px">Timeline</th>
-        </tr></thead>
-        <tbody>${rows||'<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
-      </table>
-    </div>`;
-  el.querySelector('#expHorarios').addEventListener('click',()=>{
-    const aoa=[['Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión'],
-      ...vehs.map(v=>[v.patente,v.fechaInicio?fmtHHMM(v.fechaInicio):'',v.primeraGestion?fmtHHMM(v.primeraGestion):'',v.atraso!==null?v.atraso:'',v.checkouts.length,v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):''])];
-    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Horarios');
-    XLSX.writeFile(wb,'monitoreo_horarios.xlsx'); showToast('Exportado','ok');
-  });
-}
 
 /* ═══════ AUTO-REFRESH SR ═══════ */
 function startAutoRefresh(){
@@ -1838,17 +1756,18 @@ function renderHorarios() {
     el.innerHTML = '<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte en Configurar para ver horarios.</div></div>'; return;
   }
   const timing = buildTimingData(_csvRows);
-  const vehs = Object.values(timing).sort((a,b) => {
-    const aHas = a.fechaInicio && a.checkouts.length === 0;
-    const bHas = b.fechaInicio && b.checkouts.length === 0;
-    if (aHas && !bHas) return -1; if (!aHas && bHas) return 1;
-    if (a.atraso !== null && b.atraso !== null) return b.atraso - a.atraso;
-    if (a.atraso !== null) return -1; if (b.atraso !== null) return 1;
-    return a.patente.localeCompare(b.patente);
-  });
+  const vehs = Object.values(timing);
   if (!vehs.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no contiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
   }
+
+  // Global KPIs
+  const conInicio = vehs.filter(v => v.fechaInicio).length;
+  const sinGestion = vehs.filter(v => v.fechaInicio && v.checkouts.length === 0).length;
+  const atrasos = vehs.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
+  const mediana = atrasos.length ? atrasos[Math.floor(atrasos.length/2)] : null;
+
+  // Timeline scale (global, across all vehicles)
   const allTs = [];
   vehs.forEach(v => {
     if (v.fechaInicio) allTs.push(v.fechaInicio.getTime());
@@ -1858,11 +1777,15 @@ function renderHorarios() {
   const maxT = allTs.length ? Math.max(...allTs) : 0;
   const tRange = Math.max(maxT - minT, 1);
   function toPct(dt) { return ((dt.getTime() - minT) / tRange * 100).toFixed(1) + '%'; }
-  const conInicio = vehs.filter(v => v.fechaInicio).length;
-  const sinGestion = vehs.filter(v => v.fechaInicio && v.checkouts.length === 0).length;
-  const atrasos = vehs.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
-  const mediana = atrasos.length ? atrasos[Math.floor(atrasos.length/2)] : null;
-  const rows = vehs.map(v => {
+
+  // patente → vehFinal mapping for minimap
+  const patenteToVeh = {};
+  if (plan) {
+    const kpi = computeKPIs(plan, report);
+    Object.values(kpi.vehicles).forEach(v => { if (v.patente) patenteToVeh[v.patente] = v.vehFinal; });
+  }
+
+  function buildVehRow(v) {
     const atrasoColor = v.atraso === null ? '' : v.atraso > 120 ? 'color:var(--red)' : v.atraso > 60 ? 'color:var(--orange)' : 'color:var(--green)';
     const alertBg = (v.fechaInicio && v.checkouts.length === 0) ? 'background:rgba(234,88,12,0.05)' : '';
     const dotsPct = v.checkouts.map(c => toPct(c.fecha));
@@ -1871,21 +1794,59 @@ function renderHorarios() {
       ${inicioPos ? `<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>` : ''}
       ${dotsPct.map((p,i) => `<div style="position:absolute;left:${p};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${fmtHHMM(v.checkouts[i].fecha)}"></div>`).join('')}
     </div>`;
+    const mapBtn = `<button class="btn-minimap" onclick="openMiniMap('${esc(v.patente)}')" title="Ver ruta en minimapa">◎</button>`;
     return `<tr style="${alertBg}">
-      <td style="padding:6px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
-      <td style="padding:6px 8px" class="num">${v.fechaInicio ? fmtHHMM(v.fechaInicio) : '<span class="text-xs">—</span>'}</td>
-      <td style="padding:6px 8px" class="num">${v.primeraGestion ? fmtHHMM(v.primeraGestion) : (v.fechaInicio ? '<span class="pill pill-red" style="font-size:9px">Sin gestión</span>' : '<span class="text-xs">—</span>')}</td>
-      <td style="padding:6px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
-      <td style="padding:6px 8px;text-align:right" class="num">${v.checkouts.length}</td>
-      <td style="padding:6px 8px" class="num">${v.checkouts.length ? fmtHHMM(v.checkouts[v.checkouts.length-1].fecha) : '<span class="text-xs">—</span>'}</td>
-      <td style="padding:6px 8px;min-width:160px">${miniTimeline}</td>
+      <td style="padding:5px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
+      <td style="padding:5px 8px" class="num">${v.fechaInicio ? fmtHHMM(v.fechaInicio) : '<span class="text-xs">—</span>'}</td>
+      <td style="padding:5px 8px" class="num">${v.primeraGestion ? fmtHHMM(v.primeraGestion) : (v.fechaInicio ? '<span class="pill pill-red" style="font-size:9px">Sin gestión</span>' : '<span class="text-xs">—</span>')}</td>
+      <td style="padding:5px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
+      <td style="padding:5px 8px;text-align:right" class="num">${v.checkouts.length}</td>
+      <td style="padding:5px 8px" class="num">${v.checkouts.length ? fmtHHMM(v.checkouts[v.checkouts.length-1].fecha) : '<span class="text-xs">—</span>'}</td>
+      <td style="padding:5px 8px;min-width:140px">${miniTimeline}</td>
+      <td style="padding:5px 6px;text-align:center">${mapBtn}</td>
     </tr>`;
-  }).join('');
-  const exportBtn = `<button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>`;
+  }
+
+  // Group by region, RM first
+  const byRegion = {};
+  vehs.forEach(v => { const r = v.region || 'Sin región'; (byRegion[r] = byRegion[r] || []).push(v); });
+  const isRM = r => /metropolitana|^rm$/i.test(r);
+  const regionKeys = Object.keys(byRegion).sort((a,b) => {
+    if (isRM(a) && !isRM(b)) return -1; if (!isRM(a) && isRM(b)) return 1;
+    return a.localeCompare(b, 'es');
+  });
+
+  function buildRegionSection(regName, regVehs) {
+    const sorted = [...regVehs].sort((a,b) => {
+      const aAlert = a.fechaInicio && a.checkouts.length === 0;
+      const bAlert = b.fechaInicio && b.checkouts.length === 0;
+      if (aAlert && !bAlert) return -1; if (!aAlert && bAlert) return 1;
+      if (a.atraso !== null && b.atraso !== null) return b.atraso - a.atraso;
+      if (a.atraso !== null) return -1; if (b.atraso !== null) return 1;
+      return a.patente.localeCompare(b.patente);
+    });
+    const rInicio = sorted.filter(v => v.fechaInicio).length;
+    const rSinGes = sorted.filter(v => v.fechaInicio && v.checkouts.length === 0).length;
+    const rAts = sorted.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
+    const rMed = rAts.length ? rAts[Math.floor(rAts.length/2)] : null;
+    const hdr = `<tr class="h-region-row">
+      <td colspan="8">
+        <span style="color:var(--text)">${esc(regName)}</span>
+        <span style="margin-left:8px;font-weight:400">${sorted.length} veh. · ${rInicio} con inicio${rSinGes > 0 ? ` · <span style="color:var(--orange)">${rSinGes} sin gestión</span>` : ''}${rMed !== null ? ` · mediana ${fmtAtraso(rMed)}` : ''}</span>
+      </td>
+    </tr>`;
+    if (isRM(regName)) {
+      return hdr + sorted.map(buildVehRow).join('');
+    }
+    return hdr;
+  }
+
+  const tableBody = regionKeys.map(r => buildRegionSection(r, byRegion[r])).join('');
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <h1>Horarios de gestión</h1>
-      ${exportBtn}
+      <button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
@@ -1914,14 +1875,17 @@ function renderHorarios() {
           <th style="padding:6px 8px">Atraso</th>
           <th style="padding:6px 8px;text-align:right">Checkouts</th>
           <th style="padding:6px 8px">Última Gestión</th>
-          <th style="padding:6px 8px;min-width:160px">Timeline</th>
+          <th style="padding:6px 8px;min-width:140px">Timeline</th>
+          <th style="padding:6px 8px;width:32px"></th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
+        <tbody>${tableBody || '<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
       </table>
     </div>`;
+
   el.querySelector('#expHorarios').addEventListener('click', () => {
-    const aoa = [['Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión']];
-    vehs.forEach(v => aoa.push([
+    const aoa = [['Región','Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión']];
+    [...vehs].sort((a,b)=>(a.region||'').localeCompare(b.region||'')||a.patente.localeCompare(b.patente)).forEach(v => aoa.push([
+      v.region || '',
       v.patente,
       v.fechaInicio ? fmtHHMM(v.fechaInicio) : '',
       v.primeraGestion ? fmtHHMM(v.primeraGestion) : '',
@@ -1934,6 +1898,70 @@ function renderHorarios() {
     XLSX.writeFile(wb, 'monitoreo_horarios.xlsx');
     showToast('Exportado', 'ok');
   });
+}
+
+/* ═══════ MINIMAPA ═══════ */
+function openMiniMap(patente) {
+  const modal = document.getElementById('miniMapModal');
+  if (!modal) return;
+
+  let vehFinal = null, stops = [];
+  if (plan) {
+    const kpi = computeKPIs(plan, report);
+    const entry = Object.values(kpi.vehicles).find(v => v.patente === patente);
+    if (entry) vehFinal = entry.vehFinal;
+    if (vehFinal) stops = plan.stops.filter(s => s.vehFinal === vehFinal).sort((a,b)=>a.orden-b.orden);
+  }
+
+  const doneCount = stops.filter(s => statusOf(s,report).key === 'terminado').length;
+  const mapBtnLabel = vehFinal ? `<button class="btn btn-secondary btn-sm" onclick="closeMiniMap();selectedVeh='${esc(vehFinal)}';switchTab('mapa')" style="font-size:10px">Ver en mapa completo</button>` : '';
+
+  modal.innerHTML = `
+    <div class="mm-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="font-weight:700;font-size:13px" class="num">${esc(patente)}</span>
+          ${vehFinal && vehFinal !== patente ? `<span class="text-xs">${esc(vehFinal)}</span>` : ''}
+          ${stops.length ? `<span class="text-xs">${doneCount}/${stops.length} paradas</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${mapBtnLabel}
+          <button onclick="closeMiniMap()" style="border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--textFaint);padding:2px 6px;line-height:1">✕</button>
+        </div>
+      </div>
+      <div id="miniMapLeaf" style="height:360px;background:#eef0f2"></div>
+      ${!stops.length ? `<div style="padding:10px 14px;font-size:11px;color:var(--textFaint)">${plan ? 'No se encontraron paradas para esta patente en el plan.' : 'Carga un plan para ver paradas en el mapa.'}</div>` : ''}
+    </div>`;
+
+  modal.style.display = 'flex';
+
+  if (stops.length) {
+    setTimeout(() => {
+      const mapEl = document.getElementById('miniMapLeaf');
+      if (!mapEl) return;
+      const mm = L.map(mapEl, {zoomControl:true}).setView([-33.45,-70.66], 11);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution:'© OpenStreetMap, © CARTO', subdomains:'abcd', maxZoom:19
+      }).addTo(mm);
+      const pts = stops.map(s => [s.lat, s.lng]);
+      if (pts.length > 1) L.polyline(pts, {color:'#18181B', weight:2, opacity:0.35}).addTo(mm);
+      stops.forEach(s => {
+        const st = statusOf(s, report);
+        L.circleMarker([s.lat, s.lng], {radius:6, color:'#fff', weight:1.5, fillColor:st.color, fillOpacity:0.92})
+          .bindPopup(`<b>${esc(s.iso)}</b><br><span style="color:${st.color}">${st.label}</span>${s.eta ? '<br><span style="color:var(--textFaint)">ETA: '+esc(s.eta)+'</span>' : ''}`)
+          .addTo(mm);
+      });
+      mm.fitBounds(pts, {padding:[24,24], maxZoom:14});
+      modal._mmInst = mm;
+    }, 60);
+  }
+}
+function closeMiniMap() {
+  const modal = document.getElementById('miniMapModal');
+  if (!modal) return;
+  if (modal._mmInst) { try { modal._mmInst.remove(); } catch(e){} modal._mmInst = null; }
+  modal.style.display = 'none';
+  modal.innerHTML = '';
 }
 
 /* ═══════ AUTO-REFRESH ═══════ */
@@ -2052,6 +2080,7 @@ test('computeKPIs patente dominante',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
   loadPlan(); renderConfig(); runSelfTests();
+  document.getElementById('miniMapModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeMiniMap(); });
   // Red de seguridad: si tras 8s React o Recharts no cargaron desde CDN, avisamos.
   setTimeout(()=>{
     const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo requiere React y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
