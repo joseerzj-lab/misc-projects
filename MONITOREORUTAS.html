@@ -8,6 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -203,6 +206,7 @@ h3{font-size:12px;font-weight:600}
       <button class="tab-btn" data-tab="mapa">Mapa <span id="badgeMapa" class="tab-badge">0</span></button>
       <button class="tab-btn" data-tab="dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="tabla">Tabla</button>
+      <button class="tab-btn" data-tab="horarios">Horarios <span id="badgeHorarios" class="tab-badge" style="display:none">!</span></button>
       <button class="tab-btn" data-tab="isos">ISOs</button>
       <button class="tab-btn" data-tab="incidencias">Incidencias <span id="badgeInc" class="tab-badge">0</span></button>
       <button class="tab-btn" data-tab="consultar">Consultar</button>
@@ -221,6 +225,7 @@ h3{font-size:12px;font-weight:600}
     </div></section>
     <section class="tab-pane" data-pane="dashboard"><div class="main-padded"><div class="container-lg" id="dashRoot"></div></div></section>
     <section class="tab-pane" data-pane="tabla"><div class="main-padded"><div class="container-lg" id="tablaRoot"></div></div></section>
+    <section class="tab-pane" data-pane="horarios"><div class="main-padded"><div class="container-lg" id="horariosRoot"></div></div></section>
     <section class="tab-pane" data-pane="isos"><div class="main-padded"><div class="container-lg" id="isosRoot"></div></div></section>
     <section class="tab-pane" data-pane="incidencias"><div class="main-padded"><div class="container-lg" id="incRoot"></div></div></section>
     <section class="tab-pane" data-pane="consultar"><div class="main-padded"><div class="container-lg" id="consultarRoot"></div></div></section>
@@ -257,6 +262,8 @@ let _consultarFilter = 'all';
 let _consultarSearch = '';
 let _srToken = '';
 let _srDate = '';
+let _timingData = {};
+let _autoRefresh = { active: false, mins: 5, tid: null };
 
 
 /* ═══════ UI BÁSICO ═══════ */
@@ -274,6 +281,7 @@ function switchTab(name){
   if(name==='resumen') renderResumen();
   if(name==='dashboard') renderDashboard();
   if(name==='tabla') renderTabla();
+  if(name==='horarios') renderHorarios();
   if(name==='isos') renderISOsTab();
   if(name==='incidencias') renderIncidencias();
   if(name==='consultar') renderConsultar();
@@ -370,6 +378,57 @@ function parseCheckoutDt(val){
   return null;
 }
 function fmtTime(dt){ if(!dt)return'—'; return dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
+const VEH_PALETTE = ['#4B72B8','#C45B4D','#5B9B5B','#8B6BAE','#C4874A','#4D9BAA','#B05C7C','#7A9B4B','#6B8EC4','#C49B3A','#4DAA83','#A05C4A'];
+function getVehColor(veh, allVehsSorted) {
+  const idx = allVehsSorted.indexOf(veh);
+  return VEH_PALETTE[idx >= 0 ? idx % VEH_PALETTE.length : 0];
+}
+function parseFechaLocal(val) {
+  if (!val || String(val).trim() === '') return null;
+  const s = String(val).trim();
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5], +(m[6]||0));
+  const d = new Date(s); return isNaN(d.getTime()) ? null : d;
+}
+function fmtHHMM(dt) { if (!dt) return '—'; return dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
+function fmtAtraso(mins) {
+  if (mins === null || mins === undefined) return '—';
+  if (mins < 0) return `adelanto ${Math.abs(mins)}min`;
+  const h = Math.floor(mins/60), m = mins%60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+function buildTimingData(rows) {
+  if (!rows || !rows.length) return {};
+  const byPat = {};
+  for (const row of rows) {
+    const com = String(getKey(row,'Commerce')||'').trim().toUpperCase();
+    if (!com.startsWith('I')) continue;
+    const pat = String(getKey(row,'Patente')||'').trim(); if (!pat) continue;
+    const iso = String(getKey(row,'ParentOrder')||'').trim(); if (!iso) continue;
+    const estadoN = normEstado(String(getKey(row,'Estado')||''));
+    if (!byPat[pat]) byPat[pat] = {patente: pat, fechaInicio: null, checkouts: new Map()};
+    const p = byPat[pat];
+    const inicioRaw = String(getKey(row,'Fechainicioruta')||getKey(row,'FechaInicioRuta')||'').trim();
+    if (inicioRaw && !p.fechaInicio) { const dt = parseFechaLocal(inicioRaw); if (dt) p.fechaInicio = dt; }
+    if (estadoN === 'terminado') {
+      const entregaRaw = String(getKey(row,'Fechaentregareal')||getKey(row,'FechaEntregaReal')||'').trim();
+      if (entregaRaw && !p.checkouts.has(iso)) {
+        const dt = parseFechaLocal(entregaRaw); if (dt) p.checkouts.set(iso, {iso, fecha: dt});
+      }
+    }
+  }
+  const result = {};
+  Object.values(byPat).forEach(p => {
+    const checkouts = [...p.checkouts.values()].sort((a,b)=>a.fecha-b.fecha);
+    const primera = checkouts[0]?.fecha || null;
+    result[p.patente] = {
+      patente: p.patente, fechaInicio: p.fechaInicio, checkouts,
+      primeraGestion: primera,
+      atraso: (p.fechaInicio && primera) ? Math.round((primera - p.fechaInicio)/60000) : null
+    };
+  });
+  return result;
+}
 
 /* ═══════ MOTIVOS ═══════ */
 function getMotivo3(raw){
@@ -712,7 +771,16 @@ function initMap(){
   window._map=L.map('leafmap',{preferCanvas:true,renderer:window._canvas}).setView([-33.45,-70.66],11);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(window._map);
-  window._layerStops=L.layerGroup().addTo(window._map);
+  window._layerStops = (window.L.markerClusterGroup ? L.markerClusterGroup({
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    disableClusteringAtZoom: 15,
+    iconCreateFunction: cluster => L.divIcon({
+      html: `<div style="background:#18181B;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:monospace;border:2px solid #fff">${cluster.getChildCount()}</div>`,
+      className: '', iconSize: [28,28]
+    })
+  }) : L.layerGroup()).addTo(window._map);
   window._layerLines=L.layerGroup().addTo(window._map);
 }
 function renderMap(){
@@ -722,12 +790,13 @@ function renderMap(){
   const kpi=computeKPIs(plan,report);
   const stopsVis=visibleStops();
   const byVeh={}; stopsVis.forEach(s=>{ (byVeh[s.vehFinal]=byVeh[s.vehFinal]||[]).push(s); });
+  const allVehsSorted = Object.keys(byVeh).sort();
   Object.entries(byVeh).forEach(([veh,stops])=>{
     if(selectedVeh&&veh!==selectedVeh)return;
     if(hiddenVehs.has(veh))return;
     const ordered=[...stops].sort((a,b)=>a.orden-b.orden);
     const pts=ordered.map(s=>[s.lat,s.lng]);
-    if(pts.length>1)L.polyline(pts,{color:'#52525B',weight:selectedVeh?2.5:1.2,opacity:selectedVeh?0.7:0.30}).addTo(window._layerLines);
+    if(pts.length>1)L.polyline(pts,{color:getVehColor(veh,allVehsSorted),weight:selectedVeh?2.5:1.2,opacity:selectedVeh?0.7:0.30}).addTo(window._layerLines);
     ordered.forEach(s=>{
       const st=statusOf(s,report);
       const m=L.circleMarker([s.lat,s.lng],{radius:selectedVeh?6:4,color:'#fff',weight:1,
@@ -792,6 +861,8 @@ function renderMapSidebar(){
     <span class="stat-chip"><span class="stat-chip-val red">${g.rebajadas}</span><span class="stat-chip-lbl">Rebaj.</span></span>
     <span class="stat-chip"><span class="stat-chip-val">${g.avance}%</span><span class="stat-chip-lbl">Avance</span></span></div>`;
   const vehs=Object.values(kpi.vehicles).sort((a,b)=>a.vehFinal.localeCompare(b.vehFinal));
+  const sinIniciar = vehs.filter(v => !v.iniciada);
+  const alertStrip = sinIniciar.length ? `<div style="padding:6px 10px;background:rgba(234,88,12,0.08);border-bottom:1px solid rgba(234,88,12,0.2);font-size:10px;color:var(--orange);font-weight:600">⚠ ${sinIniciar.length} veh. sin iniciar: ${sinIniciar.slice(0,3).map(v=>esc(dispName(v))).join(', ')}${sinIniciar.length>3?'…':''}</div>` : '';
   const tipoBadge=t=>t==='Normal'?'':
     t==='VAUX'?'<span class="pill pill-gray" style="font-size:9px;padding:0 4px">AUX</span>':
     t==='VPR' ?'<span class="pill pill-blue" style="font-size:9px;padding:0 4px">PR</span>':
@@ -818,7 +889,7 @@ function renderMapSidebar(){
   const hdr=selectedVeh
     ?`<button class="btn btn-sm btn-secondary" id="clearSel">← Ver todas</button>`
     :`<span class="section-label">Vehículos · ${vehs.length}</span>`;
-  el.innerHTML=stats+`<div style="padding:5px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${hdr}${nameToggleBtn}${hidBtn}</div>`+rows;
+  el.innerHTML=stats+alertStrip+`<div style="padding:5px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${hdr}${nameToggleBtn}${hidBtn}</div>`+rows;
   el.querySelectorAll('.veh-row').forEach(b=>b.addEventListener('click',()=>{ selectedVeh=(selectedVeh===b.dataset.veh)?null:b.dataset.veh; renderMap(); renderMapSidebar(); }));
   el.querySelectorAll('.veh-eye').forEach(b=>b.addEventListener('click',()=>{
     const v=b.dataset.veh;
@@ -979,6 +1050,7 @@ function renderTabla(){
         <option value="sindato"${estF==='sindato'?' selected':''}>Sin dato</option>
       </select>
       <span class="text-xs">${stops.length} filas</span>
+      <button class="btn btn-secondary btn-sm" id="expTabla">Exportar XLS</button>
     </div>
     <div class="card" style="padding:0;overflow:auto">
       <table class="dash-table" style="width:100%"><thead><tr>
@@ -989,6 +1061,18 @@ function renderTabla(){
     </div>`;
     el.querySelector('#tablaQ').addEventListener('input',e=>{ _tablaFilters.q=e.target.value; clearTimeout(_searchT); _searchT=setTimeout(()=>renderTabla(),180); });
     el.querySelector('#tablaEst').addEventListener('change',e=>{ _tablaFilters.estado=e.target.value; renderTabla(); });
+    const et = el.querySelector('#expTabla');
+    if (et) et.addEventListener('click', () => {
+      const aoa = [['ISO','VEH','Patente','Estado','Motivo','Dirección'],
+        ...stops.map(s => {
+          const st = statusOf(s,report); const r = getReportRow(s.iso,report);
+          return [s.iso, s.vehFinal, r?.patente||'', st.label, r?.motivo3||'', s.direccion||''];
+        })];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Tabla');
+      XLSX.writeFile(wb, 'monitoreo_tabla.xlsx');
+      showToast('Exportado', 'ok');
+    });
     return;
   }
   /* CSV-only: table by patente */
@@ -1016,6 +1100,111 @@ function renderTabla(){
       <th style="padding:6px 8px;text-align:right">Avance</th>
     </tr></thead><tbody>${rows||'<tr><td colspan="8" style="padding:16px;text-align:center">Sin datos</td></tr>'}</tbody></table>
   </div>`;
+}
+
+/* ═══════ HORARIOS ═══════ */
+function renderHorarios(){
+  const el=document.getElementById('horariosRoot'); if(!el)return;
+  if(!_csvRows||!_csvRows.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte en Configurar para ver horarios.</div></div>'; return;
+  }
+  const timing=buildTimingData(_csvRows);
+  const vehs=Object.values(timing).sort((a,b)=>{
+    const aAlert=a.fechaInicio&&a.checkouts.length===0, bAlert=b.fechaInicio&&b.checkouts.length===0;
+    if(aAlert&&!bAlert)return -1; if(!aAlert&&bAlert)return 1;
+    if(a.atraso!==null&&b.atraso!==null)return b.atraso-a.atraso;
+    if(a.atraso!==null)return -1; if(b.atraso!==null)return 1;
+    return a.patente.localeCompare(b.patente);
+  });
+  if(!vehs.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no tiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
+  }
+  const allTs=[];
+  vehs.forEach(v=>{ if(v.fechaInicio)allTs.push(v.fechaInicio.getTime()); v.checkouts.forEach(c=>allTs.push(c.fecha.getTime())); });
+  const minT=allTs.length?Math.min(...allTs):0, maxT=allTs.length?Math.max(...allTs):0;
+  const tRange=Math.max(maxT-minT,1);
+  const toPct=dt=>((dt.getTime()-minT)/tRange*100).toFixed(1)+'%';
+  const conInicio=vehs.filter(v=>v.fechaInicio).length;
+  const sinGestion=vehs.filter(v=>v.fechaInicio&&v.checkouts.length===0).length;
+  const atrasos=vehs.filter(v=>v.atraso!==null).map(v=>v.atraso).sort((a,b)=>a-b);
+  const mediana=atrasos.length?atrasos[Math.floor(atrasos.length/2)]:null;
+  const rows=vehs.map(v=>{
+    const atrasoColor=v.atraso===null?'':v.atraso>120?'color:var(--red)':v.atraso>60?'color:var(--orange)':'color:var(--green)';
+    const alertBg=(v.fechaInicio&&v.checkouts.length===0)?'background:rgba(234,88,12,0.05)':'';
+    const inicioPos=v.fechaInicio?toPct(v.fechaInicio):null;
+    const dotsPct=v.checkouts.map(c=>({pct:toPct(c.fecha),h:fmtHHMM(c.fecha)}));
+    const miniTimeline=`<div style="position:relative;width:100%;height:14px;background:rgba(0,0,0,0.04);border-radius:2px;overflow:hidden">
+      ${inicioPos?`<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>`:''}
+      ${dotsPct.map(d=>`<div style="position:absolute;left:${d.pct};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${d.h}"></div>`).join('')}
+    </div>`;
+    return`<tr style="${alertBg}">
+      <td style="padding:6px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
+      <td style="padding:6px 8px" class="num">${v.fechaInicio?fmtHHMM(v.fechaInicio):'<span class="text-xs">—</span>'}</td>
+      <td style="padding:6px 8px" class="num">${v.primeraGestion?fmtHHMM(v.primeraGestion):(v.fechaInicio?'<span class="pill pill-red" style="font-size:9px">Sin gestión</span>':'<span class="text-xs">—</span>')}</td>
+      <td style="padding:6px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
+      <td style="padding:6px 8px;text-align:right" class="num">${v.checkouts.length}</td>
+      <td style="padding:6px 8px" class="num">${v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):'<span class="text-xs">—</span>'}</td>
+      <td style="padding:6px 8px;min-width:160px">${miniTimeline}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h1>Horarios de gestión</h1>
+      <button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Con inicio</div><div class="kpi-val" style="font-size:20px">${conInicio}</div></div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px;${sinGestion>0?'border-color:rgba(234,88,12,0.3);background:rgba(234,88,12,0.04)':''}">
+        <div class="kpi-lbl" style="${sinGestion>0?'color:var(--orange)':''}">Sin gestión</div>
+        <div class="kpi-val" style="font-size:20px;${sinGestion>0?'color:var(--orange)':''}">${sinGestion}</div></div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Atraso mediana</div><div class="kpi-val" style="font-size:20px">${mediana!==null?fmtAtraso(mediana):'—'}</div></div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Total vehículos</div><div class="kpi-val" style="font-size:20px">${vehs.length}</div></div>
+    </div>
+    <div class="card" style="padding:0;overflow:auto">
+      <table class="dash-table" style="width:100%">
+        <thead><tr>
+          <th style="padding:6px 8px">Patente</th>
+          <th style="padding:6px 8px">Inicio Ruta</th>
+          <th style="padding:6px 8px">1ª Gestión</th>
+          <th style="padding:6px 8px">Atraso</th>
+          <th style="padding:6px 8px;text-align:right">Checkouts</th>
+          <th style="padding:6px 8px">Última Gestión</th>
+          <th style="padding:6px 8px;min-width:160px">Timeline</th>
+        </tr></thead>
+        <tbody>${rows||'<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  el.querySelector('#expHorarios').addEventListener('click',()=>{
+    const aoa=[['Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión'],
+      ...vehs.map(v=>[v.patente,v.fechaInicio?fmtHHMM(v.fechaInicio):'',v.primeraGestion?fmtHHMM(v.primeraGestion):'',v.atraso!==null?v.atraso:'',v.checkouts.length,v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):''])];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Horarios');
+    XLSX.writeFile(wb,'monitoreo_horarios.xlsx'); showToast('Exportado','ok');
+  });
+}
+
+/* ═══════ AUTO-REFRESH SR ═══════ */
+function startAutoRefresh(){
+  if(_autoRefresh.tid)clearInterval(_autoRefresh.tid);
+  _autoRefresh.active=true;
+  _autoRefresh.tid=setInterval(async()=>{
+    if(!_srToken||!_srDate)return;
+    try{
+      const results=await fetchSrVisitas(_srToken,_srDate);
+      srData=parseApiVisits(results);
+      const active=document.querySelector('.tab-btn.active')?.dataset?.tab;
+      if(active==='mapa'){renderMap();renderMapToolbar();renderMapSidebar();}
+      updateBadges();
+      const ind=document.getElementById('arLastRefresh');
+      if(ind)ind.textContent='Actualizado: '+new Date().toLocaleTimeString('es-CL');
+    }catch(e){}
+  },_autoRefresh.mins*60*1000);
+}
+function stopAutoRefresh(){
+  if(_autoRefresh.tid)clearInterval(_autoRefresh.tid);
+  _autoRefresh.active=false; _autoRefresh.tid=null;
 }
 
 /* ═══════ ISOs ACCORDION ═══════ */
@@ -1522,6 +1711,7 @@ async function handleSrFetch(){
     const n=Object.keys(srData.byIso).length, nv=Object.keys(srData.byVeh).length;
     statusEl.textContent=`${n} visitas · ${nv} vehículos · ${date}`;
     showToast('Visitas cargadas','ok');
+    if (_autoRefresh.active) startAutoRefresh();
     renderMap(); renderMapToolbar(); renderMapSidebar(); updateBadges();
   }catch(e){
     statusEl.textContent=`Error: ${e.message}`;
@@ -1549,6 +1739,17 @@ function renderConfig(){
         <button class="btn btn-primary" id="btnSrFetch">Cargar visitas</button>
       </div>
       <div id="srStatus" class="text-xs" style="margin-top:8px"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <label style="font-size:10px;font-weight:600;color:var(--textSub)">Auto-refresh cada</label>
+        <select class="input" id="arMins" style="width:70px">
+          <option value="3">3 min</option>
+          <option value="5" selected>5 min</option>
+          <option value="10">10 min</option>
+          <option value="15">15 min</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" id="btnAR">Activar</button>
+        <span id="arLastRefresh" class="text-xs"></span>
+      </div>
     </div>
     <div class="card" style="margin-bottom:16px"><div class="card-header"><h2>Planificación</h2>
       <button class="btn btn-danger btn-sm" id="btnClear">Borrar plan</button></div>
@@ -1560,10 +1761,24 @@ function renderConfig(){
       ${makeUpload('upReporte','CSV de avance','CSV de reporte rutas con Commerce, ParentOrder, Estado…')}
       <div id="reporteSummary" class="text-sm" style="margin-top:8px"></div></div>`;
   document.getElementById('btnSrFetch').addEventListener('click',handleSrFetch);
+  document.getElementById('btnAR').addEventListener('click', () => {
+    _autoRefresh.mins = parseInt(document.getElementById('arMins').value) || 5;
+    if (_autoRefresh.active) {
+      stopAutoRefresh();
+      document.getElementById('btnAR').textContent = 'Activar';
+      document.getElementById('btnAR').classList.remove('btn-primary');
+    } else {
+      if (!_srToken || !_srDate) { showToast('Carga primero las visitas SR', 'warn'); return; }
+      startAutoRefresh();
+      document.getElementById('btnAR').textContent = 'Detener';
+      document.getElementById('btnAR').classList.add('btn-primary');
+    }
+  });
   wireUpload('upPlan',rows=>{ _planRows=rows; });
   wireUpload('upMatriz',rows=>{ _matrizRows=rows; });
   wireUpload('upReporte', rows => {
     _csvRows = rows;
+    _timingData = buildTimingData(rows);
     if (plan) {
       report = parseReporte(rows);
       const n = Object.keys(report.byIso).length;
@@ -1591,6 +1806,133 @@ function renderConfig(){
     if(confirm('¿Borrar la planificación guardada?')){ clearPlan(); renderConfig(); showToast('Plan borrado'); }
   });
   if(plan){ const ps=document.getElementById('planSummary'); if(ps)ps.textContent=`Plan en memoria: ${plan.stops.length} paradas · ${Object.keys(plan.vehicles).length} vehículos`; }
+}
+
+/* ═══════ HORARIOS ═══════ */
+function renderHorarios() {
+  const el = document.getElementById('horariosRoot'); if (!el) return;
+  if (!_csvRows || !_csvRows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte en Configurar para ver horarios.</div></div>'; return;
+  }
+  const timing = buildTimingData(_csvRows);
+  const vehs = Object.values(timing).sort((a,b) => {
+    const aHas = a.fechaInicio && a.checkouts.length === 0;
+    const bHas = b.fechaInicio && b.checkouts.length === 0;
+    if (aHas && !bHas) return -1; if (!aHas && bHas) return 1;
+    if (a.atraso !== null && b.atraso !== null) return b.atraso - a.atraso;
+    if (a.atraso !== null) return -1; if (b.atraso !== null) return 1;
+    return a.patente.localeCompare(b.patente);
+  });
+  if (!vehs.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no contiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
+  }
+  const allTs = [];
+  vehs.forEach(v => {
+    if (v.fechaInicio) allTs.push(v.fechaInicio.getTime());
+    v.checkouts.forEach(c => allTs.push(c.fecha.getTime()));
+  });
+  const minT = allTs.length ? Math.min(...allTs) : 0;
+  const maxT = allTs.length ? Math.max(...allTs) : 0;
+  const tRange = Math.max(maxT - minT, 1);
+  function toPct(dt) { return ((dt.getTime() - minT) / tRange * 100).toFixed(1) + '%'; }
+  const conInicio = vehs.filter(v => v.fechaInicio).length;
+  const sinGestion = vehs.filter(v => v.fechaInicio && v.checkouts.length === 0).length;
+  const atrasos = vehs.filter(v => v.atraso !== null).map(v => v.atraso).sort((a,b)=>a-b);
+  const mediana = atrasos.length ? atrasos[Math.floor(atrasos.length/2)] : null;
+  const rows = vehs.map(v => {
+    const atrasoColor = v.atraso === null ? '' : v.atraso > 120 ? 'color:var(--red)' : v.atraso > 60 ? 'color:var(--orange)' : 'color:var(--green)';
+    const alertBg = (v.fechaInicio && v.checkouts.length === 0) ? 'background:rgba(234,88,12,0.05)' : '';
+    const dotsPct = v.checkouts.map(c => toPct(c.fecha));
+    const inicioPos = v.fechaInicio ? toPct(v.fechaInicio) : null;
+    const miniTimeline = `<div style="position:relative;width:100%;height:14px;background:rgba(0,0,0,0.04);border-radius:2px;overflow:hidden">
+      ${inicioPos ? `<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>` : ''}
+      ${dotsPct.map((p,i) => `<div style="position:absolute;left:${p};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${fmtHHMM(v.checkouts[i].fecha)}"></div>`).join('')}
+    </div>`;
+    return `<tr style="${alertBg}">
+      <td style="padding:6px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
+      <td style="padding:6px 8px" class="num">${v.fechaInicio ? fmtHHMM(v.fechaInicio) : '<span class="text-xs">—</span>'}</td>
+      <td style="padding:6px 8px" class="num">${v.primeraGestion ? fmtHHMM(v.primeraGestion) : (v.fechaInicio ? '<span class="pill pill-red" style="font-size:9px">Sin gestión</span>' : '<span class="text-xs">—</span>')}</td>
+      <td style="padding:6px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
+      <td style="padding:6px 8px;text-align:right" class="num">${v.checkouts.length}</td>
+      <td style="padding:6px 8px" class="num">${v.checkouts.length ? fmtHHMM(v.checkouts[v.checkouts.length-1].fecha) : '<span class="text-xs">—</span>'}</td>
+      <td style="padding:6px 8px;min-width:160px">${miniTimeline}</td>
+    </tr>`;
+  }).join('');
+  const exportBtn = `<button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h1>Horarios de gestión</h1>
+      ${exportBtn}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Con inicio</div>
+        <div class="kpi-val" style="font-size:20px">${conInicio}</div>
+      </div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px;${sinGestion>0?'border-color:rgba(234,88,12,0.3);background:rgba(234,88,12,0.04)':''}">
+        <div class="kpi-lbl" style="${sinGestion>0?'color:var(--orange)':''}">Sin gestión</div>
+        <div class="kpi-val" style="font-size:20px;${sinGestion>0?'color:var(--orange)':''}">${sinGestion}</div>
+      </div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Atraso mediana</div>
+        <div class="kpi-val" style="font-size:20px">${mediana !== null ? fmtAtraso(mediana) : '—'}</div>
+      </div>
+      <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
+        <div class="kpi-lbl">Total vehículos</div>
+        <div class="kpi-val" style="font-size:20px">${vehs.length}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:auto">
+      <table class="dash-table" style="width:100%">
+        <thead><tr>
+          <th style="padding:6px 8px">Patente</th>
+          <th style="padding:6px 8px">Inicio Ruta</th>
+          <th style="padding:6px 8px">1ª Gestión</th>
+          <th style="padding:6px 8px">Atraso</th>
+          <th style="padding:6px 8px;text-align:right">Checkouts</th>
+          <th style="padding:6px 8px">Última Gestión</th>
+          <th style="padding:6px 8px;min-width:160px">Timeline</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  el.querySelector('#expHorarios').addEventListener('click', () => {
+    const aoa = [['Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión']];
+    vehs.forEach(v => aoa.push([
+      v.patente,
+      v.fechaInicio ? fmtHHMM(v.fechaInicio) : '',
+      v.primeraGestion ? fmtHHMM(v.primeraGestion) : '',
+      v.atraso !== null ? v.atraso : '',
+      v.checkouts.length,
+      v.checkouts.length ? fmtHHMM(v.checkouts[v.checkouts.length-1].fecha) : ''
+    ]));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Horarios');
+    XLSX.writeFile(wb, 'monitoreo_horarios.xlsx');
+    showToast('Exportado', 'ok');
+  });
+}
+
+/* ═══════ AUTO-REFRESH ═══════ */
+function startAutoRefresh() {
+  if (_autoRefresh.tid) clearInterval(_autoRefresh.tid);
+  _autoRefresh.active = true;
+  _autoRefresh.tid = setInterval(async () => {
+    if (!_srToken || !_srDate) return;
+    try {
+      const results = await fetchSrVisitas(_srToken, _srDate);
+      srData = parseApiVisits(results);
+      const active = document.querySelector('.tab-btn.active')?.dataset?.tab;
+      if (active === 'mapa') { renderMap(); renderMapToolbar(); renderMapSidebar(); }
+      updateBadges();
+      const ind = document.getElementById('arLastRefresh');
+      if (ind) ind.textContent = 'Última actualización: ' + new Date().toLocaleTimeString('es-CL');
+    } catch(e) { }
+  }, _autoRefresh.mins * 60 * 1000);
+}
+function stopAutoRefresh() {
+  if (_autoRefresh.tid) clearInterval(_autoRefresh.tid);
+  _autoRefresh.active = false; _autoRefresh.tid = null;
 }
 
 /* ═══════ TESTS ═══════ */
