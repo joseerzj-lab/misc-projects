@@ -179,8 +179,6 @@ h3{font-size:12px;font-weight:600}
 .photo-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .photo-strip .inc-photo,.photo-strip .rebaja-photo{max-width:130px;max-height:130px;object-fit:cover;margin-top:0}
 /* Tab help strip */
-.tab-help{padding:7px 16px;font-size:11px;line-height:1.4;color:var(--textSub);background:var(--bgCardAlt);border-bottom:1px solid var(--borderSoft)}
-.tab-help:empty{display:none}
 /* Consultar */
 .cq-grid{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
 @media (max-width:760px){.cq-grid{grid-template-columns:1fr}}
@@ -211,7 +209,6 @@ h3{font-size:12px;font-weight:600}
       <button class="tab-btn" data-tab="resumen">Resumen</button>
       <button class="tab-btn" data-tab="grafico">Gráfico <span id="badgeGrafico" class="tab-badge" style="display:none"></span></button>
     </div></div>
-    <div id="tabHelp" class="tab-help"></div>
   </header>
   <main class="main-content">
     <section class="tab-pane active" data-pane="configurar"><div class="main-padded"><div class="container" id="configRoot"></div></div></section>
@@ -261,18 +258,6 @@ let _consultarSearch = '';
 let _srToken = '';
 let _srDate = '';
 
-const TAB_HELP = {
-  configurar:'Carga la planificación de SimpliRoute y el CSV de avance de Reporte Rutas. Opcionalmente trae los checkouts desde la API de SimpliRoute con tu token.',
-  mapa:'Mapa de paradas por vehículo. El color indica el estado: verde = terminado, azul = en ruta, rojo = rebajada, gris = sin dato.',
-  dashboard:'KPIs globales, top de patentes críticas, motivos de no entrega y detalle por región. Usa el filtro de región arriba a la derecha.',
-  tabla:'Listado de todas las paradas con su estado, vehículo y motivo. Filtra por estado o busca por ISO o dirección.',
-  isos:'ISOs agrupadas por vehículo. Haz clic en cada grupo para expandir y ver sus paradas.',
-  incidencias:'Paradas rebajadas (no entregadas) agrupadas por vehículo, con su motivo y fotos. Haz clic en una foto para ampliarla.',
-  consultar:'Pega muchas ISOs a la vez (una por línea, o separadas por coma/espacio) para consultarlas en lote: estado, vehículo, motivo, comentario y fotos.',
-  resumen:'Resumen por vehículo (avance y rebajadas) y adherencia de Postventa/Proyectos. Exportable a XLSX.',
-  grafico:'Gráfico de barras apiladas por vehículo/patente (terminado, en ruta y pendiente) con el % de avance. Configurable y exportable como imagen.'
-};
-function setTabHelp(name){ const h=document.getElementById('tabHelp'); if(h)h.textContent=TAB_HELP[name]||''; }
 
 /* ═══════ UI BÁSICO ═══════ */
 function showToast(msg, type='', ms=2400){
@@ -284,7 +269,7 @@ function switchTab(name){
   switchTab._current = name;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.dataset.pane===name));
-  setTabHelp(name);
+
   if(name==='mapa'){ renderMapToolbar(); renderMap(); renderMapSidebar(); if(window._map)setTimeout(()=>window._map.invalidateSize(),60); }
   if(name==='resumen') renderResumen();
   if(name==='dashboard') renderDashboard();
@@ -575,27 +560,34 @@ function parseCSVStandalone(rows) {
 
 /* ═══════ SR API ═══════ */
 const SR_PROXIES=[
-  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,
   u=>`https://corsproxy.org/?${encodeURIComponent(u)}`,
-  u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u=>`https://proxy.cors.sh/${u}`,
 ];
 async function fetchSrVisitas(token, date){
   if(!token)throw new Error('Sin token configurado');
   const url=`${SR_BASE}/v1/routes/visits/?planned_date=${date}`;
+  const authHdr={'Authorization':`Token ${token}`,'Accept':'application/json'};
   const attempts=[
-    {url, headers:{'Authorization':`Token ${token}`,'Accept':'application/json'}},
-    ...SR_PROXIES.map(fn=>({url:fn(url), headers:{'Authorization':`Token ${token}`,'x-requested-with':'XMLHttpRequest'}}))
+    {url, headers:authHdr},
+    ...SR_PROXIES.map(fn=>({url:fn(url), headers:authHdr}))
   ];
+  let lastErr='';
   for(const a of attempts){
     let resp;
-    try{ resp=await fetch(a.url,{headers:a.headers}); }catch{ continue; }
-    if(resp.status===401||resp.status===403)throw new Error('Token inválido o sin permisos');
-    if(!resp.ok) continue;
-    const data=await resp.json();
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),8000);
+      resp=await fetch(a.url,{headers:a.headers,signal:ctrl.signal});
+      clearTimeout(tid);
+    }catch(e){ lastErr=e.name==='AbortError'?'Timeout':'Sin respuesta'; continue; }
+    if(resp.status===401||resp.status===403)throw new Error('Token inválido o sin permisos en SimpliRoute');
+    if(!resp.ok){ lastErr=`HTTP ${resp.status}`; continue; }
+    let data;
+    try{ data=await resp.json(); }catch{ lastErr='Respuesta no válida (no es JSON)'; continue; }
     return Array.isArray(data)?data:(data.results||[]);
   }
-  throw new Error('No se puede conectar con SimpliRoute (directo y proxies fallaron)');
+  throw new Error(`No se pudo conectar con SimpliRoute. Último error: ${lastErr||'desconocido'}. Verifica el token y tu conexión.`);
 }
 function parseApiVisits(results){
   if(!results||!results.length)return{byIso:{},byVeh:{}};
@@ -1694,7 +1686,7 @@ test('computeKPIs patente dominante',()=>{
 /* ═══════ BOOT ═══════ */
 window.addEventListener('DOMContentLoaded',()=>{
   _srToken=localStorage.getItem(SR_TOKEN_KEY)||'';
-  loadPlan(); renderConfig(); runSelfTests(); setTabHelp('configurar');
+  loadPlan(); renderConfig(); runSelfTests();
   // Red de seguridad: si tras 8s React o Recharts no cargaron desde CDN, avisamos.
   setTimeout(()=>{
     const msg='<div class="empty-state"><div class="empty-title">No se pudieron iniciar los componentes</div><div class="empty-body">Este módulo requiere React y Recharts desde internet. Revisa tu conexión y recarga la página (F5).</div></div>';
@@ -2044,13 +2036,6 @@ function renderGrafico() {
     const dashRef = React.useRef(null);
     const [selRegions, setSelRegions] = React.useState(new Set());
     const [exporting, setExporting] = React.useState(false);
-    const [excOvr, setExcOvr] = React.useState(new Set());
-    const [motiOvr, setMotiOvr] = React.useState(new Set());
-    const toggleMoti = React.useCallback(tipo => setMotiOvr(prev => {
-      const n = new Set(prev);
-      n.has(tipo) ? n.delete(tipo) : n.add(tipo);
-      return n;
-    }), []);
     const deferred = React.useDeferredValue(selRegions);
     const filteredR = React.useMemo(() => deferred.size === 0 ? allRegions : allRegions.filter(r => deferred.has(r)), [deferred, allRegions]);
     const kpis = React.useMemo(() => {
@@ -2560,7 +2545,6 @@ function renderGrafico() {
         gap: 8
       }
     }, motivosData.slice(0, 10).map(m => {
-      const isOvr = motiOvr.has(m.tipo);
       return /*#__PURE__*/React.createElement("div", {
         key: m.tipo,
         style: {
@@ -2591,22 +2575,7 @@ function renderGrafico() {
           color: DS.textFaint,
           flexShrink: 0
         }
-      }, m.cantidad, " · ", m.pct, "%"), /*#__PURE__*/React.createElement("button", {
-        "data-html2canvas-ignore": true,
-        onClick: () => toggleMoti(m.tipo),
-        style: {
-          fontSize: 8,
-          fontWeight: 700,
-          padding: '2px 6px',
-          borderRadius: 4,
-          border: `1px solid ${isOvr ? 'rgba(234,88,12,0.5)' : 'rgba(37,99,235,0.35)'}`,
-          background: isOvr ? DS.orangeBg : DS.blueBg,
-          color: isOvr ? DS.orange : DS.blue,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          flexShrink: 0
-        }
-      }, isOvr ? '↩ Revertir' : '⇄ Forzar TNG')), /*#__PURE__*/React.createElement("div", {
+      }, m.cantidad, " · ", m.pct, "%")), /*#__PURE__*/React.createElement("div", {
         style: {
           width: '100%',
           height: 4,
@@ -2617,7 +2586,7 @@ function renderGrafico() {
       }, /*#__PURE__*/React.createElement("div", {
         style: {
           height: '100%',
-          background: isOvr ? DS.orange : DS.red,
+          background: DS.red,
           borderRadius: 99,
           width: `${m.pct}%`,
           opacity: 0.7
@@ -2648,7 +2617,7 @@ function renderGrafico() {
         fontSize: 10,
         fontFamily: DS.fontMono
       }
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Región', 'Transporte', 'Patente', 'Motivo', 'Responsable', 'Categoría', 'Órdenes', 'ISOs', ''].map(h => /*#__PURE__*/React.createElement("th", {
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ['Región', 'Transporte', 'Patente', 'Motivo', 'Responsable', 'Categoría', 'Órdenes', 'ISOs'].map(h => /*#__PURE__*/React.createElement("th", {
       key: h,
       style: {
         textAlign: h === 'Órdenes' ? 'right' : 'left',
@@ -2662,15 +2631,6 @@ function renderGrafico() {
         whiteSpace: 'nowrap'
       }
     }, h)))), /*#__PURE__*/React.createElement("tbody", null, excData.slice(0, 50).map((row, i) => {
-      const excKey = row.region + '|' + row.patente + '|' + row.motivo;
-      const isOvr = excOvr.has(excKey) || motiOvr.has(row.motivo);
-      const effM2 = isOvr ? 'Transporte' : row.m2;
-      const effM3 = isOvr ? 'Transporte No Gestiona' : row.m3;
-      const toggleOvr = () => setExcOvr(prev => {
-        const n = new Set(prev);
-        n.has(excKey) ? n.delete(excKey) : n.add(excKey);
-        return n;
-      });
       return /*#__PURE__*/React.createElement("tr", {
         key: i,
         style: {
@@ -2723,11 +2683,11 @@ function renderGrafico() {
           fontWeight: 700,
           padding: '1px 6px',
           borderRadius: 3,
-          background: effM2 === 'Cliente' ? DS.blueBg : DS.orangeBg,
-          color: effM2 === 'Cliente' ? DS.blue : DS.orange,
-          border: `1px solid ${effM2 === 'Cliente' ? DS.blueBorder : DS.orangeBorder}`
+          background: row.m2 === 'Cliente' ? DS.blueBg : DS.orangeBg,
+          color: row.m2 === 'Cliente' ? DS.blue : DS.orange,
+          border: `1px solid ${row.m2 === 'Cliente' ? DS.blueBorder : DS.orangeBorder}`
         }
-      }, effM2)), /*#__PURE__*/React.createElement("td", {
+      }, row.m2)), /*#__PURE__*/React.createElement("td", {
         style: {
           padding: '5px 8px',
           color: DS.textSub,
@@ -2737,8 +2697,8 @@ function renderGrafico() {
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
         },
-        title: effM3
-      }, effM3), /*#__PURE__*/React.createElement("td", {
+        title: row.m3
+      }, row.m3), /*#__PURE__*/React.createElement("td", {
         style: {
           padding: '5px 8px',
           textAlign: 'right',
@@ -2756,27 +2716,9 @@ function renderGrafico() {
           color: DS.textFaint
         },
         title: row.isos && row.isos.join(', ')
-      }, row.isos && row.isos.length > 0 ? row.isos.join(', ') : '—'), /*#__PURE__*/React.createElement("td", {
-        style: {
-          padding: '5px 6px'
-        },
-        "data-html2canvas-ignore": true
-      }, /*#__PURE__*/React.createElement("button", {
-        onClick: toggleOvr,
-        style: {
-          fontSize: 8,
-          fontWeight: 700,
-          padding: '2px 6px',
-          borderRadius: 4,
-          border: `1px solid ${isOvr ? 'rgba(234,88,12,0.5)' : 'rgba(37,99,235,0.35)'}`,
-          background: isOvr ? DS.orangeBg : DS.blueBg,
-          color: isOvr ? DS.orange : DS.blue,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap'
-        }
-      }, isOvr ? '↩ Revertir' : '⇄ Forzar')));
+      }, row.isos && row.isos.length > 0 ? row.isos.join(', ') : '—'));
     }), excData.length > 50 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-      colSpan: 9,
+      colSpan: 8,
       style: {
         padding: '6px 8px',
         textAlign: 'center',
