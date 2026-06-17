@@ -8,9 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -264,6 +261,7 @@ let _srToken = '';
 let _srDate = '';
 let _timingData = {};
 let _autoRefresh = { active: false, mins: 5, tid: null };
+let _horariosRegion = null;
 
 
 /* ═══════ UI BÁSICO ═══════ */
@@ -406,8 +404,10 @@ function buildTimingData(rows) {
     const pat = String(getKey(row,'Patente')||'').trim(); if (!pat) continue;
     const iso = String(getKey(row,'ParentOrder')||'').trim(); if (!iso) continue;
     const estadoN = normEstado(String(getKey(row,'Estado')||''));
-    if (!byPat[pat]) byPat[pat] = {patente: pat, fechaInicio: null, checkouts: new Map()};
+    if (!byPat[pat]) byPat[pat] = {patente: pat, fechaInicio: null, checkouts: new Map(), region: ''};
     const p = byPat[pat];
+    const regionRaw = String(getKey(row,'Region')||'').trim();
+    if (regionRaw && !p.region) p.region = regionRaw;
     const inicioRaw = String(getKey(row,'Fechainicioruta')||getKey(row,'FechaInicioRuta')||'').trim();
     if (inicioRaw && !p.fechaInicio) { const dt = parseFechaLocal(inicioRaw); if (dt) p.fechaInicio = dt; }
     if (estadoN === 'terminado') {
@@ -422,7 +422,7 @@ function buildTimingData(rows) {
     const checkouts = [...p.checkouts.values()].sort((a,b)=>a.fecha-b.fecha);
     const primera = checkouts[0]?.fecha || null;
     result[p.patente] = {
-      patente: p.patente, fechaInicio: p.fechaInicio, checkouts,
+      patente: p.patente, region: p.region, fechaInicio: p.fechaInicio, checkouts,
       primeraGestion: primera,
       atraso: (p.fechaInicio && primera) ? Math.round((primera - p.fechaInicio)/60000) : null
     };
@@ -771,16 +771,7 @@ function initMap(){
   window._map=L.map('leafmap',{preferCanvas:true,renderer:window._canvas}).setView([-33.45,-70.66],11);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(window._map);
-  window._layerStops = (window.L.markerClusterGroup ? L.markerClusterGroup({
-    maxClusterRadius: 40,
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    disableClusteringAtZoom: 15,
-    iconCreateFunction: cluster => L.divIcon({
-      html: `<div style="background:#18181B;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:monospace;border:2px solid #fff">${cluster.getChildCount()}</div>`,
-      className: '', iconSize: [28,28]
-    })
-  }) : L.layerGroup()).addTo(window._map);
+  window._layerStops=L.layerGroup().addTo(window._map);
   window._layerLines=L.layerGroup().addTo(window._map);
 }
 function renderMap(){
@@ -1103,31 +1094,53 @@ function renderTabla(){
 }
 
 /* ═══════ HORARIOS ═══════ */
+function goToVehOnMap(patente){
+  if(!plan){ showToast('Sin planificación cargada','warn'); return; }
+  const kpi=computeKPIs(plan,report);
+  const veh=Object.values(kpi.vehicles).find(v=>v.patente===patente||v.vehFinal===patente);
+  if(!veh){ showToast('Vehículo no encontrado en plan','warn'); return; }
+  selectedVeh=veh.vehFinal;
+  switchTab('mapa');
+}
 function renderHorarios(){
   const el=document.getElementById('horariosRoot'); if(!el)return;
   if(!_csvRows||!_csvRows.length){
     el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un CSV de reporte en Configurar para ver horarios.</div></div>'; return;
   }
   const timing=buildTimingData(_csvRows);
-  const vehs=Object.values(timing).sort((a,b)=>{
+  const allVehs=Object.values(timing);
+  if(!allVehs.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no tiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
+  }
+
+  // Regiones disponibles — RM primero
+  const regionSet=new Set(allVehs.map(v=>v.region).filter(Boolean));
+  const allRegions=[...[...regionSet].filter(r=>r.toLowerCase().includes('metropolitana')),...[...regionSet].filter(r=>!r.toLowerCase().includes('metropolitana')).sort()];
+  // Default: primera región Metropolitana si existe, sino null (todas)
+  if(_horariosRegion===null&&allRegions.length){
+    _horariosRegion=allRegions[0]||'';
+  }
+
+  const vehs=allVehs.filter(v=>!_horariosRegion||v.region===_horariosRegion).sort((a,b)=>{
     const aAlert=a.fechaInicio&&a.checkouts.length===0, bAlert=b.fechaInicio&&b.checkouts.length===0;
     if(aAlert&&!bAlert)return -1; if(!aAlert&&bAlert)return 1;
     if(a.atraso!==null&&b.atraso!==null)return b.atraso-a.atraso;
     if(a.atraso!==null)return -1; if(b.atraso!==null)return 1;
     return a.patente.localeCompare(b.patente);
   });
-  if(!vehs.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos de horarios</div><div class="empty-body">El CSV no tiene columnas Fechainicioruta o Fechaentregareal.</div></div>'; return;
-  }
+
   const allTs=[];
   vehs.forEach(v=>{ if(v.fechaInicio)allTs.push(v.fechaInicio.getTime()); v.checkouts.forEach(c=>allTs.push(c.fecha.getTime())); });
   const minT=allTs.length?Math.min(...allTs):0, maxT=allTs.length?Math.max(...allTs):0;
   const tRange=Math.max(maxT-minT,1);
   const toPct=dt=>((dt.getTime()-minT)/tRange*100).toFixed(1)+'%';
+
   const conInicio=vehs.filter(v=>v.fechaInicio).length;
   const sinGestion=vehs.filter(v=>v.fechaInicio&&v.checkouts.length===0).length;
   const atrasos=vehs.filter(v=>v.atraso!==null).map(v=>v.atraso).sort((a,b)=>a-b);
   const mediana=atrasos.length?atrasos[Math.floor(atrasos.length/2)]:null;
+
+  const hasPlan=!!plan;
   const rows=vehs.map(v=>{
     const atrasoColor=v.atraso===null?'':v.atraso>120?'color:var(--red)':v.atraso>60?'color:var(--orange)':'color:var(--green)';
     const alertBg=(v.fechaInicio&&v.checkouts.length===0)?'background:rgba(234,88,12,0.05)':'';
@@ -1137,8 +1150,14 @@ function renderHorarios(){
       ${inicioPos?`<div style="position:absolute;left:${inicioPos};top:1px;width:2px;height:12px;background:var(--blue);border-radius:1px" title="Inicio ruta"></div>`:''}
       ${dotsPct.map(d=>`<div style="position:absolute;left:${d.pct};top:3px;width:8px;height:8px;border-radius:50%;background:var(--green);transform:translateX(-50%)" title="${d.h}"></div>`).join('')}
     </div>`;
+    const mapBtn=hasPlan?`<button class="btn-map-veh" data-pat="${esc(v.patente)}" title="Ver en mapa" style="border:none;background:none;cursor:pointer;padding:2px 4px;border-radius:var(--r-xs);color:var(--textFaint);font-size:13px;line-height:1;transition:color var(--t-fast)" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--textFaint)'">⌖</button>`:'';
     return`<tr style="${alertBg}">
-      <td style="padding:6px 8px;font-weight:700" class="num">${esc(v.patente)}</td>
+      <td style="padding:6px 8px">
+        <span style="display:flex;align-items:center;gap:4px">
+          <span style="font-weight:700" class="num">${esc(v.patente)}</span>${mapBtn}
+        </span>
+        ${v.region?`<div class="text-xs" style="margin-top:1px">${esc(v.region)}</div>`:''}
+      </td>
       <td style="padding:6px 8px" class="num">${v.fechaInicio?fmtHHMM(v.fechaInicio):'<span class="text-xs">—</span>'}</td>
       <td style="padding:6px 8px" class="num">${v.primeraGestion?fmtHHMM(v.primeraGestion):(v.fechaInicio?'<span class="pill pill-red" style="font-size:9px">Sin gestión</span>':'<span class="text-xs">—</span>')}</td>
       <td style="padding:6px 8px;font-weight:700;${atrasoColor}" class="num">${fmtAtraso(v.atraso)}</td>
@@ -1147,11 +1166,19 @@ function renderHorarios(){
       <td style="padding:6px 8px;min-width:160px">${miniTimeline}</td>
     </tr>`;
   }).join('');
+
+  const regionChips=allRegions.length>1?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+    <span class="section-label" style="margin-right:4px">Región</span>
+    <button class="cq-chip${!_horariosRegion?' active':''}" data-region="">Todas</button>
+    ${allRegions.map(r=>`<button class="cq-chip${_horariosRegion===r?' active':''}" data-region="${esc(r)}">${esc(r)}</button>`).join('')}
+  </div>`:'';
+
   el.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <h1>Horarios de gestión</h1>
       <button class="btn btn-secondary btn-sm" id="expHorarios">Exportar XLS</button>
     </div>
+    ${regionChips?`<div style="margin-bottom:12px">${regionChips}</div>`:''}
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
         <div class="kpi-lbl">Con inicio</div><div class="kpi-val" style="font-size:20px">${conInicio}</div></div>
@@ -1161,7 +1188,7 @@ function renderHorarios(){
       <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
         <div class="kpi-lbl">Atraso mediana</div><div class="kpi-val" style="font-size:20px">${mediana!==null?fmtAtraso(mediana):'—'}</div></div>
       <div class="card" style="padding:10px 16px;flex:1;min-width:110px">
-        <div class="kpi-lbl">Total vehículos</div><div class="kpi-val" style="font-size:20px">${vehs.length}</div></div>
+        <div class="kpi-lbl">Mostrando</div><div class="kpi-val" style="font-size:20px">${vehs.length}</div></div>
     </div>
     <div class="card" style="padding:0;overflow:auto">
       <table class="dash-table" style="width:100%">
@@ -1172,14 +1199,19 @@ function renderHorarios(){
           <th style="padding:6px 8px">Atraso</th>
           <th style="padding:6px 8px;text-align:right">Checkouts</th>
           <th style="padding:6px 8px">Última Gestión</th>
-          <th style="padding:6px 8px;min-width:160px">Timeline</th>
+          <th style="padding:6px 8px;min-width:160px">Timeline del día</th>
         </tr></thead>
-        <tbody>${rows||'<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin datos</td></tr>'}</tbody>
+        <tbody>${rows||'<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--textFaint)">Sin vehículos para esta región</td></tr>'}</tbody>
       </table>
     </div>`;
+
+  el.querySelectorAll('.cq-chip[data-region]').forEach(btn=>btn.addEventListener('click',()=>{
+    _horariosRegion=btn.dataset.region; renderHorarios();
+  }));
+  el.querySelectorAll('.btn-map-veh').forEach(btn=>btn.addEventListener('click',()=>goToVehOnMap(btn.dataset.pat)));
   el.querySelector('#expHorarios').addEventListener('click',()=>{
-    const aoa=[['Patente','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión'],
-      ...vehs.map(v=>[v.patente,v.fechaInicio?fmtHHMM(v.fechaInicio):'',v.primeraGestion?fmtHHMM(v.primeraGestion):'',v.atraso!==null?v.atraso:'',v.checkouts.length,v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):''])];
+    const aoa=[['Patente','Región','Inicio Ruta','1ª Gestión','Atraso (min)','# Checkouts','Última Gestión'],
+      ...vehs.map(v=>[v.patente,v.region||'',v.fechaInicio?fmtHHMM(v.fechaInicio):'',v.primeraGestion?fmtHHMM(v.primeraGestion):'',v.atraso!==null?v.atraso:'',v.checkouts.length,v.checkouts.length?fmtHHMM(v.checkouts[v.checkouts.length-1].fecha):''])];
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Horarios');
     XLSX.writeFile(wb,'monitoreo_horarios.xlsx'); showToast('Exportado','ok');
   });
