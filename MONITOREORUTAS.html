@@ -1358,6 +1358,7 @@ function consultarBuscar(){
   (_csvRows||[]).forEach(r=>{
     const com=String(getKey(r,'Commerce')||'').trim().toUpperCase(); if(!com.startsWith('I'))return;
     const po=cleanIso(getKey(r,'ParentOrder')); if(!po)return;
+    const pat=String(getKey(r,'Patente')||'').trim(); if(!pat)return;
     (byIso[po]=byIso[po]||[]).push(r);
   });
   // Índice de paradas del plan por ISO limpio (para vehículo/dirección)
