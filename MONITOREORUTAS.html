@@ -3437,53 +3437,35 @@ if (typeof renderDashboard === 'function') renderDashboard();
   function ChartTickV({
     x,
     y,
-    payload,
-    notes
+    payload
   }) {
-    const note = notes && notes[payload.value];
     return /*#__PURE__*/React.createElement("g", {
       transform: `translate(${x},${y})`
     }, /*#__PURE__*/React.createElement("text", {
       x: 0,
       y: 0,
-      dy: note ? 2 : 8,
+      dy: 8,
       textAnchor: "end",
       fill: "#636c76",
       fontSize: 10,
-      fontWeight: note ? 700 : 400,
+      fontWeight: 400,
       transform: "rotate(-45)"
-    }, payload.value), note && /*#__PURE__*/React.createElement("text", {
-      x: 0,
-      y: 18,
-      textAnchor: "end",
-      fill: "#8b5cf6",
-      fontSize: 8,
-      transform: "rotate(-45)"
-    }, note.length > 14 ? note.slice(0, 14) + '…' : note));
+    }, payload.value));
   }
   function ChartTickH({
     x,
     y,
-    payload,
-    notes
+    payload
   }) {
-    const note = notes && notes[payload.value];
     return /*#__PURE__*/React.createElement("g", null, /*#__PURE__*/React.createElement("text", {
       x: x - 4,
-      y: note ? y - 5 : y,
+      y: y,
       textAnchor: "end",
       dominantBaseline: "middle",
       fill: "#636c76",
       fontSize: 10,
-      fontWeight: note ? 700 : 400
-    }, payload.value), note && /*#__PURE__*/React.createElement("text", {
-      x: x - 4,
-      y: y + 7,
-      textAnchor: "end",
-      dominantBaseline: "middle",
-      fill: "#8b5cf6",
-      fontSize: 8
-    }, note.length > 24 ? note.slice(0, 24) + '…' : note));
+      fontWeight: 400
+    }, payload.value));
   }
   window.GraficoChart = function GraficoChart({
     data = [],
@@ -4206,10 +4188,8 @@ if (typeof renderDashboard === 'function') renderDashboard();
     }), layout === 'vertical' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(XAxis, {
       dataKey: "patente",
       interval: 0,
-      height: Object.values(notes).some(v => v) ? 100 : 80,
-      tick: /*#__PURE__*/React.createElement(ChartTickV, {
-        notes: notes
-      }),
+      height: 80,
+      tick: /*#__PURE__*/React.createElement(ChartTickV, {}),
       label: {
         value: 'Patentes / Vehículos',
         position: 'bottom',
@@ -4249,10 +4229,8 @@ if (typeof renderDashboard === 'function') renderDashboard();
     }), /*#__PURE__*/React.createElement(YAxis, {
       dataKey: "patente",
       type: "category",
-      width: Object.values(notes).some(v => v) ? 105 : 90,
-      tick: /*#__PURE__*/React.createElement(ChartTickH, {
-        notes: notes
-      }),
+      width: 90,
+      tick: /*#__PURE__*/React.createElement(ChartTickH, {}),
       label: {
         value: 'Patentes / Vehículos',
         angle: -90,
@@ -4324,6 +4302,41 @@ if (typeof renderDashboard === 'function') renderDashboard();
         fontSize: 11,
         fontWeight: 900,
         textAnchor: 'middle'
+      }
+    }), /*#__PURE__*/React.createElement(LabelList, {
+      dataKey: "patente",
+      content: function({x, y, width, height, value}) {
+        var note = notes[value];
+        if (!note) return null;
+        var entry = visible.find(function(d) { return d.patente === value; });
+        if (!entry) return null;
+        var totalNum = (entry.Terminado||0) + (entry['En Ruta']||0) + (entry.Pendiente||0);
+        if (!totalNum) return null;
+        if (layout === 'vertical') {
+          var cx = x + (width||0)/2;
+          var fs = Math.max(Math.floor((width||barSize)*0.68), 9);
+          var scale = height > 0.001 ? height/0.05 : 3;
+          var coloredH = totalNum * scale;
+          var cy = y + height + coloredH/2;
+          var maxChars = Math.max(1, Math.floor((coloredH - 8) / (fs * 0.58)));
+          var txt = note.length > maxChars ? note.slice(0, maxChars) : note;
+          return React.createElement('text', {
+            x: cx, y: cy, textAnchor: 'middle',
+            fill: 'rgba(255,255,255,0.93)', fontSize: fs, fontWeight: '800',
+            transform: 'rotate(90,' + cx + ',' + cy + ')',
+            style: {pointerEvents: 'none', userSelect: 'none'}
+          }, txt);
+        } else {
+          var xScale = width > 0.001 ? width/0.05 : 2;
+          var barCx = x - (totalNum * xScale)/2;
+          var htxt = note.length > 28 ? note.slice(0, 28) + '…' : note;
+          return React.createElement('text', {
+            x: barCx, y: y + (height||barSize)/2,
+            textAnchor: 'middle', dominantBaseline: 'middle',
+            fill: 'rgba(255,255,255,0.95)', fontSize: 12, fontWeight: '800',
+            letterSpacing: '0.5', style: {pointerEvents: 'none', userSelect: 'none'}
+          }, htxt);
+        }
       }
     })))))));
   };
