@@ -1135,23 +1135,34 @@ function renderISOsTab(){
   const el=document.getElementById('isosRoot'); if(!el)return;
   if(!plan && !csvData){el.innerHTML='<div class="empty-state"><div class="empty-title">Sin datos</div><div class="empty-body">Carga un plan o un CSV de reporte en Configurar.</div></div>';return;}
   if(!plan && csvData){
-    const vehs = Object.values(csvData.vehicles).sort((a,b)=>a.patente.localeCompare(b.patente));
-    const cards = vehs.map(v=>`
-      <div class="card" style="margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="num" style="font-size:13px;font-weight:700">${esc(v.patente)}</span>
-          <span class="text-xs">${v.terminados}/${v.total} · ${v.avance}%</span>
-        </div>
-        <div class="progress-bar" style="margin-top:6px">
-          <div class="progress-bar-fill ${v.avance>=80?'green':''}" style="width:${v.avance}%"></div>
-        </div>
-        <div style="margin-top:4px;font-size:10px;color:var(--textFaint)">
-          ${esc(v.region||'—')} · ${esc(v.empresa||'—')}${v.rebajadas?`<span style="color:var(--red)"> · ${v.rebajadas} reb.</span>`:''}
-        </div>
-      </div>`).join('');
-    el.innerHTML=`<div class="main-padded"><div class="container-lg">
-      <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        <span class="text-xs">${vehs.length} vehículos (modo CSV)</span></div>${cards}</div></div>`;
+    const allVehs=Object.values(csvData.vehicles).sort((a,b)=>a.patente.localeCompare(b.patente));
+    const rmVehs=allVehs.filter(v=>(v.region||'').toLowerCase().includes('metropolitana'));
+    const isosReal=rmVehs.reduce((a,v)=>a+v.total,0);
+    const miniVehs=rmVehs.filter(v=>v.total>45);
+    const camionVehs=rmVehs.filter(v=>v.total<=45);
+    const isosMini=miniVehs.reduce((a,v)=>a+v.total,0);
+    const isosCamion=camionVehs.reduce((a,v)=>a+v.total,0);
+    const fecha=new Date().toLocaleDateString('es-CL');
+    const fmt=(n,d)=>d?(n/d).toFixed(2).replace('.',','):'0,00';
+    const maxBar=Math.max(miniVehs.length,camionVehs.length,1);
+    const miniBarH=Math.round((miniVehs.length/maxBar)*100);
+    const camBarH=Math.round((camionVehs.length/maxBar)*100);
+    const cols8=['Patente','Región','Empresa','Total','Entregados','Rebajadas','Pendientes','Avance'];
+    const thS=(i)=>`padding:8px 12px;text-align:${i<3?'left':'center'};font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--textFaint);border-bottom:2px solid var(--borderSoft)`;
+    const vehRows=allVehs.map(v=>{
+      const ac=v.avance>=80?'var(--green)':v.avance>=50?'var(--yellow)':'var(--red)';
+      return `<tr style="border-bottom:1px solid var(--borderSoft)"><td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700">${esc(v.patente)}</td><td style="padding:8px 12px">${esc(v.region||'—')}</td><td style="padding:8px 12px">${esc(v.empresa||'—')}</td><td style="padding:8px 12px;text-align:center;font-family:var(--font-mono)">${v.total}</td><td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);color:var(--green)">${v.terminados}</td><td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);color:var(--red)">${v.rebajadas}</td><td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);color:var(--orange)">${v.pendientes}</td><td style="padding:8px 12px;text-align:center"><span style="font-weight:700;color:${ac};padding:2px 8px;border-radius:99px;font-size:10px;font-family:var(--font-mono)">${v.avance}%</span></td></tr>`;
+    }).join('');
+    const sumHdrs=['Fecha','Vehículos','ISOs real','IxC real','ISOs teo.','IxC teo.','Mini','ISOs mini','IxMini','Camión','ISOs camión','IxCam'];
+    const rmSection=rmVehs.length===0
+      ?`<div style="text-align:center;padding:28px;background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--r-lg);margin-bottom:18px;opacity:0.55"><div style="font-size:13px;font-weight:700">Sin datos de Región Metropolitana</div><div style="font-size:11px;margin-top:4px">El CSV no contiene vehículos con región RM.</div></div>`
+      :`<div style="background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--r-lg);overflow:hidden;margin-bottom:18px"><div style="overflow-x:auto"><table style="width:100%;font-size:11px;font-family:var(--font-mono);border-collapse:collapse"><thead><tr style="background:var(--bgCardAlt)">${sumHdrs.map(h=>`<th style="padding:14px 16px;text-align:center;font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--borderSoft);color:var(--textFaint);font-size:9px;white-space:nowrap">${h}</th>`).join('')}</tr></thead><tbody><tr style="text-align:center;font-weight:700;color:var(--text)"><td style="padding:14px 16px">${fecha}</td><td style="padding:14px 16px">${rmVehs.length}</td><td style="padding:14px 16px;font-weight:900;color:#0ea5e9">${isosReal}</td><td style="padding:14px 16px">${fmt(isosReal,rmVehs.length)}</td><td style="padding:14px 16px;background:var(--bgCardAlt)">—</td><td style="padding:14px 16px;background:var(--bgCardAlt)">—</td><td style="padding:14px 16px;color:#a855f7">${miniVehs.length}</td><td style="padding:14px 16px">${isosMini}</td><td style="padding:14px 16px">${fmt(isosMini,miniVehs.length)}</td><td style="padding:14px 16px;color:var(--orange)">${camionVehs.length}</td><td style="padding:14px 16px">${isosCamion}</td><td style="padding:14px 16px">${fmt(isosCamion,camionVehs.length)}</td></tr></tbody></table></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px"><div style="background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--r-lg);padding:18px"><div class="section-label" style="margin-bottom:14px">Distribución de Flota RM</div><div style="display:flex;align-items:flex-end;gap:8px;height:128px"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:${miniBarH}px;background:rgba(168,85,247,0.15);border-top:4px solid #a855f7;border-radius:6px 6px 0 0"></div><span style="font-size:10px;font-weight:700">Mini (${miniVehs.length})</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:${camBarH}px;background:rgba(234,88,12,0.15);border-top:4px solid var(--orange);border-radius:6px 6px 0 0"></div><span style="font-size:10px;font-weight:700">Camión (${camionVehs.length})</span></div></div></div><div style="background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;justify-content:center;gap:14px"><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px"><span style="opacity:0.6">Criterio Mini:</span><span style="font-weight:700;text-decoration:underline;color:#a855f7">&gt; 45 ISOs</span></div><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px"><span style="opacity:0.6">Criterio Camión:</span><span style="font-weight:700;text-decoration:underline;color:var(--orange)">≤ 45 ISOs</span></div><div style="border-top:1px dashed var(--borderSoft);padding-top:12px"><p style="font-size:10px;line-height:1.6;opacity:0.4;font-style:italic;text-align:center">"La eficiencia se mide en la capacidad de carga optimizada por tipología de vehículo."</p></div></div></div>`;
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bgCardAlt);padding:14px 16px;border-radius:var(--r-lg);border:1px solid var(--borderSoft);margin-bottom:18px"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:18px">🚛</div><div><div style="font-size:14px;font-weight:700;color:var(--text)">ISOs por Camión (Región Metropolitana)</div><div style="font-size:9px;opacity:0.5;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:2px;margin-top:2px">Cálculo exclusivo Región Metropolitana</div></div></div><button id="btnCopyIsoInfo" class="btn btn-primary" style="font-size:11px">📋 Copiar Info solamente</button></div>${rmSection}<div style="background:var(--bgCard);border:1px solid var(--borderSoft);border-radius:var(--r-lg);overflow:hidden"><div style="padding:10px 14px;border-bottom:1px solid var(--borderSoft);background:var(--bgCardAlt)"><span class="section-label">Todos los Vehículos · ${allVehs.length}</span></div><div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr style="background:var(--bgCardAlt)">${cols8.map((h,i)=>`<th style="${thS(i)}">${h}</th>`).join('')}</tr></thead><tbody>${vehRows||'<tr><td colspan="8" style="padding:32px;text-align:center;opacity:0.4">Sin vehículos</td></tr>'}</tbody></table></div></div>`;
+    const copyBtn=el.querySelector('#btnCopyIsoInfo');
+    if(copyBtn)copyBtn.addEventListener('click',()=>{
+      const row=[fecha,rmVehs.length,isosReal,fmt(isosReal,rmVehs.length),'','',miniVehs.length,isosMini,fmt(isosMini,miniVehs.length),camionVehs.length,isosCamion,fmt(isosCamion,camionVehs.length)];
+      navigator.clipboard?.writeText(row.join('\t')).then(()=>showToast('✓ Datos copiados','ok'));
+    });
     return;
   }
   const kpi=computeKPIs(plan,report);
