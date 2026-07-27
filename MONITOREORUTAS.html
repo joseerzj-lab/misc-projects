@@ -1491,7 +1491,42 @@ function copyRebajadas(reb){
   reb.forEach(r=>t+=`${r.iso}\t${r.vehFinal}\t${r.patente}\t${r.motivo3}\t${r.motivo2}\t${r.motivoRaw||r.comentario||''}\n`);
   navigator.clipboard?.writeText(t).then(()=>showToast('Copiado','ok'));
 }
-
+{activeTab==='isos'&&<div style={{position:'absolute',inset:0,overflow:'auto',padding:24}}>
+  <div style={{maxWidth:1200,margin:'0 auto',display:'flex',flexDirection:'column',gap:24}}>
+    {!data?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'128px 0',gap:24,opacity:0.3}}><div style={{fontSize:80}}></div><div style={{fontSize:18,fontWeight:700}}>No hay datos procesados</div><Btn onClick={()=>setActiveTab('carga')}>Volver a Carga</Btn></div>:<>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'rgba(0,0,0,0.03)',padding:16,borderRadius:12,border:`1px solid ${TC.borderSoft}`}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <div style={{padding:8,background:'rgba(249,115,22,0.08)',color:'#f97316',borderRadius:8}}><Truck size={20}/></div>
+        <div><h2 style={{fontSize:18,fontWeight:700,color:TC.text}}>ISOs por Camión (Región Metropolitana)</h2><p style={{fontSize:10,opacity:0.5,fontFamily:T.fontMono,textTransform:'uppercase',letterSpacing:2}}>Cálculo exclusivo Región Metropolitana</p></div>
+      </div>
+      <Btn onClick={()=>{const rmData=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'))?.[1];if(!rmData){flash('❌ No se encontraron datos de RM');return}const vehicles=Object.keys(rmData.patentes);const isosReal=rmData.orders.size;const miniVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size>45);const camionVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size<=45);const isosMini=miniVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const isosCamion=camionVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const row=[new Date().toLocaleDateString(),vehicles.length,isosReal,(isosReal/vehicles.length).toFixed(2).replace('.',','),'','',miniVehicles.length,isosMini,miniVehicles.length?(isosMini/miniVehicles.length).toFixed(2).replace('.',','):'0,00',camionVehicles.length,isosCamion,camionVehicles.length?(isosCamion/camionVehicles.length).toFixed(2).replace('.',','):'0,00'];navigator.clipboard.writeText(row.join('\t')).then(()=>flash('✓ Datos copiados (Info solamente)'))}} variant="primary" style={{fontSize:11,padding:'8px 20px'}}><Copy size={14}/> Copiar Info solamente</Btn>
+    </div>
+    <Card style={{padding:0,overflow:'hidden',border:`1px solid ${TC.borderSoft}`}}>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',fontSize:11,fontFamily:T.fontMono,borderCollapse:'collapse'}}>
+          <thead><tr style={{background:TC.headerBg}}>{['Fecha','Vehiculos','ISOs real','IxC real','ISOs teo.','IxC teo.','Mini','ISOs mini','IxMini','Camion','ISOs camion','IxCam'].map(h=><th key={h} style={{padding:16,textAlign:'center',fontWeight:700,textTransform:'uppercase',letterSpacing:'-0.02em',borderBottom:`1px solid ${TC.borderSoft}`,color:TC.textDisabled}}>{h}</th>)}</tr></thead>
+          <tbody>{(()=>{const rmEntry=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'));if(!rmEntry)return<tr><td colSpan={12} style={{padding:40,textAlign:'center',opacity:0.4,fontWeight:700}}>No se encontró la Región Metropolitana en los datos cargados</td></tr>;const rmData=rmEntry[1];const vehicles=Object.keys(rmData.patentes);const isosReal=rmData.orders.size;const miniVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size>45);const camionVehicles=vehicles.filter(v=>rmData.patentes[v].orders.size<=45);const isosMini=miniVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);const isosCamion=camionVehicles.reduce((acc,v)=>acc+rmData.patentes[v].orders.size,0);return<tr style={{textAlign:'center',fontWeight:700,color:TC.text}}><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{new Date().toLocaleDateString()}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{vehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,fontWeight:900,color:'#0ea5e9'}}>{isosReal}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{(isosReal/vehicles.length).toFixed(2).replace('.',',')}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.03)'}}>-</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,background:'rgba(0,0,0,0.03)'}}>-</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,color:'#a855f7'}}>{miniVehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{isosMini}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{miniVehicles.length?(isosMini/miniVehicles.length).toFixed(2).replace('.',','):'0,00'}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`,color:'#f97316'}}>{camionVehicles.length}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{isosCamion}</td><td style={{padding:16,borderBottom:`1px solid ${TC.borderSoft}`}}>{camionVehicles.length?(isosCamion/camionVehicles.length).toFixed(2).replace('.',','):'0,00'}</td></tr>})()}</tbody>
+        </table>
+      </div>
+    </Card>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+      <Card style={{padding:24}}>
+        <h3 style={{fontSize:12,fontWeight:700,marginBottom:16,opacity:0.5,textTransform:'uppercase',letterSpacing:2}}>Distribución de Flota RM</h3>
+        <div style={{display:'flex',alignItems:'flex-end',gap:4,height:128}}>{(()=>{const rmEntry=Object.entries(data.regions).find(([r])=>r.toLowerCase().includes('metropolitana'));if(!rmEntry)return null;const rmData=rmEntry[1];const vehicles=Object.keys(rmData.patentes);const mini=vehicles.filter(v=>rmData.patentes[v].orders.size>45).length;const cam=vehicles.length-mini;const max=Math.max(mini,cam);return<><div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><div style={{width:'100%',background:'rgba(168,85,247,0.15)',borderTop:'4px solid #a855f7',borderRadius:'8px 8px 0 0',transition:'height 1s',height:`${(mini/max)*100}%`}}/><span style={{fontSize:10,fontWeight:700}}>Mini ({mini})</span></div><div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><div style={{width:'100%',background:'rgba(249,115,22,0.15)',borderTop:'4px solid #f97316',borderRadius:'8px 8px 0 0',transition:'height 1s',height:`${(cam/max)*100}%`}}/><span style={{fontSize:10,fontWeight:700}}>Camión ({cam})</span></div></>})()}</div>
+      </Card>
+      <Card style={{padding:24,display:'flex',flexDirection:'column',justifyContent:'center'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11}}><span style={{opacity:0.6}}>Criterio Mini:</span><span style={{fontWeight:700,textDecoration:'underline',color:'#a855f7'}}>&gt; 45 ISOs</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11}}><span style={{opacity:0.6}}>Criterio Camión:</span><span style={{fontWeight:700,textDecoration:'underline',color:'#f97316'}}>≤ 45 ISOs</span></div>
+          <div style={{paddingTop:16,borderTop:'1px dashed rgba(0,0,0,0.1)'}}/>
+          <p style={{fontSize:10,lineHeight:1.6,opacity:0.4,fontStyle:'italic',textAlign:'center'}}>"La eficiencia se mide en la capacidad de carga optimizada por tipología de vehículo."</p>
+        </div>
+      </Card>
+    </div>
+    </>}
+  </div>
+</div>}
+    </div>{/* end tabs container */}
 /* ═══════ CONFIGURAR (UI) ═══════ */
 function readFile(file){
   return new Promise((resolve,reject)=>{
